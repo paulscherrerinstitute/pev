@@ -50,7 +50,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.1 2012/02/06 09:53:06 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.2 2012/02/06 14:14:34 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -436,7 +436,7 @@ static struct pev_ioctl_map_pg null_pev_rmArea_map = {0,0,0,0,0,0,0,0,0,0,0,0};
 *	Desc.: finds already mapped resource be it synchronous or asynchronous device.
 *
 *****/
-static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const char* resource, epicsBoolean* mapStat) {
+static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const char* resource, epicsBoolean* mapStat, long* baseOffset) {
   regDevice* device;    
   regDeviceAsyn* asdevice;    
 
@@ -446,7 +446,8 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
 
        if ( pev == device->pev && !strcmp(device->resource, resource) ) {
   	   /* pev_rmArea_map = device->pev_rmArea_map*/;
-	   *mapStat = epicsTrue; 
+	   *mapStat = epicsTrue;
+	   *baseOffset = device->baseOffset;
            printf ("findMappedPevResource(): resource \"%s\" already mapped.. continue\n", device->resource);
   	   return(device->pev_rmArea_map);
        }
@@ -460,6 +461,7 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
        if ( pev == asdevice->pev && !strcmp(asdevice->resource, resource) ) {
   	   /* pev_rmArea_map = device->pev_rmArea_map*/;
 	   *mapStat = epicsTrue; 
+	   *baseOffset = asdevice->baseOffset;
            printf ("findMappedPevResource(): resource \"%s\" already mapped.. continue\n", asdevice->resource);
   	   return(asdevice->pev_rmArea_map);
        }
@@ -502,12 +504,19 @@ int pevConfigure(
   struct pev_node *pev;
   struct pev_ioctl_map_pg pev_rmArea_map = null_pev_rmArea_map;
   epicsBoolean mapExists = epicsFalse;
+  long otherBaseOffset;
    
+  if(  regDevAsynFind(name) ) 
+  {
+    printf("pevConfigure: ERROR, device \"%s\" on an IFC/PEV already configured as asynchronous device\n", 
+    		name);
+    exit( -1);
+  }
   /* see if this device already exists */
   device = regDevFind(name);
   if( device ) 
   {
-    printf("pevConfigure: ERROR, device \"%s\" on pev1100 in %s already in use\n", 
+    printf("pevConfigure: ERROR, device \"%s\" on IFC/PEV in %s already configured as synchronous device\n", 
     		device->name, device->resource);
     exit( -1);
   }
@@ -529,7 +538,12 @@ int pevConfigure(
   if( !ellFirst(&pevRegDevList) )
     ellInit (&pevRegDevList);
 
-  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists);
+  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset);  
+  if( mapExists == epicsTrue && otherBaseOffset == offset)
+  {
+    printf("pevConfigure: Another device for the same recource (%s) with the same offset (0x%x) exists!\n", resource, offset);
+    exit( -1);
+  }
   
   device = (regDevice*)malloc(sizeof(regDevice));
   if (device == NULL)
@@ -760,12 +774,19 @@ int pevAsynConfigure(
   struct pev_node *pev;
   struct pev_ioctl_map_pg pev_rmArea_map = null_pev_rmArea_map;
   epicsBoolean mapExists = epicsFalse;
+  long otherBaseOffset;
    
+  if( regDevFind(name) ) 
+  {
+    printf("pevAsynConfigure: ERROR, device \"%s\" on an IFC/PEV already configured as synchronous device\n", 
+    		name);
+    exit( -1);
+  }
   /* see if this device already exists */
   device = regDevAsynFind(name);
   if( device ) 
   {
-    printf("pevAsynConfigure: ERROR, device \"%s\" on pev1100 in %s already in use\n", 
+    printf("pevAsynConfigure: ERROR, device \"%s\" on IFC/PEV %s already configured\n", 
     		device->name, device->resource);
     exit( -1);
   }
@@ -787,7 +808,12 @@ int pevAsynConfigure(
   if( !ellFirst(&pevRegDevAsynList) )
     ellInit (&pevRegDevAsynList);
 
-  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists);
+  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset);
+  if( mapExists == epicsTrue && otherBaseOffset == offset)
+  {
+    printf("pevAsynConfigure: Another device for the same recource (%s) with the same offset (0x%x) exists!\n", resource, offset);
+    exit( -1);
+  }
   
   device = (regDeviceAsyn*)malloc(sizeof(regDeviceAsyn));
   if (device == NULL)
@@ -823,7 +849,7 @@ int pevAsynConfigure(
   if( mapExists )
     {
       device->pev_rmArea_map = pev_rmArea_map;
-      printf ("pevConfigure: skip mapping...\n");
+      printf ("pevAsynConfigure: skip mapping...\n");
       goto SKIP_PEV_RESMAP;
     }
       
@@ -832,7 +858,7 @@ int pevAsynConfigure(
   device->pev_dmaBuf.size = DMA_BUF_SIZE;
   if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED || !device->pev_dmaBuf.b_addr )
     {
-      printf("pevConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
+      printf("pevAsynConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
       device->dmaAllocFailed = epicsTrue;
       exit(0);
     }
@@ -852,7 +878,7 @@ int pevAsynConfigure(
   	device->pev_rmArea_map.size = SHMEM_MAP_SIZE;
 	if( offset > SHMEM_MAP_SIZE) 
 	  {
-	    printf("pevConfigure: ERROR, too big offset\n");
+	    printf("pevAsynConfigure: ERROR, too big offset\n");
       	    exit(0);
 	  }
 	device->dmaSpace = DMA_SPACE_SHM;
@@ -866,7 +892,7 @@ int pevAsynConfigure(
   	device->pev_rmArea_map.size = PCIE_MAP_SIZE;
 	if( offset > PCIE_MAP_SIZE) 
 	  {
-	    printf("pevConfigure: ERROR, too big offset\n");
+	    printf("pevAsynConfigure: ERROR, too big offset\n");
 	     exit(0);
 	  }
 	device->dmaSpace = DMA_SPACE_PCIE;
@@ -893,7 +919,7 @@ int pevAsynConfigure(
   	device->pev_rmArea_map.size = VME16_MAP_SIZE;
 	if( offset > VME16_MAP_SIZE) 
 	  {
-	    printf("pevConfigure: ERROR, too big offset\n");
+	    printf("pevAsynConfigure: ERROR, too big offset\n");
 	    exit(0);
 	  }
      }
@@ -906,7 +932,7 @@ int pevAsynConfigure(
   	device->pev_rmArea_map.size = VME24_MAP_SIZE;
 	if( offset > VME24_MAP_SIZE) 
 	  {
-	    printf("pevConfigure: ERROR, too big offset\n");
+	    printf("pevAsynConfigure: ERROR, too big offset\n");
 	    exit(0);
 	  }
      }
@@ -925,15 +951,15 @@ int pevAsynConfigure(
      }
     else 
       { 
-    	printf("Unknown PCIe remote area - valid options: SH_MEM, PCIE, VME_A16/24/32/\n");
+    	printf("pevAsynConfigure: Unknown PCIe remote area - valid options: SH_MEM, PCIE, VME_A16/24/32/\n");
     	exit( -1);
       }
    
   device->pev_rmArea_map.mode |= MAP_ENABLE|MAP_ENABLE_WR;
   device->pev_rmArea_map.flag = 0x0;
   pev_map_alloc( &device->pev_rmArea_map);
-  printf("offset in PCI MEM window to access %s @ 0x%08X size: 0x%08x\n", resource, (uint)device->pev_rmArea_map.loc_addr, device->pev_rmArea_map.win_size);
-  printf("perform the mapping in user's space : ");
+  printf("pevAsynConfigure: offset in PCI MEM window to access %s @ 0x%08X size: 0x%08x\n", resource, (uint)device->pev_rmArea_map.loc_addr, device->pev_rmArea_map.win_size);
+  printf("pevAsynConfigure: perform the mapping in user's space : ");
 
 SKIP_PEV_RESMAP:
 

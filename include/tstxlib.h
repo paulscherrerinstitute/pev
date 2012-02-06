@@ -1,0 +1,13 @@
+void *tstx_cpu_map_shm( int crate, struct pev_ioctl_map_pg *, ulong, uint);
+int tstx_cpu_unmap_shm( int crate, struct pev_ioctl_map_pg *);
+void *tstx_cpu_map_vme( int crate, struct pev_ioctl_map_pg *, ulong, uint, uint);
+int tstx_cpu_unmap_unmap( int crate, struct pev_ioctl_map_pg *);
+void *tstx_cpu_map_kbuf( int crate, struct pev_ioctl_buf *, uint);
+int tstx_cpu_unmap_kbuf( int crate, struct pev_ioctl_buf *);
+ulong tstx_vme_map_shm( int crate, struct pev_ioctl_map_pg *, ulong, uint);
+int tstx_vme_unmap_shm( int crate, struct pev_ioctl_map_pg *);
+ulong tstx_vme_map_kbuf( int crate, struct pev_ioctl_map_pg *, ulong, uint);
+int tstx_vme_unmap_kbuf( int crate, struct pev_ioctl_map_pg *);
+uint tstx_vme_conf_read( int crate, struct pev_ioctl_vme_conf *);
+int tstx_dma_move_kbuf_shm( int crate, ulong, ulong, int, int);
+int tstx_dma_move_shm_kbuf( int crate, ulong, ulong, int, int);
