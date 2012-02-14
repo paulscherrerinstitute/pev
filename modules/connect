@@ -1,0 +1,9 @@
+#!/bin/sh
+device=$(gawk '$2=="hppev" {print $2}' /proc/devices)
+if [  $device = "hppev" ]; then 
+../bin/hppev connect pev.cfg
+echo "you can now reload the PEV1100 driver"
+exit 1
+fi
+echo "hotplug driver must be installed to re-connect PEV1100"
+
