@@ -41,16 +41,16 @@
 #define VMECR_MAP_SIZE 	0x1000000	/* 16 MB CR/CSR */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 */
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
-#define DMA_BUF_SIZE   	0x10000
+#define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
 #define RNGBUF_SIZE 	1000 
 #define DMA_Q_SIZE	1000
-#define DMA_MAXMSG_SIZE 500
+#define DMA_MAXMSG_SIZE 0x1000
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.2 2012/02/06 14:14:34 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.3 2012/02/14 10:34:32 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -344,7 +344,8 @@ int pevAsynRead(
     else
     {	        
       device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
-      device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;       	/* des bus address */
+     /*  device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;      	des bus address */
+      device->pev_dmaReq.des_addr = (ulong)pdata;       			 /*  des bus address */
       device->pev_dmaReq.size = nelem*dlen;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
@@ -377,6 +378,89 @@ int pevAsynRead(
 
 }
 
+int pevAsynWrite(
+    regDeviceAsyn *device,
+    unsigned int offset,
+    unsigned int dlen,
+    unsigned int nelem,
+    void* pdata,
+    CALLBACK* cbStruct,
+    void* pmask,
+    int priority)
+{
+  int swap = 0;
+  pevDmaReqMsg pevDmaRequest;
+   	
+    if (!device || device->magic != MAGIC)
+    {
+        errlogSevPrintf(errlogMajor,
+            "pevRead: illegal device handle\n");
+        return -1;
+    }
+
+    if (offset > device->pev_rmArea_map.win_size)
+    {
+        errlogSevPrintf(errlogMajor,
+            "pevRead %s: offset %d out of range (0-%d)\n",
+            device->name, offset, device->pev_rmArea_map.win_size);
+        return -1;
+    }
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
+    {
+        errlogSevPrintf(errlogMajor,
+            "pevRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
+            device->name, offset, nelem, device->pev_rmArea_map.win_size,
+            offset+dlen*nelem - device->pev_rmArea_map.win_size);
+        return -1;
+    }
+    if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+      swap = 1;
+    
+    if(nelem > 100)
+    {
+    if(device->dmaSpace == NO_DMA_SPACE) 
+    	printf("pevWrite(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
+    else
+     {	
+      /****
+      * 	workaround: first copy the src data to kernel allocated buffer  
+      regDevCopy(dlen, nelem, pdata, device->pev_dmaBuf.u_addr, NULL, swap); 
+      ***/
+
+       /* device->pev_dmaReq.src_addr = (ulong)device->pev_dmaBuf.b_addr;   */                   
+      device->pev_dmaReq.src_addr = (ulong)pdata;                   
+      device->pev_dmaReq.des_addr = device->baseOffset + offset;       /* (ulong)pdata destination is DMA buffer    */
+      device->pev_dmaReq.size = nelem*dlen;                  
+      device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
+      device->pev_dmaReq.des_space = device->dmaSpace;
+      device->pev_dmaReq.src_mode = 0;
+      device->pev_dmaReq.des_mode = 0;
+      device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      device->pev_dmaReq.end_mode = 0;
+      device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
+      
+      pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
+      pevDmaRequest.pCallBack = cbStruct;
+      pevDmaRequest.dlen = dlen;
+      pevDmaRequest.nelem = nelem;
+      pevDmaRequest.pdata = pdata;
+      pevDmaRequest.swap = swap;
+      pevDmaRequest.pev_dmaBuf_usr = (ulong)device->pev_dmaBuf.u_addr;
+      
+      if( !epicsMessageQueueSend(pevDmaMsgQueueId, (void*)&pevDmaRequest, sizeof(pevDmaReqMsg)) )
+         return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
+      else 
+        {
+           printf("pevAsynRead(): sending DMA request failed! do normal & synchronous transfer\n");
+	}
+     }
+    }
+      
+    regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + offset, NULL, swap); 
+    return 0;
+}
+
 void pevAsynReport(
     regDeviceAsyn *device,
     int level)
@@ -388,12 +472,36 @@ void pevAsynReport(
     }
 }
 
+int pevAlloc(
+       	void** usrBufPtr, 
+       	void** busBufPtr, 
+    	unsigned int size)
+{
+  struct pev_ioctl_buf pev_dma_Buf;
+  int status = 0;
+  
+  pev_dma_Buf.size = size;
+  if( pev_buf_alloc( &pev_dma_Buf)==MAP_FAILED )
+    {
+      printf("pevAlloc: ERROR, could not allocate dma buffer; bus %p user %p\n", pev_dma_Buf.b_addr, pev_dma_Buf.u_addr);
+      status = -1;
+    }
+  else
+    {
+      *(unsigned long*)usrBufPtr = (unsigned long)pev_dma_Buf.u_addr;
+      *(unsigned long*)busBufPtr = (unsigned long)pev_dma_Buf.b_addr;	
+   }
+  return status;
+} 
+
+
 static regDevAsyncSupport pevAsynSupport = {
     pevAsynReport,
     NULL,
     NULL,
     pevAsynRead,
-    pevWrite	/* asyn write must be implemented */
+    pevAsynWrite,	/* asyn write must be implemented */
+    pevAlloc
 };
 
 static void pevDrvAtexit(regDevice* device)
@@ -586,7 +694,7 @@ int pevConfigure(
   epicsAtExit((void*)pevDrvAtexit, device);
   
   device->pev_dmaBuf.size = DMA_BUF_SIZE;
-  if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED || !device->pev_dmaBuf.b_addr )
+  if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED /*|| !device->pev_dmaBuf.b_addr*/ )
     {
       printf("pevConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
       device->dmaAllocFailed = epicsTrue;
@@ -856,7 +964,7 @@ int pevAsynConfigure(
   epicsAtExit((void*)pevDrvAtexit, device);
   
   device->pev_dmaBuf.size = DMA_BUF_SIZE;
-  if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED || !device->pev_dmaBuf.b_addr )
+  if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED /*|| !device->pev_dmaBuf.b_addr*/ )
     {
       printf("pevAsynConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
       device->dmaAllocFailed = epicsTrue;
@@ -1046,7 +1154,7 @@ static void pevHookFunc(initHookState state)
 *
 **/
 
-void *pev_dmaRequetServer(void *crate)
+void *pev_dmaRequetServer(int *crate)
 {
    pevDmaReqMsg msgptr;           /* -> allocated message space */
    int numByteRecvd = 0;
@@ -1054,24 +1162,26 @@ void *pev_dmaRequetServer(void *crate)
    int dmaStatRet;
    
    
+   /* NOTE: we assume always there is only one crate with number = 1
    if( *(int*)crate == 0)
    {
        printf("pev_dmaRequetServer(): ERROR, invalid crate num (%d) passed!\n", *(int*)crate);
     	exit(0);
    }
+   */
   
    while(1)
    {
      numByteRecvd = epicsMessageQueueReceive(pevDmaMsgQueueId, (pevDmaReqMsg*)&msgptr, sizeof(pevDmaReqMsg));
      if (numByteRecvd <= 0)
        {
-         printf("pev_dmaRequetServe(): epicsMessageQueueReceive Failed! msg_size = %d \n",numByteRecvd);
+         printf("pev_dmaRequetServer(): epicsMessageQueueReceive Failed! msg_size = %d \n",numByteRecvd);
 	 continue;
        }
 
      if( pev_dma_move(&msgptr.pev_dmaReq) )
        {
-     	 printf("pevRead(): Invalid DMA transfer parameters! do normal transfer\n");
+     	 printf("pev_dmaRequetServer(): Invalid DMA transfer parameters! do normal transfer\n");
        }
      else 
        {
@@ -1084,7 +1194,7 @@ void *pev_dmaRequetServer(void *crate)
 	  }
         else
           {
-     	    regDevCopy(msgptr.dlen, msgptr.nelem, (void*)msgptr.pev_dmaBuf_usr, msgptr.pdata, NULL, msgptr.swap);
+     	    /** regDevCopy(msgptr.dlen, msgptr.nelem, (void*)msgptr.pev_dmaBuf_usr, msgptr.pdata, NULL, msgptr.swap); **/
 	    callbackRequest((CALLBACK*)msgptr.pCallBack);
           }
        }     
@@ -1119,7 +1229,7 @@ epicsThreadId pevDmaThreadId;
 
   pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityMedium,
                                       epicsThreadGetStackSize(epicsThreadStackMedium),
-                                      (EPICSTHREADFUNC)pev_dmaRequetServer,(void*)&crate);
+                                      (EPICSTHREADFUNC)pev_dmaRequetServer,(int*)&crate);
 
   if( !pevDmaThreadId )
     {
