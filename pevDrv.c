@@ -50,7 +50,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.3 2012/02/14 10:34:32 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.4 2012/02/23 10:45:58 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -394,21 +394,21 @@ int pevAsynWrite(
     if (!device || device->magic != MAGIC)
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead: illegal device handle\n");
+            "pevAsynWrite: illegal device handle\n");
         return -1;
     }
 
     if (offset > device->pev_rmArea_map.win_size)
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead %s: offset %d out of range (0-%d)\n",
+            "pevAsynWrite %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
     if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
+            "pevAsynWrite %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
             device->name, offset, nelem, device->pev_rmArea_map.win_size,
             offset+dlen*nelem - device->pev_rmArea_map.win_size);
         return -1;
@@ -419,7 +419,7 @@ int pevAsynWrite(
     if(nelem > 100)
     {
     if(device->dmaSpace == NO_DMA_SPACE) 
-    	printf("pevWrite(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
+    	printf("pevAsynWrite(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
     else
      {	
       /****
@@ -452,7 +452,7 @@ int pevAsynWrite(
          return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
       else 
         {
-           printf("pevAsynRead(): sending DMA request failed! do normal & synchronous transfer\n");
+           printf("pevAsynWrite(): sending DMA request failed! do normal & synchronous transfer\n");
 	}
      }
     }
