@@ -30,7 +30,7 @@
 #  $Log : $
 #  
 #=============================< end file header >============================
-
-make -f Makefile.ppc clean
-make -f Makefile.ppc ADD_CFLAGS=-DXENOMAI
+cp Makefile.ppc Makefile
+make clean
+make ADD_CFLAGS='-DXENOMAI -DPPC'
 cp pev.ko ../modules/pev-xeno-ppc.ko

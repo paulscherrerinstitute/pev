@@ -30,6 +30,7 @@
 #  $Log : $
 #  
 #=============================< end file header >============================
+cp Makefile.ppc Makefile
 make clean
-make -f Makefile.ppc ADD_CFLAGS=-DPPC
+make ADD_CFLAGS=-DPPC
 cp pev.ko ../modules/pev-linux-ppc.ko

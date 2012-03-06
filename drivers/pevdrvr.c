@@ -43,8 +43,41 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.41  2012/03/01 15:23:23  ioxos
+ * if PPC make sure cache are disabled when mappig PCI addresses [JFG]
+ *
+ * Revision 1.40  2012/02/28 16:08:34  ioxos
+ * set release to 4.04 [JFG]
+ *
+ * Revision 1.39  2012/02/28 16:00:42  ioxos
+ * recognize 1210 as IFC device ID [JFG]
+ *
+ * Revision 1.38  2012/02/14 16:18:43  ioxos
+ * release 4.03 [JFG]
+ *
+ * Revision 1.37  2012/02/14 16:12:15  ioxos
+ * PCI MEM and PMEM size limitation for IPV and IFC [JFG]
+ *
+ * Revision 1.36  2012/02/03 16:30:17  ioxos
+ * release 4.02 [JFG]
+ *
+ * Revision 1.35  2012/02/03 10:27:18  ioxos
+ * support for additionnal types of IDT switches [JFG]
+ *
+ * Revision 1.34  2012/01/31 11:11:39  ioxos
+ * multicrate support for IPV1102 [JFG]
+ *
+ * Revision 1.33  2012/01/30 11:18:45  ioxos
+ * add support for board name [JFG]
+ *
+ * Revision 1.32  2012/01/27 13:13:05  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
+ *
+ * Revision 1.31  2012/01/18 09:11:39  ioxos
+ * support for AROLLA [JFG]
  *
  * Revision 1.30  2012/01/06 14:40:15  ioxos
  * release 3.13 [JFG]
@@ -186,7 +219,7 @@ int rdwr_swap_32( int);
 #endif
 
 struct pev_drv pev_drv;
-char *pev_version="3.13";
+char *pev_version="4.04";
 
 
 struct pev_drv *
@@ -313,7 +346,6 @@ pev_mmap( struct file *filp,
 
   size = vma->vm_end - vma->vm_start;
   off = vma->vm_pgoff << PAGE_SHIFT;
-
 #if defined(PPC) || defined(X86_32)
   if( off < 0x80000000)
   {
@@ -329,13 +361,25 @@ pev_mmap( struct file *filp,
   if( (off & 0xc0000000) == 0x80000000)
   {
     off &= 0x3fffffff;
+#if defined(PPC)
+    vma->vm_flags |= VM_IO | VM_RESERVED;
+    vma->vm_page_prot=pgprot_noncached(vma->vm_page_prot);
+#endif
     if( off < (ulong)pev->mem_len)
     {
+#if defined(PPC)
+      io_remap_pfn_range( vma, 
+		          vma->vm_start,
+		          (((ulong)pev->mem_base + off) >> PAGE_SHIFT),
+		          size,
+		          vma->vm_page_prot); 
+#else
       remap_pfn_range( vma, 
 		       vma->vm_start,
 		       (((ulong)pev->mem_base + off) >> PAGE_SHIFT),
 		       size,
 		       vma->vm_page_prot); 
+#endif
       return( 0);
     }
   }
@@ -459,24 +503,32 @@ pev_ioctl( struct file *filp,
   int retval = 0;              // Will contain the result
 
   pev =  (struct pev_dev *)filp->private_data;;
-  switch ( cmd &  PEV_IOCTL_OP_MASK) 
+  if( cmd ==  PEV_IOCTL_ID)
   {
-    case PEV_IOCTL_ID:
-    {
-      if( arg)
+      if( copy_to_user( (void *)arg, pev_drv_id, strlen( pev_drv_id)))
       {
-	retval = copy_to_user( (void *)arg, pev_drv_id, strlen( pev_drv_id));
+	return( -EFAULT);
       }
-      break;
-    }
-    case PEV_IOCTL_VERSION:
-    {
+      return( 0);
+  }
+  if( cmd ==  PEV_IOCTL_VERSION)
+  {
       if( copy_to_user( (void *)arg, (void *)pev_version, 4))
       {
 	return( -EFAULT);
       }
-      break;
-    }
+      return( 0);
+  }
+  if( cmd ==  PEV_IOCTL_BOARD)
+  {
+      if( copy_to_user( (void *)arg, (void *)&pev->board, 4))
+      {
+	return( -EFAULT);
+      }
+      return( 0);
+  }
+  switch ( cmd &  PEV_IOCTL_OP_MASK) 
+  {
     case PEV_IOCTL_IO_REMAP:
     {
       if( arg)
@@ -507,6 +559,16 @@ pev_ioctl( struct file *filp,
     case PEV_IOCTL_SFLASH:
     {
       retval = pev_ioctl_sflash( pev, cmd, arg);
+      break;
+    }
+    case PEV_IOCTL_FPGA:
+    {
+      retval = pev_ioctl_fpga( pev, cmd, arg);
+      break;
+    }
+    case PEV_IOCTL_EEPROM:
+    {
+      retval = pev_ioctl_eeprom( pev, cmd, arg);
       break;
     }
     case PEV_IOCTL_EVT:
@@ -701,7 +763,7 @@ static struct rtdm_device pev_rt =
 
 
 // pev probe function - called when the pci_register_driver is called
-static int __devinit
+static int
 pev_probe( struct pev_dev *pev) 
 {
   struct pci_dev *dev;
@@ -740,6 +802,21 @@ pev_probe( struct pev_dev *pev)
   pev->mem_len = pci_resource_len( dev, 2);
   pev->io_base    = pci_resource_start( dev, 4);
   pev->io_len    = pci_resource_len( dev, 4);
+  pev->csr_ptr = NULL;
+  if( ( pev->board == PEV_BOARD_IFC1210) ||
+      ( pev->board == PEV_BOARD_IPV1102)    )
+  {
+    printk("PCI window size limitation due to vmalloc problem : PMEM <= 128 Mb - MEM <= 64 Mb\n");
+    if(  pev->pmem_len > 0x8000000) pev->pmem_len = 0x8000000;   /* artificial limitation to 128 MBytes due to linux vmalloc() problem */
+    if(  pev->mem_len > 0x4000000)   pev->mem_len = 0x4000000;   /* artificial limitation to 64 MBytes due to linux vmalloc() problem */
+  }
+  if( pev->board == PEV_BOARD_IFC1210)
+  {
+    pev->csr_base    = pci_resource_start( dev, 3);
+    pev->csr_len    = pci_resource_len( dev, 3);
+    pev->csr_ptr = ioremap(pev->csr_base, pev->csr_len);
+    //printk("CSR#0 : %08x - %08x -%08x [%x]\n", pev->csr_base,  pev->csr_ptr, *(long *)pev->csr_ptr, pev->csr_len);
+  }
 
 
   /* check for compressed IO window... */
@@ -809,6 +886,11 @@ pev_probe( struct pev_dev *pev)
       //pev->map_mas64.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 28) & 0x7);
       pev->map_mas64.pg_size = 0x400000;
       pev->map_mas64.pg_num = pev->pmem_len/pev->map_mas64.pg_size;
+      if( ( pev->board == PEV_BOARD_IFC1210) ||
+          ( pev->board == PEV_BOARD_IPV1102)    )
+      {
+	if( pev->map_mas64.pg_num  > 0x20) pev->map_mas64.pg_num = 0x20; /* artificial limitation to 64 MBytes due to linux vmalloc() problem */
+      }
       pev->map_mas64.loc_base = (u64)pev->pmem_base;
       pev->map_mas64.sg_id = MAP_MASTER_64;
       pev->map_mas64.map_p = (struct pev_map_blk *)0;
@@ -841,6 +923,11 @@ pev_probe( struct pev_dev *pev)
       //pev->map_mas32.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 24) & 0x7);
       pev->map_mas32.pg_size = 0x100000;
       pev->map_mas32.pg_num = pev->mem_len/pev->map_mas32.pg_size;
+      if( ( pev->board == PEV_BOARD_IFC1210) ||
+          ( pev->board == PEV_BOARD_IPV1102)    )
+      {
+	if( pev->map_mas32.pg_num  > 0x10) pev->map_mas32.pg_num = 0x10; /* artificial limitation to 64 MBytes due to linux vmalloc() problem */
+      }
       pev->map_mas32.pg_num -= 1; /* reserve last page for DMA chains */
       pev->map_mas32.loc_base = (u64)pev->mem_base;
       pev->map_mas32.sg_id = MAP_MASTER_32;
@@ -918,35 +1005,47 @@ pev_probe( struct pev_dev *pev)
 static void 
 pev_remove(struct pev_dev *pev) 
 {
-  debugk(("pev_remove\n"));
-  /* disable all PEV1100 interrupts */
-  outl( 0xffff, pev->io_base + pev->io_remap.iloc_itc + 0xc);         /* mask all local interrupt sources */
-  outl( 0x0, pev->io_base + pev->io_remap.iloc_itc + 0x04);            /* disable local interrupts          */
-  outl( 0xffff, pev->io_base + pev->io_remap.vme_itc + 0xc);         /* mask all VME interrupt sources */
-  outl( 0x0, pev->io_base + pev->io_remap.vme_itc + 0x4);            /* disable VME interrupts     */
-  outl( 0xffff, pev->io_base + pev->io_remap.dma_itc + 0xc);         /* mask all DMA/SMEM interrupt sources */
-  outl( 0x0, pev->io_base + pev->io_remap.dma_itc + 0x4);            /* disable DMA/SMEM interrupts     */
-  outl( 0xffff, pev->io_base + pev->io_remap.usr_itc + 0xc);         /* mask all user interrupt sources */
-  outl( 0x0, pev->io_base + pev->io_remap.usr_itc + 0x4);            /* disable user interrupts     */
-  /* return resources to OS */
-  pev_dma_exit( pev);
+  if( pev->fpga_status)
+  {
+    debugk(("pev_remove\n"));
+    /* disable all PEV1100 interrupts */
+    outl( 0xffff, pev->io_base + pev->io_remap.iloc_itc + 0xc);         /* mask all local interrupt sources */
+    outl( 0x0, pev->io_base + pev->io_remap.iloc_itc + 0x04);            /* disable local interrupts          */
+    outl( 0xffff, pev->io_base + pev->io_remap.vme_itc + 0xc);         /* mask all VME interrupt sources */
+    outl( 0x0, pev->io_base + pev->io_remap.vme_itc + 0x4);            /* disable VME interrupts     */
+    outl( 0xffff, pev->io_base + pev->io_remap.dma_itc + 0xc);         /* mask all DMA/SMEM interrupt sources */
+    outl( 0x0, pev->io_base + pev->io_remap.dma_itc + 0x4);            /* disable DMA/SMEM interrupts     */
+    outl( 0xffff, pev->io_base + pev->io_remap.usr_itc + 0xc);         /* mask all user interrupt sources */
+    outl( 0x0, pev->io_base + pev->io_remap.usr_itc + 0x4);            /* disable user interrupts     */
+    /* return resources to OS */
+    pev_dma_exit( pev);
 
-  if( pev->pmem_ptr)
-  {
-    iounmap( pev->pmem_ptr);
-  }
-  if( pev->mem_ptr)
-  {
-    iounmap( pev->mem_ptr);
-  }
+    if( pev->pmem_ptr)
+    {
+      iounmap( pev->pmem_ptr);
+    }
+    if( pev->mem_ptr)
+    {
+      iounmap( pev->mem_ptr);
+    }
 #ifdef XENOMAI
-  rtdm_irq_free(&pev->rtdm_irq);
+    rtdm_irq_free(&pev->rtdm_irq);
 #else
-  free_irq( pev->dev->irq, (void *)pev);
+    free_irq( pev->dev->irq, (void *)pev);
 #endif
-  if( pev->msi)
+    if( pev->msi)
+    {
+      pci_disable_msi( pev->dev);
+    }
+  }
+  if( pev->elb_ptr)
   {
-    pci_disable_msi( pev->dev);
+    iounmap( pev->elb_ptr);
+  }
+  if( pev->irq_tbl)
+  {
+    kfree( pev->irq_tbl);
+    pev->irq_tbl = NULL;
   }
 
 }
@@ -1027,12 +1126,61 @@ static int pev_init( void)
   pex = (struct pci_dev *)NULL;
   while( ldev)
   {
-    /* check for PEX8624 */
-    if( ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8624)) ||
-        ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8616))    )
+    /* check for AROLLA */
+    if( ( ldev->vendor == 0x7357) &&  ( ldev->device == 0x1104))
+    {
+      printk("AROLLA found...\n");
+        pev = (struct pev_dev *)kmalloc( sizeof(struct pev_dev), GFP_KERNEL);
+        memset( pev, 0, sizeof(struct pev_dev));
+        pev->pex = 0;
+        pev->plx = 0;
+        pev->pex_base   = 0;
+        pev->pex_len   = 0;
+        pev->pex_ptr = 0;
+	pev->dev = ldev;
+        pev->crate = 0;
+        pev_drv.pev[pev->crate] = pev;
+	pev->board =  PEV_BOARD_VCC1104;
+	pev_probe( pev);           
+	pev->fpga_status = 1;
+	return(0);
+    }
+    /* check for IDT32NT24 */
+    if( ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8097)) ||
+        ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808a)) ||
+        ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808c))    )
     {
       /* check for upstream port */
       if( ldev->devfn == 0)
+      {
+	pex = ldev;
+        pev = (struct pev_dev *)kmalloc( sizeof(struct pev_dev), GFP_KERNEL);
+        memset( pev, 0, sizeof(struct pev_dev));
+        pev->pex = pex;
+        pev->crate = 0;
+        pev_drv.pev[0] = pev;
+        printk("PCIe SWITCH IDT32NT24 found\n");
+        pev->elb_base    = 0xffb00000;
+        pev->elb_len    = 0x10000;
+        pev->elb_ptr = ioremap(pev->elb_base, pev->elb_len);
+	pev->fpga_status = 0;
+	pev->board =  PEV_BOARD_IFC1210;
+        printk("ELB#0 : %08x - %p -%08lx [%x]\n", pev->elb_base,  pev->elb_ptr, *(long *)pev->elb_ptr, pev->elb_len);
+      }
+      break;
+    }
+    /* check for PEX8624 upstream port */
+    if( ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8624)) ||
+        ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8616))    )
+    {
+      int capb;
+
+
+      capb = 0;
+      pci_read_config_dword( ldev, 0x68, &capb);
+      capb = (capb >> 20) & 0xf;
+      /* check for upstream port */
+      if( (ldev->devfn == 0) && (capb == 0x5))
       {
 	pex = ldev;
         /*--------------------------------------------------------------------------
@@ -1041,6 +1189,8 @@ static int pev_init( void)
         pev = (struct pev_dev *)kmalloc( sizeof(struct pev_dev), GFP_KERNEL);
         memset( pev, 0, sizeof(struct pev_dev));
         pev->pex = pex;
+	pev->elb_ptr = NULL;
+	pev->fpga_status = 0;
 
         /* else store BAR0 parameters */
         pev->pex_base   = pci_resource_start( pev->pex, 0);
@@ -1050,9 +1200,9 @@ static int pev_init( void)
 
         pev->crate = ~(SWAP32(*(int *)(pev->pex_ptr + 0x640)))&0xf;
         pev_drv.pev[pev->crate] = pev;
-        printk("PEV1100 crate number = %d\n", pev->crate);
+        printk("PEV crate number = %d\n", pev->crate);
 	
-	/* Disable SERR# bit[8] generation */
+  	/* Disable SERR# bit[8] generation */
 	bcr = SWAP16(*(short *)(pev->pex_ptr + 0x04));
         *(short *)(pev->pex_ptr + 0x04) =  SWAP16(bcr & ~0x100);
 
@@ -1073,10 +1223,7 @@ static int pev_init( void)
 	  *(short *)(pev->pex_ptr + 0x903e) =  SWAP16(bcr & ~4);
 	}
       }
-#ifdef PPC
-      break;
-#endif
-    }
+     }
     ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, ldev);
   }
 
@@ -1104,6 +1251,33 @@ static int pev_init( void)
       ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->pex);
       while( ldev)
       {
+        /* check for IDT32NT24 */
+        if( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8097))
+        {
+          /* check for port #2*/
+          if( ldev->devfn == PCI_DEVFN( 2, 0))
+          {
+	    p_bus = ldev->subordinate->primary;
+	    s_bus = ldev->subordinate->secondary;;
+	    debugk((KERN_NOTICE "idt32nt24 port#2: bus number = %x:%x\n", p_bus, s_bus));
+	    pev->dev = ldev;
+            while( pev->dev)
+            {
+              /* check for PEV1100 FPGA End Point */
+              if( ( pev->dev->vendor == 0x7357) &&  (( pev->dev->device == 0x1200) || ( pev->dev->device == 0x1210)))
+              {
+		if( pev->dev->bus->number == s_bus)
+		{ 
+		  debugk((KERN_NOTICE "FPGA PCIe End Point found on bus 0x%x\n", pev->dev->bus->number));
+		  pev_probe( pev); 
+		  pev->fpga_status = 1;          
+		  break;
+		}
+              }
+              pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+	    }
+	  }
+	}
         /* check for PEX8624 */
         if( ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8624)) ||
             ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8616))    )
@@ -1120,10 +1294,19 @@ static int pev_init( void)
               /* check for PEV1100 FPGA End Point */
               if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1100))
               {
+		pev->board = PEV_BOARD_PEV1100;
+              }
+              if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1102))
+              {
+		pev->board = PEV_BOARD_IPV1102;
+              }
+              if( pev->board)
+              {
 		if( pev->dev->bus->number == s_bus)
 		{ 
 		  debugk((KERN_NOTICE "FPGA PCIe End Point found on bus 0x%x\n", pev->dev->bus->number));
 		  pev_probe( pev);           
+		  pev->fpga_status = 1;
 		  break;
 		}
               }

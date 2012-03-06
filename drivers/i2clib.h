@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: i2clib.h,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.2  2012/01/27 13:13:04  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
  *
  * Revision 1.1.1.1  2008/07/01 09:48:06  ioxos
  * Import sources for PEV1100 project [JFG]
@@ -39,6 +42,7 @@
 #ifndef _H_I2CLIB
 #define _H_I2CLIB
 
+void i2c_set_elb( uint);
 uint i2c_cmd( uint, uint, uint);
 uint i2c_read( uint, uint);
 uint i2c_write( uint, uint, uint, uint);

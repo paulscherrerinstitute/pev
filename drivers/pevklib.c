@@ -38,8 +38,17 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.34  2012/02/03 10:26:07  ioxos
+ * dynamic use of elbc for i2c [JFG]
+ *
+ * Revision 1.33  2012/01/30 16:42:54  ioxos
+ * pex access with new i2clib [JFG]
+ *
+ * Revision 1.32  2012/01/27 13:13:05  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
  *
  * Revision 1.31  2011/12/06 13:15:18  ioxos
  * support for multi task VME IRQ [JFG]
@@ -154,6 +163,7 @@
 #include "sflashlib.h"
 #include "maplib.h"
 #include "i2clib.h"
+#include "fpgalib.h"
 #include "vmelib.h"
 #include "dmalib.h"
 #include "pevdrvr.h"
@@ -211,6 +221,20 @@ pev_rdwr(struct pev_dev *pev,
       if( rdwr_p->offset + rdwr_p->len >= pev->mem_len) return( -EFAULT);
       pev_addr = pev->mem_ptr + rdwr_p->offset;
     }
+    if( m->space == RDWR_CSR)
+    {
+      if( rdwr_p->offset + rdwr_p->len >= pev->csr_len) return( -EFAULT);
+      pev_addr = pev->csr_ptr + rdwr_p->offset;
+    }
+    if( m->space == RDWR_ELB)
+    {
+      if( pev->board != PEV_BOARD_IFC1210) /* ELB access only on IFC1210 */
+      {
+	return( -EFAULT);
+      }
+      if( rdwr_p->offset + rdwr_p->len >= pev->elb_len) return( -EFAULT);
+      pev_addr = pev->elb_ptr + rdwr_p->offset;
+    }
     if( m->space == RDWR_DMA_SHM)
     {
       if( rdwr_p->offset + rdwr_p->len >= pev->dma_shm_len) return( -EFAULT);
@@ -218,6 +242,10 @@ pev_rdwr(struct pev_dev *pev,
     }
     if( m->space == RDWR_PEX)
     {
+      if( pev->board == PEV_BOARD_IFC1210) /* block are not supported on IDT CSR regs */
+      {
+	return( -EFAULT);
+      }
       if( rdwr_p->offset + rdwr_p->len >= pev->pex_len) return( -EFAULT);
       if( rdwr_p->offset < 0x10000)
       {
@@ -268,7 +296,7 @@ pev_rdwr(struct pev_dev *pev,
   /* single cycle */
   if( m->space == RDWR_CFG) /* PCI Config cycle */
   {
-    if( rdwr_p->offset >= 0x100) return( -EINVAL);
+    if( rdwr_p->offset >= 0x1000) return( -EINVAL);
     if( m->dir) /* write cycle */
     {
       return( rdwr_cfg_wr( pev->dev, rdwr_p->buf, rdwr_p->offset, m));
@@ -280,7 +308,7 @@ pev_rdwr(struct pev_dev *pev,
   }
   if( m->space == RDWR_IO) /* PCI IO cycle */
   {
-    if( rdwr_p->offset >=  pev->io_len - m->ds) return( -EINVAL);
+    if( rdwr_p->offset >  pev->io_len - m->ds) return( -EINVAL);
     if( m->dir) /* write cycle */
     {
       return( rdwr_io_wr( pev->io_base, rdwr_p->buf, rdwr_p->offset, m));
@@ -292,23 +320,49 @@ pev_rdwr(struct pev_dev *pev,
   }
   if( m->space == RDWR_PMEM) /* PMEM cycle */
   {
-    if( rdwr_p->offset >=  pev->pmem_len - m->ds) return( -EINVAL);
+    if( rdwr_p->offset >  pev->pmem_len - m->ds) return( -EINVAL);
     pev_addr = pev->pmem_ptr + rdwr_p->offset;
   }
   if( m->space == RDWR_MEM) /* MEM cycle */
   {
-    if( rdwr_p->offset >=  pev->mem_len - m->ds) return( -EINVAL);
+    if( rdwr_p->offset >  pev->mem_len - m->ds) return( -EINVAL);
     pev_addr = pev->mem_ptr + rdwr_p->offset;
+  }
+  if( m->space == RDWR_CSR) /* CSR cycle */
+  {
+    if( rdwr_p->offset >  pev->csr_len - m->ds) return( -EINVAL);
+    pev_addr = pev->csr_ptr + rdwr_p->offset;
+  }
+  if( m->space == RDWR_ELB) /* ELB cycle */
+  {
+    if( pev->board != PEV_BOARD_IFC1210) /* ELB access only on IFC1210 */
+    {
+      return( -EFAULT);
+    }
+    if( rdwr_p->offset >  pev->elb_len - m->ds) return( -EINVAL);
+    pev_addr = pev->elb_ptr + rdwr_p->offset;
   }
   if( m->space == RDWR_DMA_SHM)
   {
-    if( rdwr_p->offset >=  pev->mem_len - m->ds) return( -EINVAL);
-    if( rdwr_p->offset >= pev->dma_shm_len - m->ds) return( -EFAULT);
+    if( rdwr_p->offset >  pev->mem_len - m->ds) return( -EINVAL);
+    if( rdwr_p->offset > pev->dma_shm_len - m->ds) return( -EFAULT);
     pev_addr = pev->dma_shm_ptr + rdwr_p->offset;
   }
   if( m->space == RDWR_PEX) /* PEX cycle */
   {
-    if( rdwr_p->offset >=  pev->pex_len - m->ds) return( -EINVAL);
+    if( pev->board == PEV_BOARD_IFC1210)
+    {
+      if( rdwr_p->offset >= 0x100000) return( -EINVAL);
+      if( m->dir) /* write cycle */
+      {
+        return( rdwr_idt_wr( pev->pex, rdwr_p->buf, rdwr_p->offset, m));
+      }
+      else /* read cycle */
+      {
+        return( rdwr_idt_rd( pev->pex, rdwr_p->buf, rdwr_p->offset, m));
+      }
+    }
+    if( rdwr_p->offset >  pev->pex_len - m->ds) return( -EINVAL);
     if( rdwr_p->offset < 0x10000)
     {
       pev_addr = pev->pex_ptr + rdwr_p->offset;
@@ -341,49 +395,83 @@ pev_rdwr(struct pev_dev *pev,
   return( -EINVAL);
 }
 
+static unsigned long
+pev_sflash_set_reg( struct pev_dev *pev,
+		    uint dev)
+{
+  unsigned long reg_p;
+
+  if( pev->board == PEV_BOARD_IFC1210)
+  {
+    if( !dev) return(-1);
+    reg_p = (unsigned long)pev->elb_ptr + 0x28;
+  }
+  else
+  {
+    if( dev) return(-1);
+    if( pev->io_remap.short_io)
+    {
+      outl( PEV_SCSR_SEL_ILOC, pev->io_base);
+    }
+    reg_p =(unsigned long)pev->io_base + pev->io_remap.iloc_spi;
+  }
+  sflash_set_dev(dev);
+
+  return( reg_p);
+}
+
 void
 pev_sflash_id( struct pev_dev *pev,
-	       unsigned char *id)
+	       unsigned char *id,
+	       uint dev)
 {
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_ILOC, pev->io_base);
-  }
-  sflash_read_ID( pev->io_base + pev->io_remap.iloc_spi, id);
+  unsigned long reg_p;
+
+  reg_p = pev_sflash_set_reg( pev, dev);
+  if( reg_p == -1) return;
+  sflash_read_ID( reg_p, id);
   return;
 }
 
-unsigned char
-pev_sflash_rdsr( struct pev_dev *pev)
+unsigned short
+pev_sflash_rdsr( struct pev_dev *pev,
+		 uint dev)
 {
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_ILOC, pev->io_base);
-  }
-  return( sflash_read_status( pev->io_base + pev->io_remap.iloc_spi));
+  unsigned long reg_p;
+
+  reg_p = pev_sflash_set_reg( pev, dev);
+  if( reg_p == -1) return(0);
+  return( sflash_read_status( reg_p));
 }
 
 void
 pev_sflash_wrsr( struct pev_dev *pev,
-	         unsigned char sr)
+	         unsigned short sr,
+		 uint dev)
 {
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_ILOC, pev->io_base);
-  }
-  sflash_write_status( pev->io_base + pev->io_remap.iloc_spi, sr);
+  unsigned long reg_p;
+
+  reg_p = pev_sflash_set_reg( pev, dev);
+  if( reg_p == -1) return;
+  sflash_write_status( reg_p, sr);
   return;
 }
 
 int
 pev_sflash_read(struct pev_dev *pev,
-		struct pev_ioctl_rdwr *rdwr_p)
+		struct pev_ioctl_sflash_rw *rdwr_p)
 {
   unsigned char *k_buf;
+  unsigned long reg_p;
   int retval;
   int order;
 
   retval = 0;
+  reg_p = pev_sflash_set_reg( pev, rdwr_p->dev);
+  if( reg_p == -1)
+  {
+    return( -EIO);
+  }
   order = get_order( rdwr_p->len); 
   k_buf = (unsigned char *)__get_free_pages( GFP_KERNEL, order);
   if( !k_buf)
@@ -391,11 +479,7 @@ pev_sflash_read(struct pev_dev *pev,
     return(-ENOMEM);
   }
 
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_ILOC, pev->io_base);
-  }
-  sflash_read_data( pev->io_base + pev->io_remap.iloc_spi, rdwr_p->offset, k_buf, rdwr_p->len);
+  sflash_read_data( reg_p, rdwr_p->offset, k_buf, rdwr_p->len);
 
   if( copy_to_user( rdwr_p->buf, k_buf, rdwr_p->len))
   {
@@ -408,7 +492,7 @@ pev_sflash_read(struct pev_dev *pev,
 
 int
 pev_sflash_write(struct pev_dev *pev,
-		 struct pev_ioctl_rdwr *rdwr_p)
+		 struct pev_ioctl_sflash_rw *rdwr_p)
 {
   uint s_start;         /* start of first sector                    */
   uint s_end;           /* end of last sector                       */
@@ -418,21 +502,37 @@ pev_sflash_write(struct pev_dev *pev,
   unsigned char *k_buf; /* temporary kernel buffer                  */
   int retval;           /* function return value                    */
   int order;
+  unsigned long reg_p;
+  int sect_size, sect_mask;
 
   retval = 0;
 
+  if( pev->board == PEV_BOARD_IFC1210)
+  {
+    sect_size = 0x10000;
+  }
+  else
+  {
+    sect_size = 0x40000;
+  }
+  sect_mask = sect_size - 1;
   if (!rdwr_p->len)
   {
     return retval;
   }
-  s_start = rdwr_p->offset & 0xffc0000;
-  first = rdwr_p->offset & 0x3ffff;
-  s_end = (rdwr_p->offset + rdwr_p->len) & 0xffc0000;
-  last =  (rdwr_p->offset + rdwr_p->len) & 0x3ffff;
+  reg_p = pev_sflash_set_reg( pev, rdwr_p->dev);
+  if( reg_p == -1)
+  {
+    return( -EIO);
+  }
+  s_start = rdwr_p->offset & ~sect_mask;
+  first = rdwr_p->offset & sect_mask;
+  s_end = (rdwr_p->offset + rdwr_p->len) & ~sect_mask;
+  last =  (rdwr_p->offset + rdwr_p->len) & sect_mask;
 
   if( last)
   {
-    s_end += 0x40000;
+    s_end += sect_size;
   }
 
   if( s_end > 0x1000000)
@@ -447,17 +547,13 @@ pev_sflash_write(struct pev_dev *pev,
     return(-ENOMEM);
   }
 
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_ILOC, pev->io_base);
-  }
   if( first)
   {
-    sflash_read_data( pev->io_base + pev->io_remap.iloc_spi, s_start, k_buf, first);
+    sflash_read_data( reg_p, s_start, k_buf, first);
   }
   if( last)
   {
-    sflash_read_data( pev->io_base + pev->io_remap.iloc_spi, s_end - 0x40000 + last, k_buf + first + rdwr_p->len, 0x40000 - last);
+    sflash_read_data( reg_p, s_end - sect_size + last, k_buf + first + rdwr_p->len, sect_size - last);
   }
 
   if( copy_from_user( k_buf + first, rdwr_p->buf, rdwr_p->len))
@@ -465,10 +561,74 @@ pev_sflash_write(struct pev_dev *pev,
     free_pages( (unsigned long)k_buf, order);
     return( -EIO);
   }
-  if( sflash_write_sector( pev->io_base + pev->io_remap.iloc_spi, s_start, k_buf, k_size) < 0)
+  if( sflash_write_sector( reg_p, s_start, k_buf, k_size, sect_size) < 0)
   {
     retval = -EINVAL;
   }
+  free_pages( (unsigned long)k_buf, order);
+  return( retval);
+}
+
+int
+pev_fpga_load(struct pev_dev *pev,
+	      struct pev_ioctl_sflash_rw *rdwr_p)
+{
+  unsigned char *k_buf; /* temporary kernel buffer                  */
+  int retval;           /* function return value                    */
+  int order;
+  unsigned long reg_p;
+  int nblk, res, first, bsize;
+  unsigned char *s;
+
+  retval = 0;
+  bsize = 0x100000;
+  order = get_order( bsize); 
+  k_buf = (unsigned char *)__get_free_pages( GFP_KERNEL, order);
+  if( !k_buf)
+  {
+    return(-ENOMEM);
+  }
+
+  reg_p = (unsigned long)pev->elb_ptr + 0x20;
+
+  nblk =  rdwr_p->len/bsize;
+  res =   rdwr_p->len%bsize;
+  s = rdwr_p->buf;
+  first = 1;
+  fpga_set_dev( rdwr_p->dev);
+  while( nblk--)
+  {
+    if( copy_from_user( k_buf, s, bsize))
+    {
+      retval = -EIO;
+      goto pev_fpga_load_exit;
+    }
+    retval = fpga_load( reg_p, k_buf, bsize, first);
+    if( retval == -1)
+    {
+      retval = -EIO;
+      goto pev_fpga_load_exit;
+    }
+    first = 0;
+    s += bsize;
+
+  }
+  if( res)
+  {
+    if( copy_from_user( k_buf, s, res))
+    {
+      retval = -EIO;
+      goto pev_fpga_load_exit;
+    }
+    retval = fpga_load( reg_p, k_buf, res+100, first);
+    if( retval == -1)
+    {
+      retval = -EIO;
+      goto pev_fpga_load_exit;
+    }
+  }
+
+pev_fpga_load_exit:
   free_pages( (unsigned long)k_buf, order);
   return( retval);
 }
@@ -850,14 +1010,86 @@ pev_map_clear(struct pev_dev *pev,
   return(0);
 }
 
+static ulong
+pev_i2c_set_reg( struct pev_dev *pev,
+		 int elbc)
+{
+  ulong reg_p;
+
+  if( (pev->board == PEV_BOARD_IFC1210) && elbc)
+  {
+    i2c_set_elb( 1);
+    reg_p = (ulong)pev->elb_ptr + 0x30;
+  }
+  else
+  {
+    i2c_set_elb(0);
+    if( pev->io_remap.short_io)
+    {
+      outl( PEV_SCSR_SEL_ILOC, pev->io_base);
+    }
+    reg_p = (ulong)pev->io_base + pev->io_remap.iloc_i2c;
+  }
+  return( reg_p);
+}
+
+void
+pev_i2c_dev_cmd(struct pev_dev *pev,
+	         struct pev_ioctl_i2c *i2c_para_p)
+{
+  ulong reg_p;
+  int elbc;
+
+  elbc = i2c_para_p->device & 0x80;
+  i2c_para_p->device &= ~0x80;
+  reg_p = pev_i2c_set_reg( pev, elbc);
+  //printk("pev_i2c_dev_cmd(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
+  i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
+
+  return;
+}
+
+void
+pev_i2c_dev_read(struct pev_dev *pev,
+	         struct pev_ioctl_i2c *i2c_para_p)
+{
+  ulong reg_p;
+  int elbc;
+
+  elbc = i2c_para_p->device & 0x80;
+  i2c_para_p->device &= ~0x80;
+  reg_p = pev_i2c_set_reg( pev, elbc);
+  //printk("pev_i2c_dev_read(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
+  i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
+  i2c_wait( reg_p, 100000);
+  i2c_para_p->data = i2c_read( reg_p,  i2c_para_p->device);
+
+  return;
+}
+
+void
+pev_i2c_dev_write(struct pev_dev *pev,
+	          struct pev_ioctl_i2c *i2c_para_p)
+{
+  ulong reg_p;
+  int elbc;
+
+  elbc = i2c_para_p->device & 0x80;
+  i2c_para_p->device &= ~0x80;
+  reg_p = pev_i2c_set_reg( pev, elbc);
+  //printk("pev_i2c_dev_write(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
+  i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
+  i2c_wait( reg_p, 100000);
+  return;
+}
 
 void
 pev_i2c_pex_read(struct pev_dev *pev,
 	         struct pev_ioctl_i2c *i2c_para_p)
 {
-  i2c_cmd( pev->io_base + pev->io_remap.iloc_i2c,  I2C_DEV_PEX, i2c_para_p->cmd);
+  i2c_cmd( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, i2c_para_p->cmd);
   i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
-  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap.iloc_i2c,  I2C_DEV_PEX);
+  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069);
 
   return;
 }
@@ -866,28 +1098,93 @@ void
 pev_i2c_pex_write(struct pev_dev *pev,
 	          struct pev_ioctl_i2c *i2c_para_p)
 {
-  i2c_write( pev->io_base + pev->io_remap.iloc_i2c,  I2C_DEV_PEX, i2c_para_p->cmd, i2c_para_p->data);
+  i2c_write( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, i2c_para_p->cmd, i2c_para_p->data);
   i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
   return;
 }
 
 int
-pev_i2c_lm86_read(struct pev_dev *pev,
-	          struct pev_ioctl_i2c *i2c_para_p)
+pev_idt_eeprom_read(struct pev_dev *pev,
+		    struct pev_ioctl_rdwr *rdwr_p)
 {
-  i2c_cmd( pev->io_base + pev->io_remap.iloc_i2c,  I2C_DEV_PEX, i2c_para_p->cmd);
-  i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
-  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap.iloc_i2c,  I2C_DEV_PEX);
+  unsigned char *k_buf, *p;
+  int order, data, tmo, i;
+  struct pev_rdwr_mode mode;
+  int retval;
 
-  return( 0);
+  order = get_order( rdwr_p->len); 
+  k_buf = (unsigned char *)__get_free_pages( GFP_KERNEL, order);
+  if( !k_buf)
+  {
+    return(-ENOMEM);
+  }
+  mode.dir = RDWR_READ;
+  mode.space = RDWR_ELB;
+  mode.ds = RDWR_INT;
+  mode.swap = RDWR_NOSWAP;
+  p = k_buf;
+
+  for( i = 0; i < rdwr_p->len; i++)
+  { 
+    data = 0x4000000 + i;
+    rdwr_idt_wr( pev->pex, &data, 0x3f190, &mode);
+    data = 0;
+    tmo = 1000;
+    while(!(data & 0x2000000) && --tmo)
+    {
+      rdwr_idt_rd( pev->pex, &data, 0x3f190, &mode);
+    }
+    *p++ = (unsigned char)((data >> 16) & 0xff);
+  }
+  if( copy_to_user( rdwr_p->buf, k_buf, rdwr_p->len))
+  {
+    retval = -EIO;
+  }
+
+  free_pages( (unsigned long)k_buf, order);
+
+  return( retval);
 }
 
 int
-pev_i2c_lm86_write(struct pev_dev *pev,
-	           struct pev_ioctl_i2c *i2c_para_p)
+pev_idt_eeprom_write(struct pev_dev *pev,
+		     struct pev_ioctl_rdwr *rdwr_p)
 {
-  i2c_write( pev->io_base + pev->io_remap.iloc_i2c,  I2C_DEV_PEX, i2c_para_p->cmd, i2c_para_p->data);
-  i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
+  unsigned char *k_buf, *p;
+  int order, data, tmo, i;
+  struct pev_rdwr_mode mode;
+
+  order = get_order( rdwr_p->len); 
+  k_buf = (unsigned char *)__get_free_pages( GFP_KERNEL, order);
+  if( !k_buf)
+  {
+    return(-ENOMEM);
+  }
+  if( copy_from_user( k_buf, rdwr_p->buf, rdwr_p->len))
+  {
+    free_pages( (unsigned long)k_buf, order);
+    return( -EIO);
+  }
+  mode.dir = RDWR_READ;
+  mode.space = RDWR_ELB;
+  mode.ds = RDWR_INT;
+  mode.swap = RDWR_NOSWAP;
+  p = k_buf;
+
+  for( i = 0; i < rdwr_p->len; i++)
+  { 
+    data = (*p++ << 16) + i;
+    rdwr_idt_wr( pev->pex, &data, 0x3f190, &mode);
+    data = 0;
+    tmo = 1000;
+    while(!(data & 0x2000000) && --tmo)
+    {
+      rdwr_idt_rd( pev->pex, &data, 0x3f190, &mode);
+    }
+  }
+
+  free_pages( (unsigned long)k_buf, order);
+
   return( 0);
 }
 

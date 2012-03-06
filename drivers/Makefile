@@ -29,10 +29,19 @@
 #=============================< end file header >============================
 obj-m := pev.o
 pev-objs := pevdrvr.o pevioctl.o pevklib.o rdwrlib.o sflashlib.o maplib.o i2clib.o vmelib.o dmalib.o histolib.o
-KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+#KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+KERNELDIR = /afs/psi.ch/project/embeddedlinux/freescale/linux-2.6.32
+#ARCH      = $(LINTARCH)
+ARCH      = powerpc
+##CROSS_DIR = /opt/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin
+CROSS_DIR = /afs/psi.ch/project/embeddedlinux/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin
+CROSS_COMPILE = $(CROSS_DIR)/powerpc-none-linux-gnuspe-
+#CROSS_COMPILE = ppc_8xx-
 EXTRA_CFLAGS := -I$(KERNELDIR)/include/xenomai -I$(KERNELDIR)/include/xenomai/posix $(ADD_CFLAGS)
 PWD := $(shell pwd)
 default:
-	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
+	$(MAKE) ARCH=$(ARCH) CROSS_COMPILE=$(CROSS_COMPILE) -C $(KERNELDIR) M=$(PWD) modules
 clean:
-	$(RM) *.o *.ko *.mod.c
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+	@rm -f Module.symvers
+# 	$(RM) *.o *.ko *.mod.c

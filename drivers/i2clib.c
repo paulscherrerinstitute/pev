@@ -65,6 +65,9 @@
 #define I2C_CTL_CMD      0x400000
 #define I2C_CTL_WRITE    0x800000
 #define I2C_CTL_READ     0xC00000
+#define I2C_CTL_MASK     0xC00000
+
+uint i2c_elb = 0;
 
 int
 i2c_swap_32( int data)
@@ -82,18 +85,65 @@ i2c_swap_32( int data)
 }
 
 
+void
+i2c_set_elb( uint elb)
+{
+  i2c_elb = elb;
+}
+
+void
+i2c_write_io( uint data,
+              volatile ulong reg_p)
+{
+  volatile uint tmp;
+
+  //printk("i2c_write_io before: %08lx -> %08x\n", reg_p, data);
+  if( i2c_elb)
+  {
+    tmp = *(uint *)reg_p;
+    *(uint *)reg_p = data;
+    tmp = *(uint *)reg_p;
+  }
+  else
+  {
+    outl( data, reg_p);
+    tmp = inl( reg_p);
+  }
+  //printk("i2c_write_io after: %08lx -> %08x\n", reg_p, tmp);
+  return;
+}
+
+uint
+i2c_read_io(  ulong reg_p)
+{
+  volatile uint data;
+
+  if( i2c_elb)
+  {
+    data = *(uint *)reg_p;
+  }
+  else
+  {
+    data = inl( reg_p);
+  }
+  //printk("i2c_read_io after: %08lx -> %08x\n", reg_p, data);
+
+  return( data);
+}
+
 uint
 i2c_wait( uint io_base,
 	  uint tmo)
 {
   uint ctl;
-  ctl = inl( io_base + I2C_CTL_OFFSET);
-  while( ctl & 0x100000)
+
+  ctl = i2c_read_io( io_base + I2C_CTL_OFFSET);
+  while( ctl & 0x300000)
   {
-    ctl = inl( io_base + I2C_CTL_OFFSET);
+    ctl = i2c_read_io( io_base + I2C_CTL_OFFSET);
     if( !tmo--) return( -1);
   }
-  inl( io_base + I2C_CTL_OFFSET);
+  i2c_read_io( io_base + I2C_CTL_OFFSET);
   return( ctl);
 }
 uint
@@ -101,26 +151,15 @@ i2c_cmd( uint io_base,
 	 uint dev,
 	 uint cmd)
 {
-  uint ctl;
-
-  switch(dev)
-  {
-    case I2C_DEV_PEX:
-    {
-      ctl = I2C_CTL_PEX;
-      break;
-    }
-    default:
-    {
-      return(-1);
-    }
-  }
   /* load command in register */
-  cmd = i2c_swap_32( cmd);
-  outl( cmd, io_base + I2C_CMD_OFFSET);
+  if( !i2c_elb)
+  {
+    //cmd = i2c_swap_32( cmd);
+  }
+  i2c_write_io( cmd, io_base + I2C_CMD_OFFSET);
   /* trig command cycle */
-  ctl |= I2C_CTL_CMD; 
-  outl( ctl, io_base + I2C_CTL_OFFSET);
+  i2c_write_io( (~I2C_CTL_MASK & dev), io_base + I2C_CTL_OFFSET);
+  i2c_write_io( (I2C_CTL_CMD | dev), io_base + I2C_CTL_OFFSET);
 
   return( 0);
 }
@@ -130,27 +169,17 @@ i2c_read( uint io_base,
 	  uint dev)
 {
   uint data;
-  uint ctl;
 
-  switch(dev)
-  {
-    case I2C_DEV_PEX:
-    {
-      ctl = I2C_CTL_PEX;
-      break;
-    }
-    default:
-    {
-      return(-1);
-    }
-  }
   /* trig read cycle */
-  ctl |= I2C_CTL_READ; 
-  outl( ctl, io_base + I2C_CTL_OFFSET);
-  ctl = i2c_wait( io_base, 10000);
+  i2c_write_io( (~I2C_CTL_MASK & dev), io_base + I2C_CTL_OFFSET);
+  i2c_write_io( (I2C_CTL_READ | dev), io_base + I2C_CTL_OFFSET);
+  i2c_wait( io_base, 10000);
   /* get data */
-  data = inl( io_base + I2C_READ_OFFSET);
-  data = i2c_swap_32( data);
+  data = i2c_read_io( io_base + I2C_READ_OFFSET);
+  if( !i2c_elb)
+  {
+    //data = i2c_swap_32( data);
+  }
 
   return( data);
 }
@@ -161,29 +190,18 @@ i2c_write( uint io_base,
 	   uint cmd,
 	   uint data)
 {
-  uint ctl;
-
-  switch(dev)
-  {
-    case I2C_DEV_PEX:
-    {
-      ctl = I2C_CTL_PEX;
-      break;
-    }
-    default:
-    {
-      return(-1);
-    }
-  }
   /* load command register */
-  cmd = i2c_swap_32( cmd);
-  outl( cmd, io_base + I2C_CMD_OFFSET);
+  if( !i2c_elb)
+  {
+    //cmd = i2c_swap_32( cmd);
+    //data = i2c_swap_32( data);
+  }
+  i2c_write_io( cmd, io_base + I2C_CMD_OFFSET);
   /* load data register */
-  data = i2c_swap_32( data);
-  outl( data, io_base + I2C_WRITE_OFFSET);
+  i2c_write_io( data, io_base + I2C_WRITE_OFFSET);
   /* trig command cycle */
-  ctl |= I2C_CTL_WRITE; 
-  outl( ctl, io_base + I2C_CTL_OFFSET);
+  i2c_write_io( (~I2C_CTL_MASK & dev), io_base + I2C_CTL_OFFSET);
+  i2c_write_io(  (I2C_CTL_WRITE | dev), io_base + I2C_CTL_OFFSET);
 
   return( 0);
 }

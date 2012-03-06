@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: histolib.h,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
  *
  * Revision 1.1  2009/04/06 09:47:13  ioxos
  * first check-in [JFG]

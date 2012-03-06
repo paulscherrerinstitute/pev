@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: debug.h,v $
- * Revision 1.1  2012/02/06 14:14:34  kalantari
- * added required IoxoS version 3.13 sources and headers
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
  *
  * Revision 1.1.1.1  2008/07/01 09:48:07  ioxos
  * Import sources for PEV1100 project [JFG]

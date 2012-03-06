@@ -27,8 +27,32 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.1  2012/02/06 14:14:34  kalantari
- *  added required IoxoS version 3.13 sources and headers
+ *  Revision 1.2  2012/03/06 10:31:34  kalantari
+ *  patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ *  Revision 1.41  2012/02/14 16:18:44  ioxos
+ *  release 4.03 [JFG]
+ *
+ *  Revision 1.40  2012/02/14 16:09:16  ioxos
+ *  remove debug print our [JFG]
+ *
+ *  Revision 1.39  2012/02/03 16:30:18  ioxos
+ *  release 4.02 [JFG]
+ *
+ *  Revision 1.38  2012/02/03 13:01:00  ioxos
+ *  ioxos_boards should be static [JFG]
+ *
+ *  Revision 1.37  2012/02/03 11:29:19  ioxos
+ *  compilation warnings [JFG]
+ *
+ *  Revision 1.36  2012/02/03 11:02:29  ioxos
+ *  use i2c lib for pex access [JFG]
+ *
+ *  Revision 1.35  2012/01/30 11:17:20  ioxos
+ *  add support for board name [JFG]
+ *
+ *  Revision 1.34  2012/01/26 15:56:51  ioxos
+ *  prepare for IFC1210 support [JFG]
  *
  *  Revision 1.33  2012/01/06 14:39:58  ioxos
  *  release 3.13 [JFG]
@@ -133,7 +157,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevulib.c,v 1.1 2012/02/06 14:14:34 kalantari Exp $";
+static const char *rcsid = "$Id: pevulib.c,v 1.2 2012/03/06 10:31:34 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -155,12 +179,34 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "3.13";
+char pev_lib_version[] = "4.03";
+uint pev_board_id = 0;
+static char ioxos_board_name[16];
+static struct ioxos_boards
+{
+  int idx;
+  int id;
+  const char *name;
+}
+ioxos_boards[] =
+{
+  {0, PEV_BOARD_PEV1100, "PEV1100"},
+  {1, PEV_BOARD_IPV1102, "IPV1102"},
+  {2, PEV_BOARD_VCC1104, "VCC1104"},
+  {3, PEV_BOARD_VCC1105, "VCC1105"},
+  {4, PEV_BOARD_IFC1210, "IFC1210"},
+  {5, PEV_BOARD_MPC1200, "MPC1200"},
+  {-1, 0, NULL}
+};
+
 
 struct pev_node
 *pev_init( uint crate)
 {
   char dev_name[16];
+  struct ioxos_boards *ib;
+  int i;
+
   if( (crate < 0) || (crate > 15))
   {
     return( (struct pev_node *)0);
@@ -185,7 +231,18 @@ struct pev_node
     sprintf( dev_name, "/dev/pev%d", crate);
     pev->fd = open(dev_name, O_RDWR);
     ioctl( pev->fd, PEV_IOCTL_ID, pev_drv_id);
+    ioctl( pev->fd, PEV_IOCTL_BOARD, &pev_board_id);
     ioctl( pev->fd, PEV_IOCTL_IO_REMAP, &io_remap);
+    ib = &ioxos_boards[0];
+    while( ib->idx != -1)
+    {
+      if( ib->id == pev_board_id)
+      {
+	strcpy( ioxos_board_name,ib->name);
+	break;
+      }
+      ib++;
+    }
   }
   return(pev);
 }
@@ -207,6 +264,18 @@ char
 *pev_id()
 {
   return( pev_drv_id);
+}
+
+uint
+pev_board()
+{
+  return( pev_board_id);
+}
+
+char *
+pev_board_name()
+{
+  return( ioxos_board_name);
 }
 
 struct pev_reg_remap
@@ -371,6 +440,39 @@ pev_csr_set( int idx, int data)
 
   return;
 }
+
+int
+pev_elb_rd( int reg)
+{
+  struct pev_ioctl_rdwr rdwr;
+  uint data;
+
+  rdwr.buf = &data;
+  rdwr.offset = reg;
+  rdwr.len = 0;
+  rdwr.mode.dir = RDWR_READ;
+  rdwr.mode.space = RDWR_ELB;
+  rdwr.mode.ds = RDWR_INT;
+  rdwr.mode.swap = RDWR_NOSWAP;
+  ioctl( pev->fd, PEV_IOCTL_RDWR, &rdwr);
+  return( data);
+}
+ 
+int
+pev_elb_wr( int reg, int data)
+{
+  struct pev_ioctl_rdwr rdwr;
+
+  rdwr.buf = &data;
+  rdwr.offset = reg;
+  rdwr.len = 0;
+  rdwr.mode.dir = RDWR_WRITE;
+  rdwr.mode.space = RDWR_ELB;
+  rdwr.mode.ds = RDWR_INT;
+  rdwr.mode.swap = RDWR_NOSWAP;
+  return( ioctl( pev->fd, PEV_IOCTL_RDWR, &rdwr));
+}
+ 
 void *
 pev_mmap( struct pev_ioctl_map_pg *map)
 {
@@ -459,7 +561,6 @@ pev_buf_alloc( struct pev_ioctl_buf *db_p)
   {
     db_p->kmem_fd = pev->fd;
 #if defined(PPC) || defined(X86_32)
-  printf("pev_map_clear: X86_32\n");
     db_p->u_addr = mmap( NULL, db_p->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, (off_t)db_p->b_addr);
 #else
     db_p->u_addr = mmap( NULL, db_p->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, (off_t)(0x200000000 | (long)db_p->b_addr));
@@ -515,14 +616,60 @@ pev_dma_status( struct pev_ioctl_dma_sts *ds_p)
 }
 
 int
+pev_i2c_read( uint dev,
+	      uint reg)
+{
+  struct pev_ioctl_i2c i2c;
+
+  i2c.device = dev;
+  i2c.cmd = reg;
+  i2c.data = 0;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
+
+  return( i2c.data);
+}
+
+int
+pev_i2c_cmd( uint dev,
+	      uint cmd)
+{
+  struct pev_ioctl_i2c i2c;
+
+  i2c.device = dev;
+  i2c.cmd = cmd;
+  i2c.data = 0;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_CMD, &i2c);
+
+  return( i2c.data);
+}
+
+int
+pev_i2c_write( uint dev,
+	       uint reg,
+	       uint data)
+{
+  struct pev_ioctl_i2c i2c;
+
+  i2c.device = dev;
+  i2c.cmd = reg;
+  i2c.data = data;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
+
+  return( 0);
+}
+
+int
 pev_pex_read( uint reg)
 {
   struct pev_ioctl_i2c i2c;
 
+  i2c.device = 0x010f0069;
   i2c.cmd = 0x4003c00 | (( reg >> 2) & 0x3ff);
   i2c.cmd |= (reg << 3) &0x78000;
+  i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = 0;
-  ioctl( pev->fd, PEV_IOCTL_I2C_PEX_RD, &i2c);
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
+  /*i2c.data = pev_swap_32( i2c.data);*/
 
   return( i2c.data);
 }
@@ -533,33 +680,46 @@ pev_pex_write( uint reg,
 {
   struct pev_ioctl_i2c i2c;
 
+  i2c.device = 0x010f0069;
   i2c.cmd = 0x3003c00 | (( reg >> 2) & 0x3ff);
   i2c.cmd |= (reg << 3) &0x78000;
+  i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = data;
-  ioctl( pev->fd, PEV_IOCTL_I2C_PEX_WR, &i2c);
+  /*i2c.data = pev_swap_32( data);*/
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
   return( 0);
 }
 
 int
-pev_sflash_id( char *id)
+pev_sflash_id( char *id,
+	       uint dev)
 {
-  return( ioctl( pev->fd, PEV_IOCTL_SFLASH_ID, id));
+  uint cmd;
+
+  cmd =  PEV_IOCTL_SFLASH_ID | (dev&3);
+  return( ioctl( pev->fd, cmd, id));
 }
 
 int
-pev_sflash_rdsr()
+pev_sflash_rdsr( uint dev)
 {
   int sr;
-  ioctl( pev->fd, PEV_IOCTL_SFLASH_RDSR, &sr);
-  printf("pevulib: SFLASH status %x\n", sr);
+  uint cmd;
+
+  cmd =  PEV_IOCTL_SFLASH_RDSR | (dev&3);
+  ioctl( pev->fd, cmd, &sr);
   return( sr);
 }
 
 int
-pev_sflash_wrsr( int sr)
+pev_sflash_wrsr( int sr,
+		 uint dev)
 {
-  return( ioctl( pev->fd, PEV_IOCTL_SFLASH_WRSR, &sr));
+  uint cmd;
+
+  cmd =  PEV_IOCTL_SFLASH_WRSR | (dev&3);
+  return( ioctl( pev->fd, cmd, &sr));
 }
 
 int
@@ -567,11 +727,12 @@ pev_sflash_read( uint offset,
 		 void *addr,
 		 uint len)
 {
-  struct pev_ioctl_rdwr rdwr;
+  struct pev_ioctl_sflash_rw rdwr;
 
   rdwr.buf = addr;
-  rdwr.offset = offset;
+  rdwr.offset = offset & 0xfffffff;
   rdwr.len = len;
+  rdwr.dev = offset >> 28;
 
   return( ioctl( pev->fd, PEV_IOCTL_SFLASH_RD, &rdwr));
 }
@@ -581,14 +742,30 @@ pev_sflash_write( uint offset,
 		  void *addr,
 		  uint len)
 {
-  struct pev_ioctl_rdwr rdwr;
+  struct pev_ioctl_sflash_rw rdwr;
 
   rdwr.buf = addr;
-  rdwr.offset = offset;
+  rdwr.offset = offset & 0xfffffff;
   rdwr.len = len;
+  rdwr.dev = offset >> 28;
 
   return( ioctl( pev->fd, PEV_IOCTL_SFLASH_WR, &rdwr));
 }
+
+int
+pev_fpga_load( uint fpga,
+	       void *addr,
+	       uint len)
+{
+  struct pev_ioctl_sflash_rw rdwr;
+
+  rdwr.buf = addr;
+  rdwr.offset = 0;
+  rdwr.len = len;
+  rdwr.dev = fpga;
+  return( ioctl( pev->fd, PEV_IOCTL_FPGA_LOAD, &rdwr));
+}
+
 
 int
 pev_fpga_sign( uint fpga,

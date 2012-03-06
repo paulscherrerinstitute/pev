@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwrlib.h,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.2  2012/01/27 13:13:05  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
  *
  * Revision 1.1.1.1  2008/07/01 09:48:07  ioxos
  * Import sources for PEV1100 project [JFG]
@@ -49,6 +52,8 @@ int rdwr_rd_sgl( void *, void *, struct pev_rdwr_mode *);
 int rdwr_wr_blk( void *, void *, int, struct pev_rdwr_mode *);
 int rdwr_rd_blk( void *, void *, int, struct pev_rdwr_mode *);
 int rdwr_loop( void *, void *, int, struct pev_rdwr_mode *);
+int rdwr_idt_wr( struct pci_dev *, void *, int, struct pev_rdwr_mode *);
+int rdwr_idt_rd( struct pci_dev *, void *, int, struct pev_rdwr_mode *);
 
 #endif /*  _H_RDWRLIB */
 

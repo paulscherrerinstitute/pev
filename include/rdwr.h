@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.h,v $
- * Revision 1.1  2012/02/06 14:14:34  kalantari
- * added required IoxoS version 3.13 sources and headers
+ * Revision 1.2  2012/03/06 10:31:35  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.3  2012/01/27 13:16:06  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
  *
  * Revision 1.2  2008/07/18 14:21:48  ioxos
  * add parameter for loop count [JFG]
@@ -78,6 +81,7 @@ struct rdwr_cycle_para
 #define RDWR_STS_CRATE  0x10
 #define RDWR_STS_AS     0x20
 #define RDWR_STS_LOOP   0x40
+#define RDWR_STS_FILE   0x80
 
 struct reg_cycle_para
 {

@@ -30,6 +30,7 @@
 #  $Log : $
 #  
 #=============================< end file header >============================
-make -f Makefile.x86 clean
-make -f Makefile.x86 ADD_CFLAGS='-DLINUX -DX86_64'
+cp Makefile.x86 Makefile
+make clean
+make ADD_CFLAGS='-DLINUX -DX86_64' CONFIG_DEBUG_SECTION_MISMATCH=y
 cp pev.ko ../modules/pev-linux-x86_64.ko

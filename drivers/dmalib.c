@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.17  2012/02/14 16:12:54  ioxos
+ * support for byte swapping [JFG]
  *
  * Revision 1.16  2011/10/19 14:03:28  ioxos
  * support for powerpc [JFG]
@@ -248,10 +251,7 @@ dma_set_ctl( uint space,
   uint ctl;
 
   ctl = 0x2000 | (trig << 10) | (intr << 14);
-  if( (space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
-  { 
-    ctl |= 0x80000 | (mode << 20);
-  }
+  ctl |= 0x80000 | ((mode&0xff) << 20);
   if( (space & DMA_SPACE_MASK) == DMA_SPACE_VME)
   { 
     if( space < 0x30)

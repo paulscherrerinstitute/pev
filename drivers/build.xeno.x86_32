@@ -31,6 +31,7 @@
 #  
 #=============================< end file header >============================
 
-make -f Makefile.x86 clean
-make -f Makefile.x86 ADD_CFLAGS='-DXENOMAI -DX86_32'
+cp Makefile.x86 Makefile
+make clean
+make ADD_CFLAGS='-DXENOMAI -DX86_32'
 cp pev.ko ../modules/pev-xeno_x86_32.ko

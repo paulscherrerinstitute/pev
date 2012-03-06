@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.1  2012/02/06 14:14:34  kalantari
- * added required IoxoS version 3.13 sources and headers
+ * Revision 1.2  2012/03/06 10:31:35  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.16  2012/01/26 15:57:09  ioxos
+ * prepare for IFC1210 support [JFG]
  *
  * Revision 1.15  2011/12/06 13:17:04  ioxos
  * support for multi task VME IRQ [JFG]
@@ -100,6 +103,7 @@ struct pev_time
 
 struct pev_node *pev_init( uint);
 char *pev_id( void);
+uint pev_board( void);
 struct pev_reg_remap *pev_io_remap( void);
 struct pev_node *pev_set_crate( uint);
 int pev_exit( struct pev_node *);
@@ -133,11 +137,17 @@ int pev_map_free( struct pev_ioctl_map_pg *);
 int pev_map_modify( struct pev_ioctl_map_pg *);
 int pev_map_read( struct pev_ioctl_map_ctl *);
 int pev_map_clear( struct pev_ioctl_map_ctl *);
+int pev_i2c_cmd( uint, uint);
+int pev_i2c_read( uint, uint);
+int pev_i2c_write( uint, uint, uint);
 int pev_pex_read( uint);
 int pev_pex_write( uint, uint);
-int pev_sflash_id( char *);
+int pev_sflash_id( char *, uint);
+int pev_sflash_rdsr( uint);
+int pev_sflash_wrsr( int, uint);
 int pev_sflash_read( uint, void *, uint);
 int pev_sflash_write( uint, void *, uint);
+int pev_fpga_load( uint, void *, uint);
 int pev_fpga_sign( uint, void *, uint);
 int pev_timer_start( uint, uint);
 void pev_timer_restart( void);
@@ -163,6 +173,8 @@ int pev_vme_irq_clear( struct pev_ioctl_vme_irq *);
 int pev_csr_rd( int);
 void pev_csr_wr( int, int);
 void pev_csr_set( int, int);
+int pev_elb_rd( int);
+int pev_elb_wr( int, int);
 #ifdef _cplusplus
 }
 #endif

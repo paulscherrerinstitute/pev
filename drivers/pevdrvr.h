@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.12  2012/01/26 16:17:17  ioxos
+ * prepare for IFC1210 support [JFG]
  *
  * Revision 1.11  2011/12/06 13:15:18  ioxos
  * support for multi task VME IRQ [JFG]
@@ -194,15 +197,22 @@ struct pev_reg
 struct pev_dev
 {
   struct pci_dev *dev; 
+  u32 board;
   u64 pmem_base;
   u32 pmem_len;
   u32 io_base;
   u32 io_len;
   u32 mem_base;
   u32 mem_len;
+  u32 csr_base;
+  u32 csr_len;
+  u32 elb_base;
+  u32 elb_len;
   void *pmem_ptr;
   void *io_ptr;
   void *mem_ptr;
+  void *csr_ptr;
+  void *elb_ptr;
   u32 crate;
   u32 msi;
   u32 irq_pending;
@@ -241,6 +251,7 @@ struct pev_dev
   struct pev_reg_remap io_remap;
   struct semaphore vme_sem;             /* semaphore to synchronize with VME interrput  */
   u32 vme_status;
+  u32 fpga_status;
   u32 vme_irq_set;
   struct vme_irq_ctl
   {

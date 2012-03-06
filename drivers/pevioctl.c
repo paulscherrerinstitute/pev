@@ -29,8 +29,11 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.14  2012/01/27 13:13:05  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
  *
  * Revision 1.13  2011/12/06 13:15:18  ioxos
  * support for multi task VME IRQ [JFG]
@@ -314,6 +317,25 @@ pev_ioctl_i2c( struct pev_dev *pev,
   }
   switch ( cmd)
   {
+    case PEV_IOCTL_I2C_DEV_CMD:
+    {
+      pev_i2c_dev_cmd( pev, &i2c);
+      break;
+    }
+    case PEV_IOCTL_I2C_DEV_RD:
+    {
+      pev_i2c_dev_read( pev, &i2c);
+      if( copy_to_user( (void *)arg, &i2c, sizeof( i2c)))
+      {
+        return -EFAULT;
+      }
+      break;
+    }
+    case PEV_IOCTL_I2C_DEV_WR:
+    {
+      pev_i2c_dev_write( pev, &i2c);
+      break;
+    }
     case PEV_IOCTL_I2C_PEX_RD:
     {
       pev_i2c_pex_read( pev, &i2c);
@@ -575,6 +597,24 @@ pev_ioctl_rw( struct pev_dev *pev,
       rw.data = *(u32 *)(pev->mem_ptr + rw.offset);
       break;
     }
+    case PEV_IOCTL_RD_CSR_8:
+    {
+      if( rw.offset > pev->csr_len - 1) return( -EFAULT);
+      rw.data = (u32)( *(u8 *)(pev->csr_ptr + rw.offset));
+      break;
+    }
+    case PEV_IOCTL_RD_CSR_16:
+    {
+      if( rw.offset > pev->csr_len - 2) return( -EFAULT);
+      rw.data = (u32)( *(u16 *)(pev->csr_ptr + rw.offset));
+      break;
+    }
+    case PEV_IOCTL_RD_CSR_32:
+    {
+      if( rw.offset > pev->csr_len - 4) return( -EFAULT);
+      rw.data = *(u32 *)(pev->csr_ptr + rw.offset);
+      break;
+    }
     case PEV_IOCTL_RD_CFG_8:
     {
       u8 tmp;
@@ -649,6 +689,24 @@ pev_ioctl_rw( struct pev_dev *pev,
     {
       if( rw.offset > pev->mem_len - 4) return( -EFAULT);
       *(u32 *)(pev->mem_ptr + rw.offset) = rw.data;
+      break;
+    }
+    case PEV_IOCTL_WR_CSR_8:
+    {
+      if( rw.offset > pev->csr_len - 1) return( -EFAULT);
+      *(u8 *)(pev->csr_ptr + rw.offset) = (u8)rw.data;
+      break;
+    }
+    case PEV_IOCTL_WR_CSR_16:
+    {
+      if( rw.offset > pev->csr_len - 2) return( -EFAULT);
+      *(u16 *)(pev->csr_ptr + rw.offset) = (u16)rw.data;
+      break;
+    }
+    case PEV_IOCTL_WR_CSR_32:
+    {
+      if( rw.offset > pev->csr_len - 4) return( -EFAULT);
+      *(u32 *)(pev->csr_ptr + rw.offset) = rw.data;
       break;
     }
     case PEV_IOCTL_WR_CFG_8:
@@ -754,6 +812,33 @@ pev_ioctl_rw( struct pev_dev *pev,
       *(u32 *)(pev->mem_ptr + rw.offset) = rw.data;
       break;
     }
+    case PEV_IOCTL_SET_CSR_8:
+    {
+     u32 tmp;
+      if( rw.offset > pev->csr_len - 1) return( -EFAULT);
+      tmp = (u32)( *(u8 *)(pev->csr_ptr + rw.offset));
+      rw.data |= tmp;
+      *(u8 *)(pev->csr_ptr + rw.offset) = (u8)rw.data;
+      break;
+    }
+    case PEV_IOCTL_SET_CSR_16:
+    {
+      u32 tmp;
+      if( rw.offset > pev->csr_len - 2) return( -EFAULT);
+      tmp = (u32)( *(u16 *)(pev->csr_ptr + rw.offset));
+      rw.data |= tmp;
+      *(u16 *)(pev->csr_ptr + rw.offset) = (u16)rw.data;
+      break;
+    }
+    case PEV_IOCTL_SET_CSR_32:
+    {
+      u32 tmp;
+      if( rw.offset > pev->csr_len - 4) return( -EFAULT);
+      tmp = (u32)( *(u32 *)(pev->csr_ptr + rw.offset));
+      rw.data |= tmp;
+      *(u32 *)(pev->csr_ptr + rw.offset) = rw.data;
+      break;
+    }
     case PEV_IOCTL_SET_CFG_8:
     {
       u8 tmp;
@@ -804,37 +889,41 @@ pev_ioctl_sflash( struct pev_dev *pev,
 {
   int retval = 0;  
   int data, *ptr;
-  struct pev_ioctl_rdwr rdwr;
+  struct pev_ioctl_sflash_rw rdwr;
 
-  if( !pev->dev)
+  if( pev->board != PEV_BOARD_IFC1210) /* IFC1210 has a direct path to SFLASH via ELBC */
   {
-    return( -ENODEV);
+    if( !pev->dev)
+    {
+      return( -ENODEV);
+    }
   }
-  switch ( cmd)
+
+  switch ( cmd & 0xfffffffc)
   {
     case PEV_IOCTL_SFLASH_ID:
     {
       ptr = (int *)arg;
       data = 0;
-      pev_sflash_id( pev, (unsigned char *)&data);
+      pev_sflash_id( pev, (unsigned char *)&data, cmd&3);
       put_user( data, ptr);
       break;
     }
     case PEV_IOCTL_SFLASH_RDSR:
     {
       ptr = (int *)arg;
-      data = (int)pev_sflash_rdsr( pev);
+      data = (int)pev_sflash_rdsr( pev, cmd&3);
       put_user( data, ptr);
       break;
     }
     case PEV_IOCTL_SFLASH_WRSR:
     {
-      unsigned char sr;
+      unsigned short sr;
 
       ptr = (int *)arg;
       get_user( data, ptr);
-      sr = (unsigned char)data;
-      pev_sflash_wrsr( pev, sr);
+      sr = (unsigned short)data;
+      pev_sflash_wrsr( pev, sr, cmd&3);
       break;
     }
     case PEV_IOCTL_SFLASH_RD:
@@ -856,6 +945,92 @@ pev_ioctl_sflash( struct pev_dev *pev,
       }
       retval = pev_sflash_write( pev, &rdwr);
       break;
+    }
+    default:
+    {
+      return( -EINVAL);
+    }
+  }   
+  return( retval);
+}
+
+int
+pev_ioctl_fpga( struct pev_dev *pev,
+	        unsigned int cmd, 
+	        unsigned long arg)
+{
+  int retval = 0;  
+  struct pev_ioctl_sflash_rw rdwr;
+
+  if( pev->board != PEV_BOARD_IFC1210)
+  {
+    return( -EPERM);
+  }
+  switch ( cmd)
+  {
+    case PEV_IOCTL_FPGA_LOAD:
+    {
+      debugk(( KERN_ALERT "FPGA load\n"));
+      if( copy_from_user(&rdwr, (void *)arg, sizeof(rdwr)))
+      {
+	return( -EFAULT);
+      }
+      retval = pev_fpga_load( pev, &rdwr);
+      break;
+    }
+    default:
+    {
+      return( -EINVAL);
+    }
+  }   
+  return( retval);
+}
+
+int
+pev_ioctl_eeprom( struct pev_dev *pev,
+	          unsigned int cmd, 
+	          unsigned long arg)
+{
+  int retval = 0;  
+  struct pev_ioctl_rdwr rdwr;
+
+  if( !pev->dev)
+  {
+    return( -ENODEV);
+  }
+  switch ( cmd)
+  {
+    case PEV_IOCTL_EEPROM_RD:
+    {
+      debugk(( KERN_ALERT "EEPROM read\n"));
+      if( copy_from_user(&rdwr, (void *)arg, sizeof(rdwr)))
+      {
+        return( -EFAULT);
+      }
+      retval = -ENODEV;
+      if( pev->board == PEV_BOARD_IFC1210)
+      {
+	retval = pev_idt_eeprom_read( pev, &rdwr);
+      }
+      break;
+    }
+    case PEV_IOCTL_EEPROM_WR:
+    {
+      debugk(( KERN_ALERT "EEPROM write\n"));
+      if( copy_from_user(&rdwr, (void *)arg, sizeof(rdwr)))
+      {
+	return( -EFAULT);
+      }
+      retval = -ENODEV;
+      if( pev->board == PEV_BOARD_IFC1210)
+      {
+	retval = pev_idt_eeprom_write( pev, &rdwr);
+      }
+      break;
+    }
+    default:
+    {
+      retval = -EINVAL;
     }
   }   
   return( retval);
@@ -921,7 +1096,11 @@ pev_ioctl_timer( struct pev_dev *pev,
       pev_timer_irq_dis( pev);
       break;
     }
-  }
+    default:
+    {
+      retval = -EINVAL;
+    }
+   }
          
   return( retval);
 }

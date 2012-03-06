@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: ioctllib.h,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.4  2012/01/27 13:13:04  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
  *
  * Revision 1.3  2009/06/04 13:24:14  ioxos
  * use buf_alloc instead of dma_alloc [JFG]
@@ -55,6 +58,8 @@ int pev_ioctl_reg( struct pev_dev *, unsigned int,  unsigned long);
 int pev_ioctl_rdwr( struct pev_dev *, unsigned int,  unsigned long);
 int pev_ioctl_rw( struct pev_dev *, unsigned int,  unsigned long);
 int pev_ioctl_sflash( struct pev_dev *, unsigned int,  unsigned long);
+int pev_ioctl_fpga( struct pev_dev *, unsigned int,  unsigned long);
+int pev_ioctl_eeprom( struct pev_dev *, unsigned int,  unsigned long);
 int pev_ioctl_timer( struct pev_dev *, unsigned int,  unsigned long);
 int pev_ioctl_vme( struct pev_dev *, unsigned int,  unsigned long);
 

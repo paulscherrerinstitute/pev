@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: dmalib.h,v $
- * Revision 1.1  2012/02/14 14:15:45  kalantari
- * added IoxoS driver and module version 3_13 under drivers and modules
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
  *
  * Revision 1.7  2010/01/13 16:49:35  ioxos
  * xenomai support for DMA list [JFG]

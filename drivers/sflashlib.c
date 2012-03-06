@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: sflashlib.c,v $
- *  Revision 1.1  2012/02/14 14:15:45  kalantari
- *  added IoxoS driver and module version 3_13 under drivers and modules
+ *  Revision 1.2  2012/03/06 10:31:34  kalantari
+ *  patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ *  Revision 1.7  2012/01/27 13:13:05  ioxos
+ *  prepare release 4.01 supporting x86 & ppc [JFG]
  *
  *  Revision 1.6  2009/12/15 17:13:25  ioxos
  *  modification for short io window [JFG]
@@ -83,6 +86,7 @@
 #define SFLASH_CMD_WRDI  0x04
 #define SFLASH_CMD_RDID  0x9F
 #define SFLASH_CMD_RDSR  0x05
+#define SFLASH_CMD_RDSR2 0x35
 #define SFLASH_CMD_WRSR  0x01
 #define SFLASH_CMD_READ  0x03
 #define SFLASH_CMD_FREAD 0x0B
@@ -95,7 +99,53 @@
 #define SPI_DO        0x02
 #define SPI_DI        0x04
 #define SPI_CS        0x08
+#define SPI_DEV0      0x00
+#define SPI_DEV1      0x40
+#define SPI_DEV2      0x80
+#define SPI_DEV3      0xc0
 
+int sflash_dev = 0;
+
+void
+sflash_set_dev( uint dev)
+{
+  sflash_dev = (dev & 3) << 6;
+}
+
+static void
+sflash_write_io( uint data,
+                 volatile ulong reg_p)
+{
+  volatile uint tmp;
+  if( sflash_dev)
+  {
+    tmp = *(uint *)reg_p;
+    *(uint *)reg_p = sflash_dev | data;
+    tmp = *(uint *)reg_p;
+  }
+  else
+  {
+    outl( 0x40 | data, reg_p);
+  }
+  return;
+}
+
+static uint
+sflash_read_io(  ulong reg_p)
+{
+  volatile uint data;
+
+  if( sflash_dev)
+  {
+    data = *(uint *)reg_p;
+  }
+  else
+  {
+    data = inl( reg_p);
+  }
+
+  return( data);
+}
 
 
 void
@@ -121,6 +171,7 @@ sflash_load_cmd( uint io_reg,
     case SFLASH_CMD_WRDI:
     case SFLASH_CMD_RDID:
     case SFLASH_CMD_RDSR:
+    case SFLASH_CMD_RDSR2:
     case SFLASH_CMD_BE:
     case SFLASH_CMD_DUMMY:
     {
@@ -129,8 +180,16 @@ sflash_load_cmd( uint io_reg,
     }
     case SFLASH_CMD_WRSR:
     {
-      cmd = ( cmd << 8) | (para & 0xff);
-      size = 16;
+      if( sflash_dev)
+      {
+	cmd = ( cmd << 16) | ((para & 0xff)<<8) | ((para & 0xff00)>>8);
+	size = 24;
+      }
+      else
+      {
+	cmd = ( cmd << 8) | (para & 0xff);
+	size = 16;
+      }
       break;
     }
     default:
@@ -144,7 +203,7 @@ sflash_load_cmd( uint io_reg,
     data = 0;
     if( cmd & ( 1 <<  size)) data = SPI_DO;
     data |= SPI_CLK | SPI_CS;
-    outl( data, io_reg);
+    sflash_write_io( data, io_reg);
   }
 
   return;
@@ -153,13 +212,13 @@ sflash_load_cmd( uint io_reg,
 void
 sflash_start_cmd( uint io_reg)
 {
-  outl( SPI_CS, io_reg);
+  sflash_write_io( SPI_CS, io_reg);
 }
 
 void
 sflash_end_cmd( uint io_reg)
 {
-  outl( 0x0, io_reg);
+  sflash_write_io( 0x0, io_reg);
 }
 
 void
@@ -174,7 +233,7 @@ sflash_write_byte( uint io_reg,
     data = 0;
     if( b & ( 1 <<  i)) data = SPI_DO;
     data |= SPI_CLK | SPI_CS;
-    outl( data, io_reg);
+    sflash_write_io( data, io_reg);
   }
 
   return;
@@ -190,12 +249,12 @@ sflash_read_byte( uint io_reg)
   b = 0;
   while( i--)
   {
-    data = inl( io_reg);
+    data = sflash_read_io( io_reg);
     if( data & SPI_DI)
     {
       b |= 1 <<  i;
     }
-    outl( SPI_CLK | SPI_CS, io_reg);
+    sflash_write_io( SPI_CLK | SPI_CS, io_reg);
   }
 
   return( b);
@@ -221,14 +280,18 @@ sflash_read_ID( uint io_base,
 unsigned char
 sflash_read_status( uint io_base)
 {
-  unsigned char status;
+  unsigned short status;
   uint io_reg;
  
   io_reg = io_base + SPI_OFFSET;
 
   sflash_start_cmd( io_reg);
+  sflash_load_cmd( io_reg, SFLASH_CMD_RDSR2, 0);
+  status = (sflash_read_byte( io_reg) << 8) & 0xff00;
+  sflash_end_cmd( io_reg);
+  sflash_start_cmd( io_reg);
   sflash_load_cmd( io_reg, SFLASH_CMD_RDSR, 0);
-  status = sflash_read_byte( io_reg);
+  status |= sflash_read_byte( io_reg) & 0xff;
   sflash_end_cmd( io_reg);
   return( status);
 }
@@ -273,7 +336,7 @@ sflash_write_enable( uint io_reg,
 
 void
 sflash_write_status( uint io_base,
-		     unsigned char status)
+		     unsigned short status)
 {
   uint io_reg;
  
@@ -348,7 +411,8 @@ int
 sflash_write_sector( uint io_base,
                      uint start,
 	             unsigned char *buf,
-	             uint size)
+	             uint size,
+		     uint sect_size)
 {
   int i, retval;
   uint offset;
@@ -372,7 +436,7 @@ sflash_write_sector( uint io_base,
       retval = -1;
       goto sflash_write_data_exit;
     }
-    for( i = 0; i < 0x400; i++)
+    for( i = 0; i < (sect_size >> 8); i++)
     {
       sflash_write_enable(  io_reg, 0x100);
       if( sflash_page_program( io_base, offset, buf, 0x100) < 0)

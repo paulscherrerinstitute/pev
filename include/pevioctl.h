@@ -27,8 +27,23 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.1  2012/02/06 14:14:34  kalantari
- * added required IoxoS version 3.13 sources and headers
+ * Revision 1.2  2012/03/06 10:31:34  kalantari
+ * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ * Revision 1.31  2012/02/14 16:09:49  ioxos
+ * add support DMA byte swapping [JFG]
+ *
+ * Revision 1.30  2012/02/03 16:29:24  ioxos
+ * address space for SHM1,2 and USR1,2 [JFG]
+ *
+ * Revision 1.29  2012/01/30 11:18:05  ioxos
+ * add support for board name [JFG]
+ *
+ * Revision 1.28  2012/01/27 13:16:06  ioxos
+ * prepare release 4.01 supporting x86 & ppc [JFG]
+ *
+ * Revision 1.27  2012/01/25 15:59:02  ioxos
+ * prepare for IFC1210 support [JFG]
  *
  * Revision 1.26  2011/12/06 13:17:04  ioxos
  * support for multi task VME IRQ [JFG]
@@ -189,16 +204,26 @@ struct pev_reg_remap
   uint usr_itc;
 };
 
+#define PEV_BOARD_PEV1100 0x73571100
+#define PEV_BOARD_IPV1102 0x73571102
+#define PEV_BOARD_VCC1104 0x73571104
+#define PEV_BOARD_VCC1105 0x73571105
+#define PEV_BOARD_IFC1210 0x73571210
+#define PEV_BOARD_MPC1200 0x73571200
 
 #define PEV_IOCTL_OP_MASK    0x0FFF0000
 
-#define PEV_IOCTL_ID         0x00000000
-#define PEV_IOCTL_VERSION    0x00000001
+#define PEV_IOCTL_ID         0x00000100
+#define PEV_IOCTL_VERSION    0x00000101
+#define PEV_IOCTL_BOARD      0x00000102
 
 #define PEV_IOCTL_RW         0x00010000
 #define PEV_IOCTL_RD_IO_8    ( PEV_IOCTL_RW | 0x0111)
 #define PEV_IOCTL_RD_IO_16   ( PEV_IOCTL_RW | 0x0112)
 #define PEV_IOCTL_RD_IO_32   ( PEV_IOCTL_RW | 0x0114)
+#define PEV_IOCTL_RD_CSR_8   ( PEV_IOCTL_RW | 0x0151)
+#define PEV_IOCTL_RD_CSR_16  ( PEV_IOCTL_RW | 0x0152)
+#define PEV_IOCTL_RD_CSR_32  ( PEV_IOCTL_RW | 0x0154)
 #define PEV_IOCTL_RD_PMEM_8  ( PEV_IOCTL_RW | 0x0121)
 #define PEV_IOCTL_RD_PMEM_16 ( PEV_IOCTL_RW | 0x0122)
 #define PEV_IOCTL_RD_PMEM_32 ( PEV_IOCTL_RW | 0x0124)
@@ -211,6 +236,9 @@ struct pev_reg_remap
 #define PEV_IOCTL_WR_IO_8    ( PEV_IOCTL_RW | 0x0211)
 #define PEV_IOCTL_WR_IO_16   ( PEV_IOCTL_RW | 0x0212)
 #define PEV_IOCTL_WR_IO_32   ( PEV_IOCTL_RW | 0x0214)
+#define PEV_IOCTL_WR_CSR_8   ( PEV_IOCTL_RW | 0x0251)
+#define PEV_IOCTL_WR_CSR_16  ( PEV_IOCTL_RW | 0x0252)
+#define PEV_IOCTL_WR_CSR_32  ( PEV_IOCTL_RW | 0x0254)
 #define PEV_IOCTL_WR_PMEM_8  ( PEV_IOCTL_RW | 0x0221)
 #define PEV_IOCTL_WR_PMEM_16 ( PEV_IOCTL_RW | 0x0222)
 #define PEV_IOCTL_WR_PMEM_32 ( PEV_IOCTL_RW | 0x0224)
@@ -223,6 +251,9 @@ struct pev_reg_remap
 #define PEV_IOCTL_SET_IO_8       ( PEV_IOCTL_RW | 0x0311)
 #define PEV_IOCTL_SET_IO_16      ( PEV_IOCTL_RW | 0x0312)
 #define PEV_IOCTL_SET_IO_32      ( PEV_IOCTL_RW | 0x0314)
+#define PEV_IOCTL_SET_CSR_8      ( PEV_IOCTL_RW | 0x0351)
+#define PEV_IOCTL_SET_CSR_16     ( PEV_IOCTL_RW | 0x0352)
+#define PEV_IOCTL_SET_CSR_32     ( PEV_IOCTL_RW | 0x0354)
 #define PEV_IOCTL_SET_PMEM_8     ( PEV_IOCTL_RW | 0x0321)
 #define PEV_IOCTL_SET_PMEM_16    ( PEV_IOCTL_RW | 0x0322)
 #define PEV_IOCTL_SET_PMEM_32    ( PEV_IOCTL_RW | 0x0324)
@@ -254,9 +285,18 @@ struct pev_reg_remap
 #define PEV_IOCTL_DMA_KILL        0x00040004
 
 #define PEV_IOCTL_SFLASH          0x00050000
-#define PEV_IOCTL_SFLASH_ID       0x00050001
-#define PEV_IOCTL_SFLASH_RDSR     0x00050011
-#define PEV_IOCTL_SFLASH_WRSR     0x00050012
+#define PEV_IOCTL_SFLASH_ID       0x00050000
+#define PEV_IOCTL_SFLASH1_ID      0x00050001
+#define PEV_IOCTL_SFLASH2_ID      0x00050002
+#define PEV_IOCTL_SFLASH3_ID      0x00050003
+#define PEV_IOCTL_SFLASH_RDSR     0x00050010
+#define PEV_IOCTL_SFLASH1_RDSR    0x00050011
+#define PEV_IOCTL_SFLASH2_RDSR    0x00050012
+#define PEV_IOCTL_SFLASH3_RDSR    0x00050013
+#define PEV_IOCTL_SFLASH_WRSR     0x00050020
+#define PEV_IOCTL_SFLASH1_WRSR    0x00050021
+#define PEV_IOCTL_SFLASH2_WRSR    0x00050022
+#define PEV_IOCTL_SFLASH3_WRSR    0x00050023
 #define PEV_IOCTL_SFLASH_RD       0x00050100
 #define PEV_IOCTL_SFLASH_WR       0x00050200
 
@@ -274,6 +314,9 @@ struct pev_reg_remap
 #define PEV_IOCTL_I2C             0x00070000
 #define PEV_IOCTL_I2C_PEX_RD      0x00070101
 #define PEV_IOCTL_I2C_PEX_WR      0x00070102
+#define PEV_IOCTL_I2C_DEV_RD      0x00070103
+#define PEV_IOCTL_I2C_DEV_WR      0x00070104
+#define PEV_IOCTL_I2C_DEV_CMD     0x00070105
 
 #define PEV_IOCTL_VME             0x00080000
 #define PEV_IOCTL_VME_CONF_RD     0x00080001
@@ -292,6 +335,13 @@ struct pev_reg_remap
 #define PEV_IOCTL_BUF             0x00090000
 #define PEV_IOCTL_BUF_ALLOC       0x00090011
 #define PEV_IOCTL_BUF_FREE        0x00090012
+
+#define PEV_IOCTL_EEPROM          0x000a0000
+#define PEV_IOCTL_EEPROM_RD       0x000a0100
+#define PEV_IOCTL_EEPROM_WR       0x000a0200
+
+#define PEV_IOCTL_FPGA            0x000b0000
+#define PEV_IOCTL_FPGA_LOAD       0x000b0001
 
 #define PEV_IOCTL_MFCC            0x00200000
 #define PEV_IOCTL_MFCC_FIFO       0x00200001
@@ -321,11 +371,12 @@ struct pev_ioctl_rw
   uint data;
 };
 
-struct pev_ioctl_sfash_rw
+struct pev_ioctl_sflash_rw
 {
   void *buf;
   uint offset;
   uint len;
+  uint dev;
 };
 
 struct pev_ioctl_rw_reg
@@ -359,15 +410,21 @@ struct pev_ioctl_rw_reg
 #define RDWR_CFG         0x01       /* FPGA PCI configuration registers */
 #define RDWR_PCIE_CFG    0x01       /* FPGA PCI configuration registers */
 #define RDWR_PCIE_IO     0x02       /* FPGA PCI IO window */
+#define RDWR_PCIE_BAR4   0x02       /* FPGA PCI IO window */
 #define RDWR_IO          0x02       /* FPGA PCI IO window */
 #define RDWR_PCIE_PMEM   0x03       /* FPGA PCI PMEM window */
+#define RDWR_PCIE_BAR0   0x03       /* FPGA PCI PMEM window */
 #define RDWR_PMEM        0x03       /* FPGA PCI pMEM window */
 #define RDWR_PCIE_MEM    0x04       /* FPGA PCI MEM window */
+#define RDWR_PCIE_BAR2   0x04       /* FPGA PCI MEM window */
 #define RDWR_MEM         0x04       /* FPGA PCI MEM window */
 #define RDWR_DMA_SHM     0x05       /* SHM reserved for DMA operations */          
 #define RDWR_USR         0x06          
+#define RDWR_PCIE_BAR3   0x07       /* FPGA PCI BAR3 window (8k in MEM space for CSR) */
+#define RDWR_CSR         0x07       /* FPGA PCI BAR3 window (8k in MEM space for CSR) */
 #define RDWR_PEX         0x14
 #define RDWR_PEX_MEM     0x14       /* PEX8624 PCI MEM window */
+#define RDWR_ELB         0x18       /* P2020 ELB bus */
 #define RDWR_KMEM        0x20
 
 
@@ -401,7 +458,11 @@ struct pev_ioctl_rdwr
 #define MAP_SPACE_PCIE    0x0000
 #define MAP_SPACE_VME     0x1000
 #define MAP_SPACE_SHM     0x2000
+#define MAP_SPACE_SHM1    0x2000
+#define MAP_SPACE_SHM2    0x3000
 #define MAP_SPACE_USR     0x3000
+#define MAP_SPACE_USR1    0x4000
+#define MAP_SPACE_USR2    0x5000
 
 #define MAP_ENABLE        0x0001
 #define MAP_ENABLE_WR     0x0002
@@ -471,6 +532,12 @@ struct pev_ioctl_map_ctl
 #define I2C_DEV_LM86_2 0x3
 #define I2C_DEV_XMC_1  0x4
 #define I2C_DEV_XMC_2  0x5
+
+struct pev_i2c_devices
+{
+  char *name;
+  uint id;
+};
 
 struct pev_ioctl_i2c
 {
@@ -585,8 +652,12 @@ struct pev_ioctl_buf
 #define DMA_PCIE_UADDR    0x20
 #define DMA_SPACE_VME     0x01
 #define DMA_SPACE_SHM     0x02
+#define DMA_SPACE_SHM1    0x02
+#define DMA_SPACE_SHM2    0x03
 #define DMA_SPACE_USR     0x03
-#define DMA_SPACE_MASK    0x03
+#define DMA_SPACE_USR1    0x04
+#define DMA_SPACE_USR2    0x05
+#define DMA_SPACE_MASK    0x07
 #define DMA_VME_A16       0x10
 #define DMA_VME_A24       0x20
 #define DMA_VME_A32       0x30
@@ -620,6 +691,8 @@ struct pev_ioctl_buf
 #define DMA_PCIE_RR1      0x00  /* 1 outstanding read request */
 #define DMA_PCIE_RR2      0x10  /* 2 outstanding read request */
 #define DMA_PCIE_RR3      0x20  /* 3 outstanding read request */
+
+#define DMA_SWAP          0x40  /* automatic byte swapping */  
 
 struct pev_ioctl_dma_req
 {

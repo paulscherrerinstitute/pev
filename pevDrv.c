@@ -34,23 +34,21 @@
 
 
 
-#define MAGIC 		1100 /*  pev1100 */
-#define SHMEM_MAP_SIZE 	0x10000000     	/*  256 MB DDR2 shared memory */
-#define VME32_MAP_SIZE 	0xDF00000      	/*  223 MB A32 */
-#define VME24_MAP_SIZE 	0x1000000      	/* 16 MB A24 */
-#define VMECR_MAP_SIZE 	0x1000000	/* 16 MB CR/CSR */
+#define MAGIC 		1100 		/*  pev1100 */
+#define SHMEM_MAP_SIZE 	0x400000     	/*  8 MB DDR2 shared memory */
+#define VME32_MAP_SIZE 	0x800000      	/*  8  MB A32 */
+#define VME24_MAP_SIZE 	0x800000      	/* 8 MB A24 */
+#define VMECR_MAP_SIZE 	0x800000	/* 0 MB CR/CSR */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 */
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
 #define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
-#define RNGBUF_SIZE 	1000 
 #define DMA_Q_SIZE	1000
-#define DMA_MAXMSG_SIZE 0x1000
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.4 2012/02/23 10:45:58 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.5 2012/03/06 10:31:34 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -144,6 +142,7 @@ int pevRead(
     int prio)
 {
   int swap = 0;
+  unsigned short srcMode = 0;
   
     if (!device || device->magic != MAGIC)
     {
@@ -168,7 +167,15 @@ int pevRead(
     }
 
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+    {
+#ifdef powerpc
+      srcMode = DMA_SWAP;
       swap = 1;
+#else
+      srcMode = 0;
+      swap = 0;
+#endif
+    }
       
     if( nelem > 100 ) 		/* do DMA */
     {  
@@ -181,7 +188,7 @@ int pevRead(
       device->pev_dmaReq.size = nelem*dlen;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
-      device->pev_dmaReq.src_mode = 0;
+      device->pev_dmaReq.src_mode = srcMode;
       device->pev_dmaReq.des_mode = 0;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
@@ -220,6 +227,7 @@ int pevWrite(
     int priority)
 {
   int swap = 0;
+  unsigned short destMode = 0;
    	
     if (!device || device->magic != MAGIC)
     {
@@ -244,7 +252,16 @@ int pevWrite(
         return -1;
     }
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+    {
+#ifdef powerpc
+      destMode = DMA_SWAP;
       swap = 1;
+#else
+      destMode = 0;
+      swap = 0;
+#endif
+    }
+      
     
     if(nelem > 100)
     {
@@ -263,7 +280,7 @@ int pevWrite(
       device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.des_space = device->dmaSpace;
       device->pev_dmaReq.src_mode = 0;
-      device->pev_dmaReq.des_mode = 0;
+      device->pev_dmaReq.des_mode = destMode;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
@@ -310,6 +327,7 @@ int pevAsynRead(
     int prio)
 {
   int swap = 0;
+  unsigned short srcMode = 0;
   pevDmaReqMsg pevDmaRequest;
   
     if (!device || device->magic != MAGIC)
@@ -335,7 +353,15 @@ int pevAsynRead(
     }
 
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+    {
+#ifndef powerpc
+      srcMode = DMA_SWAP;
       swap = 1;
+#else		/* X86_32 can probably used for stronegr check */
+      srcMode = 0;
+      swap = 0;
+#endif
+    }
       
     if( nelem > 100 ) 		/* do DMA */
     {  
@@ -349,7 +375,7 @@ int pevAsynRead(
       device->pev_dmaReq.size = nelem*dlen;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
-      device->pev_dmaReq.src_mode = 0;
+      device->pev_dmaReq.src_mode = srcMode;
       device->pev_dmaReq.des_mode = 0;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
@@ -389,6 +415,7 @@ int pevAsynWrite(
     int priority)
 {
   int swap = 0;
+  unsigned short destMode = 0;
   pevDmaReqMsg pevDmaRequest;
    	
     if (!device || device->magic != MAGIC)
@@ -414,7 +441,15 @@ int pevAsynWrite(
         return -1;
     }
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+    {
+#ifndef powerpc
+      destMode = DMA_SWAP;
       swap = 1;
+#else
+      destMode = 0;
+      swap = 0;
+#endif
+    }
     
     if(nelem > 100)
     {
@@ -434,7 +469,7 @@ int pevAsynWrite(
       device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.des_space = device->dmaSpace;
       device->pev_dmaReq.src_mode = 0;
-      device->pev_dmaReq.des_mode = 0;
+      device->pev_dmaReq.des_mode = destMode;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;

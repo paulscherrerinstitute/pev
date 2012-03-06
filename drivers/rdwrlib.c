@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: rdwrlib.c,v $
- *  Revision 1.1  2012/02/14 14:15:45  kalantari
- *  added IoxoS driver and module version 3_13 under drivers and modules
+ *  Revision 1.2  2012/03/06 10:31:34  kalantari
+ *  patch for pevdrvr.c to solve VME hang-up problem due to caching
+ *
+ *  Revision 1.7  2012/01/27 13:13:05  ioxos
+ *  prepare release 4.01 supporting x86 & ppc [JFG]
  *
  *  Revision 1.6  2009/04/06 09:49:06  ioxos
  *  remove pevdrvr.h [JFG]
@@ -1036,3 +1039,118 @@ rdwr_loop( void *buf,
 
   return( retval);
 }
+
+int 
+rdwr_idt_wr( struct pci_dev *dev,
+	     void *buf,
+	     int offset,
+	     struct pev_rdwr_mode *m)
+{
+  if( pci_write_config_dword( dev, 0xff8,offset))
+  {
+    return( -EIO);
+  }
+  if( m->ds == RDWR_BYTE) /* 8 bit access */
+  {
+    char tmp;
+
+    if( get_user( tmp, (char *)buf))
+    {
+      return( -EFAULT);
+    }
+    if( pci_write_config_byte( dev, 0xffc+(offset&3), tmp))
+    {
+      return( -EIO);
+    }
+    return( 0);
+  }
+  if( m->ds == RDWR_SHORT) /* 16 bit access */
+  {
+    short tmp;
+
+    if( get_user( tmp, (short *)buf))
+    {
+      return( -EFAULT);
+    }
+    if( m->swap) tmp = rdwr_swap_16( tmp);
+    if( pci_write_config_word( dev, 0xffc+(offset&2), tmp))
+    {
+      return( -EIO);
+    }
+    return( 0);
+  }
+  if( m->ds == RDWR_INT) /* 32 bit access */
+  {
+    int tmp;
+
+    if( get_user( tmp, (int *)buf))
+    {
+      return( -EFAULT);
+    }
+    if( m->swap) tmp = rdwr_swap_32( tmp);
+    if( pci_write_config_dword( dev, 0xffc, tmp))
+    {
+      return( -EIO);
+    }
+    return( 0);
+  }
+  return( -EINVAL);
+}
+
+int 
+rdwr_idt_rd( struct pci_dev *dev,
+	     void *buf,
+	     int offset,
+	     struct pev_rdwr_mode *m)
+{
+  if( pci_write_config_dword( dev, 0xff8,offset))
+  {
+    return( -EIO);
+  }
+  if( m->ds == RDWR_BYTE) /* 8 bit access */
+  {
+    char tmp;
+
+    if( pci_read_config_byte( dev, 0xffc+(offset&3), &tmp))
+    {
+      return( -EIO);
+    }
+    if( put_user( tmp, (char *)buf))
+    {
+      return( -EFAULT);
+    }
+    return( 0);
+  }
+  if( m->ds == RDWR_SHORT) /* 16 bit access */
+  {
+    short tmp;
+
+    if( pci_read_config_word( dev, 0xffc+(offset&2), &tmp))
+    {
+      return( -EIO);
+    }
+    if( m->swap) tmp = rdwr_swap_16( tmp);
+    if( put_user( tmp, (short *)buf))
+    {
+      return( -EFAULT);
+    }
+    return( 0);
+  }
+  if( m->ds == RDWR_INT) /* 32 bit access */
+  {
+    int tmp;
+
+    if( pci_read_config_dword( dev, 0xffc, &tmp))
+    {
+      return( -EIO);
+    }
+    if( m->swap) tmp = rdwr_swap_32( tmp);
+    if( put_user( tmp, (int *)buf))
+    {
+      return( -EFAULT);
+    }
+    return( 0);
+  }
+  return( -EINVAL);
+}
+
