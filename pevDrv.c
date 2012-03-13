@@ -35,20 +35,21 @@
 
 
 #define MAGIC 		1100 		/*  pev1100 */
-#define SHMEM_MAP_SIZE 	0x400000     	/*  8 MB DDR2 shared memory */
-#define VME32_MAP_SIZE 	0x800000      	/*  8  MB A32 */
+#define SHMEM_MAP_SIZE 	0x8000000     	/* 128 MB DDR2 shared memory in PMEM */
+#define VME32_MAP_SIZE 	0x800000      	/* 8  MB A32 */
 #define VME24_MAP_SIZE 	0x800000      	/* 8 MB A24 */
-#define VMECR_MAP_SIZE 	0x800000	/* 0 MB CR/CSR */
+#define VMECR_MAP_SIZE 	0x800000	/* 8 MB CR/CSR */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 */
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
 #define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
 #define DMA_Q_SIZE	1000
+#define MAX_PEVS	21		/* taken from VME 21 slot. makes sense ??? */
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.5 2012/03/06 10:31:34 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.6 2012/03/13 13:05:36 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -539,54 +540,36 @@ static regDevAsyncSupport pevAsynSupport = {
     pevAlloc
 };
 
-static void pevDrvAtexit(regDevice* device)
-{
-  struct pev_ioctl_map_ctl pev_ctl;
-  pev_ctl.sg_id = device->pev_rmArea_map.sg_id; 
-  printf("pevDrvAtexit(): we are at ioc exit**********\n");
-  
-  if(pev_ctl.sg_id)
-  { 
-    if(pev_map_clear(&pev_ctl))
-    	printf("pevDrvAtexit(): pev_map_clear(&pev_ctl) failed**********\n");
-  
-    if(&device->pev_rmArea_map)
-    {
-       pev_munmap( &device->pev_rmArea_map);
-       pev_map_free( &device->pev_rmArea_map);
-    }
-  }
-  else
-     printf("pevDrvAtexit(): no mapping found. sg_id = %d **********\n", pev_ctl.sg_id);
-
-  if(!device->dmaAllocFailed) 
-  	pev_buf_free( &device->pev_dmaBuf);
-	
-  pev_exit( device->pev);
-  free(device);
-  exit(0);
-}
 
 static ELLLIST pevRegDevList;                        /* Linked list of sync register devices */
 static ELLLIST pevRegDevAsynList;                    /* Linked list of Async register devices */
-
-
 
 static struct pev_ioctl_map_pg null_pev_rmArea_map = {0,0,0,0,0,0,0,0,0,0,0,0};
 /*****
 *	findMappedPevResource():
 *
 *	Desc.: finds already mapped resource be it synchronous or asynchronous device.
+*       if clearAll == true then clear all mapped areas
 *
 *****/
-static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const char* resource, epicsBoolean* mapStat, long* baseOffset) {
+static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const char* resource, 
+							epicsBoolean* mapStat, long* baseOffset, epicsBoolean clearAll) {
   regDevice* device;    
   regDeviceAsyn* asdevice;    
+  struct pev_ioctl_map_ctl pev_ctl; 
 
   for (device = (regDevice *)ellFirst(&pevRegDevList);
   	device != NULL;
   	device = (regDevice *)ellNext(&device->node)) {
-
+	
+       if(clearAll)
+       { 
+	  pev_ctl.sg_id = device->pev_rmArea_map.sg_id;
+	  pev_map_clear( &pev_ctl );
+          pev_munmap( &device->pev_rmArea_map );
+          pev_map_free( &device->pev_rmArea_map );
+       }
+       else
        if ( pev == device->pev && !strcmp(device->resource, resource) ) {
   	   /* pev_rmArea_map = device->pev_rmArea_map*/;
 	   *mapStat = epicsTrue;
@@ -601,6 +584,14 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
   	asdevice != NULL;
   	asdevice = (regDeviceAsyn *)ellNext(&asdevice->node)) {
 
+       if(clearAll)
+       { 
+	  pev_ctl.sg_id = asdevice->pev_rmArea_map.sg_id;
+	  pev_map_clear( &pev_ctl );
+          pev_munmap( &asdevice->pev_rmArea_map );
+          pev_map_free( &asdevice->pev_rmArea_map );
+       }
+       else
        if ( pev == asdevice->pev && !strcmp(asdevice->resource, resource) ) {
   	   /* pev_rmArea_map = device->pev_rmArea_map*/;
 	   *mapStat = epicsTrue; 
@@ -612,6 +603,30 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
   }
   
   return null_pev_rmArea_map;
+}
+
+
+static void pevDrvAtexit(regDevice* device)
+{
+  struct pev_ioctl_map_ctl pev_ctl; 
+  int i=0;
+  struct pev_node* pev;    
+  pev_ctl.sg_id = device->pev_rmArea_map.sg_id; 
+  printf("pevDrvAtexit(): we are at ioc exit**********\n");
+       
+  for(i=0; i<MAX_PEVS; i++) 
+  {
+     pev = pev_init(i);
+     if( pev ) 
+     	findMappedPevResource(pev, 0, 0, 0, epicsTrue);
+  }
+  
+  if(!device->dmaAllocFailed) 
+  	pev_buf_free( &device->pev_dmaBuf);
+	
+  pev_exit( device->pev);
+  free(device);
+  exit(0);
 }
 
 /**
@@ -681,7 +696,7 @@ int pevConfigure(
   if( !ellFirst(&pevRegDevList) )
     ellInit (&pevRegDevList);
 
-  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset);  
+  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset, epicsFalse);  
   if( mapExists == epicsTrue && otherBaseOffset == offset)
   {
     printf("pevConfigure: Another device for the same recource (%s) with the same offset (0x%x) exists!\n", resource, offset);
@@ -740,13 +755,13 @@ int pevConfigure(
   
   
   /* create an address translation window in the VME slave port */
-  /* pointing to the PEV1100 Shared Memory                      */
+  /* pointing to the PEV1100 Shared Memory in PMEM              */
 
  /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
    if( strcmp(resource, "SH_MEM")==0 ) 
      {
   	device->pev_rmArea_map.mode = MAP_SPACE_SHM;
-  	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.sg_id = MAP_MASTER_64;
   	device->pev_rmArea_map.rem_addr = 0x000000; 	/* shared memory base address */
   	device->pev_rmArea_map.size = SHMEM_MAP_SIZE;
 	if( offset > SHMEM_MAP_SIZE) 
@@ -774,14 +789,14 @@ int pevConfigure(
    if( strcmp(resource, "USR")==0 ) 
      {
   	device->pev_rmArea_map.mode = MAP_SPACE_USR;
-  	/* device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
   	device->pev_rmArea_map.rem_addr = 0x000000; 		
   	device->pev_rmArea_map.size = VME16_MAP_SIZE;
 	if( offset > VME16_MAP_SIZE) 
 	  {
 	    printf("pevConfigure: ERROR, too big offset\n");
 	    exit(0);
-	  }*/
+	  }
      }
    else
    if( strcmp(resource, "VME_A16")==0 ) 
@@ -951,7 +966,7 @@ int pevAsynConfigure(
   if( !ellFirst(&pevRegDevAsynList) )
     ellInit (&pevRegDevAsynList);
 
-  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset);
+  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset, epicsFalse);
   if( mapExists == epicsTrue && otherBaseOffset == offset)
   {
     printf("pevAsynConfigure: Another device for the same recource (%s) with the same offset (0x%x) exists!\n", resource, offset);
@@ -1010,13 +1025,13 @@ int pevAsynConfigure(
   
   
   /* create an address translation window in the VME slave port */
-  /* pointing to the PEV1100 Shared Memory                      */
+  /* pointing to the PEV1100 Shared Memory in PMEM              */
 
  /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
    if( strcmp(resource, "SH_MEM")==0 ) 
      {
   	device->pev_rmArea_map.mode = MAP_SPACE_SHM;
-  	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.sg_id = MAP_MASTER_64;
   	device->pev_rmArea_map.rem_addr = 0x000000; 	/* shared memory base address */
   	device->pev_rmArea_map.size = SHMEM_MAP_SIZE;
 	if( offset > SHMEM_MAP_SIZE) 
@@ -1044,14 +1059,14 @@ int pevAsynConfigure(
    if( strcmp(resource, "USR")==0 ) 
      {
   	device->pev_rmArea_map.mode = MAP_SPACE_USR;
-  	/* device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	 device->pev_rmArea_map.sg_id = MAP_MASTER_32;
   	device->pev_rmArea_map.rem_addr = 0x000000; 		
   	device->pev_rmArea_map.size = VME16_MAP_SIZE;
 	if( offset > VME16_MAP_SIZE) 
 	  {
 	    printf("pevConfigure: ERROR, too big offset\n");
 	    exit(0);
-	  }*/
+	  }/**/
      }
    else
    if( strcmp(resource, "VME_A16")==0 ) 
