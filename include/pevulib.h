@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.2  2012/03/06 10:31:35  kalantari
- * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ * Revision 1.3  2012/03/15 14:51:54  kalantari
+ * added exact copy of tosca-driver_4.04 from afs
  *
  * Revision 1.16  2012/01/26 15:57:09  ioxos
  * prepare for IFC1210 support [JFG]

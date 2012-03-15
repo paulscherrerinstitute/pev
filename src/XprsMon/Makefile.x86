@@ -1,0 +1,107 @@
+#=========================< begin file & file header >=======================
+#  References
+#  
+#    filename : Makefile
+#    author   : JFG
+#    company  : IOxOS
+#    creation : june 30,2008
+#    version  : 0.0.1
+#
+#----------------------------------------------------------------------------
+#  Description
+#
+#    This Makefile allows to build the PEV1100 command interpreter XprsMon
+#
+#----------------------------------------------------------------------------
+#  Copyright Notice
+#  
+#    Copyright and all other rights in this document are reserved by 
+#    IOxOS Technologies SA. This documents contains proprietary information    
+#    and is supplied on express condition that it may not be disclosed, 
+#    reproduced in whole or in part, or used for any other purpose other
+#    than that for which it is supplies, without the written consent of  
+#    IOxOS Technologies SA                                                        
+#
+#----------------------------------------------------------------------------
+#  Change History
+#  $Log : $
+#  
+#=============================< end file header >============================
+PROJDIR = ../../..
+LIBDIR = ../../lib
+INCDIR = ../../include
+
+OLIB = $(LIBDIR)/libpev.a
+ifeq ($(EXTRAFLAG),-DMPC)
+OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o mpc.o
+else
+OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o
+endif
+HFILES = $(INCDIR)/cli.h 
+
+
+all : XprsMon
+
+EXTRAFLAG = 
+ifeq ($(EXTRAFLAG),-DXENOMAI)
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI
+INC = -I $(INCDIR) -I /usr/xenomai/include
+LIB = -L $(LIBDIR)
+XprsMon:$(OFILES)  $(OLIB)
+	gcc $(LIB) -o XprsMon $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
+else
+ifeq ($(EXTRAFLAG),-DMPC)
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DMPC
+else
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG
+endif
+INC = -I $(INCDIR)
+LIB = -L $(LIBDIR)
+XprsMon:$(OFILES)  $(OLIB)
+	gcc $(LIB) -o XprsMon $(OFILES) -lpev -lrt
+endif
+
+
+XprsMon.o: XprsMon.c cmdlist.h Makefile.x86 $(HFILES)
+	gcc $(FLAGS) $(INC) -c XprsMon.c
+
+conf.o: conf.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c conf.c
+
+tty.o: tty.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c tty.c
+
+map.o: map.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c map.c
+
+sflash.o: sflash.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c sflash.c
+
+rdwr.o: rdwr.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c rdwr.c
+
+script.o: script.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c script.c
+
+tst.o: tst.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c tst.c
+
+timer.o: timer.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c timer.c
+
+vme.o: vme.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -c vme.c
+
+i2c.o: i2c.c cmdlist.h Makefile.x86
+	$(CC) $(FLAGS) $(INC) -c i2c.c
+
+fpga.o: fpga.c cmdlist.h Makefile.x86
+	$(CC) $(FLAGS) $(INC) -c fpga.c
+
+ifeq ($(EXTRAFLAG),-DMPC)
+mpc.o: mpc.c cmdlist.h Makefile.x86
+	gcc $(FLAGS) $(INC) -I $(PROJDIR)/MPC1200/include -c mpc.c
+endif
+
+clean:
+	$(RM) *.o XprsMon

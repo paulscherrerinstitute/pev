@@ -1,0 +1,101 @@
+#=========================< begin file & file header >=======================
+#  References
+#  
+#    filename : Makefile
+#    author   : JFG
+#    company  : IOxOS
+#    creation : june 30,2008
+#    version  : 0.0.1
+#
+#----------------------------------------------------------------------------
+#  Description
+#
+#    This Makefile allows to build the PEV1100 command interpreter XprsMon
+#
+#----------------------------------------------------------------------------
+#  Copyright Notice
+#  
+#    Copyright and all other rights in this document are reserved by 
+#    IOxOS Technologies SA. This documents contains proprietary information    
+#    and is supplied on express condition that it may not be disclosed, 
+#    reproduced in whole or in part, or used for any other purpose other
+#    than that for which it is supplies, without the written consent of  
+#    IOxOS Technologies SA                                                        
+#
+#----------------------------------------------------------------------------
+#  Change History
+#  $Log : $
+#  
+#=============================< end file header >============================
+LIBDIR = ../../lib
+INCDIR = ../../include
+
+OLIB = $(LIBDIR)/libpev.a
+OLIB++ = $(LIBDIR)/libpev++.a
+OLIBRT = $(LIBDIR)/libpevrt.a
+OFILES = 
+HFILES = 
+
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG
+INC = -I $(INCDIR) -I /usr/xenomai/include
+LIB = -L $(LIBDIR)
+
+all : BerrTst VmeTst DmaTst DmaList BerrTst++ VmeTst++ DmaTst++ 
+xeno : DmaTstRt DmaListRt
+
+BerrTst:BerrTst.o $(OFILES)  $(OLIB)
+	gcc $(LIB) -o BerrTst BerrTst.o $(OFILES) -lpev -lrt
+
+BerrTst.o: BerrTst.c  Makefile $(HFILES)
+	gcc  $(FLAGS) $(INC) -c BerrTst.c
+
+BerrTst++:BerrTst++.o $(OFILES)  $(OLIB)
+	g++ $(LIB) -o BerrTst++ BerrTst++.o $(OFILES) -lpev++ -lrt -lstdc++
+
+BerrTst++.o: BerrTst.c  Makefile $(HFILES)
+	g++  $(FLAGS) $(INC) -o BerrTst++.o -c BerrTst.c
+
+VmeTst: VmeTst.o $(OFILES)  $(OLIB)
+	gcc $(LIB) -o VmeTst VmeTst.o $(OFILES) -lpev -lrt
+
+VmeTst.o: VmeTst.c  Makefile $(HFILES)
+	gcc $(FLAGS) $(INC) -c VmeTst.c
+
+VmeTst++: VmeTst++.o $(OFILES)  $(OLIB)
+	g++ $(LIB) -o VmeTst++ VmeTst++.o $(OFILES) -lpev++ -lrt -lstdc++
+
+VmeTst++.o: VmeTst.c  Makefile $(HFILES)
+	g++ $(FLAGS) $(INC) -o VmeTst++.o -c VmeTst.c
+
+DmaTst: DmaTst.o $(OFILES)  $(OLIB)
+	gcc $(LIB) -o DmaTst DmaTst.o $(OFILES) -lpev -lrt
+
+DmaTst.o: DmaTst.c  Makefile $(HFILES)
+	gcc $(FLAGS) $(INC) -c DmaTst.c
+
+DmaTst++: DmaTst++.o $(OFILES)  $(OLIB)
+	g++ $(LIB) -o DmaTst++ DmaTst++.o $(OFILES) -lpev++ -lrt -lstdc++
+
+DmaTst++.o: DmaTst.c  Makefile $(HFILES)
+	g++ $(FLAGS) $(INC) -o DmaTst++.o -c DmaTst.c
+
+DmaList: DmaList.o $(OFILES)  $(OLIB)
+	gcc $(LIB) -o DmaList DmaList.o $(OFILES) -lpev -lrt
+
+DmaList.o: DmaList.c  Makefile $(HFILES)
+	gcc $(FLAGS) $(INC) -c DmaList.c
+
+DmaTstRt: DmaTstRt.o $(OFILES)  $(OLIB)  $(OLIBRT)
+	gcc $(LIB) -o DmaTstRt DmaTstRt.o $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
+
+DmaTstRt.o: DmaTst.c  Makefile $(HFILES)
+	gcc $(FLAGS) $(INC) -DXENOMAI -c DmaTst.c -o DmaTstRt.o
+
+DmaListRt: DmaListRt.o $(OFILES)  $(OLIB)  $(OLIBRT)
+	gcc $(LIB) -o DmaListRt DmaListRt.o $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
+
+DmaListRt.o: DmaList.c  Makefile $(HFILES)
+	gcc $(FLAGS) $(INC) -DXENOMAI -c DmaList.c -o DmaListRt.o
+
+clean:
+	$(RM) *.o *~ BerrTst VmeTst DmaTst DmaList DmaTstRt DmaListRt

@@ -1,17 +1,14 @@
 /*=========================< begin file & file header >=======================
  *  References
  *  
- *    filename : debug.h
+ *    filename : template.c
  *    author   : JFG
  *    company  : IOxOS
- *    creation : june 30,2008
+ *    creation : october 10,2008
  *    version  : 0.0.1
  *
  *----------------------------------------------------------------------------
  *  Description
- *
- *    This file contain the declarations and definitions used to enable
- *    debug messages
  *
  *----------------------------------------------------------------------------
  *  Copyright Notice
@@ -26,26 +23,36 @@
  *----------------------------------------------------------------------------
  *  Change History
  *  
- * $Log: debug.h,v $
- * Revision 1.3  2012/03/15 14:51:54  kalantari
+ * $Log: template.c,v $
+ * Revision 1.1  2012/03/15 14:50:11  kalantari
  * added exact copy of tosca-driver_4.04 from afs
  *
- * Revision 1.1.1.1  2008/07/01 09:48:07  ioxos
- * Import sources for PEV1100 project [JFG]
+ * Revision 1.1  2009/01/08 08:19:03  ioxos
+ * first checkin [JFG]
  *
- * Revision 1.1  2008/06/30 15:43:43  ioxos
- * file creation [JFG]
  *
- * Revision 1.2  2008/06/30 12:03:51  ioxos
- * change file description [JFG]
- *
- * Revision 1.1  2008/06/30 11:58:39  ioxos
- * first CVS checkin [JFG]
- *
- *  
  *=============================< end file header >============================*/
-#ifdef DEBUG
-#define debug(x) printf x
-#else
-#define debug(x)
-#endif
+
+#include <pevulib.h>
+
+main( int argc,
+      void *argv[])
+{
+  pev = pev_init();
+  if( !pev)
+  {
+    printf("Cannot allocate data structures to control PEV1100\n");
+    exit( -1);
+  }
+  if( pev->fd < 0)
+  {
+    printf("Cannot find PEV1100 interface\n");
+    exit( -1);
+  }
+
+  /* ---> Enter your code here...
+
+  pev_exit( pev);
+
+  exit(0);
+}

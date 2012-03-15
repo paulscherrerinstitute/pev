@@ -1,0 +1,70 @@
+#=========================< begin file & file header >=======================
+#  References
+#  
+#    filename : Makefile
+#    author   : JFG
+#    company  : IOxOS
+#    creation : june 30,2008
+#    version  : 0.0.1
+#
+#----------------------------------------------------------------------------
+#  Description
+#
+#    This Makefile allows to build the user library for the PEV1100
+#
+#----------------------------------------------------------------------------
+#  Copyright Notice
+#  
+#    Copyright and all other rights in this document are reserved by 
+#    IOxOS Technologies SA. This documents contains proprietary information    
+#    and is supplied on express condition that it may not be disclosed, 
+#    reproduced in whole or in part, or used for any other purpose other
+#    than that for which it is supplies, without the written consent of  
+#    IOxOS Technologies SA                                                        
+#
+#----------------------------------------------------------------------------
+#  Change History
+#  $Log : $
+#  
+#=============================< end file header >============================
+XENODIR = /usr/xenomai
+INCDIRS = -I ../include 
+all: libpev.a libpev++.a
+xeno: libpevrt.a librtdm.a libnative.a
+pevulib.o:pevulib.c 
+	gcc $(INCDIRS) $(EXTRAFLAGS) -c pevulib.c
+pevulib++.o:pevulib.c 
+	g++ $(INCDIRS) $(EXTRAFLAGS) -o pevulib++.o -c pevulib.c
+pevxulib.o:pevxulib.c 
+	gcc $(INCDIRS) $(EXTRAFLAGS) -c pevxulib.c
+pevxulib++.o:pevxulib.c 
+	g++ $(INCDIRS) $(EXTRAFLAGS) -o pevxulib++.o -c pevxulib.c
+clilib.o:clilib.c 
+	gcc $(INCDIRS) $(EXTRAFLAGS) -c clilib.c
+tstlib.o:tstlib.c 
+	gcc $(INCDIRS) $(EXTRAFLAGS) -c tstlib.c
+tstxlib.o:tstxlib.c 
+	gcc $(INCDIRS) $(EXTRAFLAGS) -c tstxlib.c
+libpev.a:pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
+	ar r libpev.a pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
+	ranlib libpev.a
+libpev++.a:pevulib++.o pevxulib++.o
+	ar r libpev++.a pevulib++.o pevxulib++.o
+	ranlib libpev++.a
+pevrtlib.o:pevrtlib.c 
+	gcc $(INCDIRS) -I $(XENODIR)/include $(EXTRAFLAGS) -c pevrtlib.c
+libpevrt.a:pevrtlib.o 
+	ar r libpevrt.a pevrtlib.o
+	ranlib libpevrt.a
+librtdm.a:
+	cp $(XENODIR)/lib/librtdm.a .
+
+libnative.a:
+	cp $(XENODIR)/lib/libnative.a .
+
+pevulib.c: ../include/pevulib.h
+pevxulib.c: ../include/pevxulib.h
+pevrtlib.c: ../include/pevrtlib.h
+clilib.c: ../include/cli.h
+clean:
+	$(RM) *.o *.a

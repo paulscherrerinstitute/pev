@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: rdwr.h,v $
- * Revision 1.2  2012/03/06 10:31:35  kalantari
- * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ * Revision 1.3  2012/03/15 14:51:54  kalantari
+ * added exact copy of tosca-driver_4.04 from afs
  *
  * Revision 1.3  2012/01/27 13:16:06  ioxos
  * prepare release 4.01 supporting x86 & ppc [JFG]

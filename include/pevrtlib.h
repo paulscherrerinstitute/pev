@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: pevrtlib.h,v $
- * Revision 1.2  2012/03/06 10:31:35  kalantari
- * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ * Revision 1.3  2012/03/15 14:51:54  kalantari
+ * added exact copy of tosca-driver_4.04 from afs
  *
  * Revision 1.3  2010/01/13 16:50:55  ioxos
  * add real time support for DMA list [JFG]
