@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: vmelib.c,v $
- * Revision 1.3  2012/03/15 14:59:02  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.4  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
  *
  * Revision 1.10  2011/03/03 15:42:15  ioxos
  * support for 1MBytes VME slave granularity [JFG]

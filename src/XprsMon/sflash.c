@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: sflash.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.11  2012/03/15 15:10:07  ioxos
+ * add board signature [JFG]
+ *
+ * Revision 1.10  2012/03/14 14:02:02  ioxos
+ * update id, rdsr and wrsr commands [JFG]
  *
  * Revision 1.9  2012/01/27 15:34:58  ioxos
  * support for IFC1210 FPGAs [JFG]
@@ -60,7 +66,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: sflash.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: sflash.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -647,6 +653,7 @@ sflash_write(  uint offset,
 
   return( retval);
 }
+
 int 
 xprs_sflash( struct cli_cmd_para *c)
 {
@@ -679,30 +686,40 @@ xprs_sflash( struct cli_cmd_para *c)
     if( cmd.operation == SFLASH_OP_ID)
     {
       unsigned char id[4];
-      int dev;
 
-      dev = 0;
-      if( c->cnt > 1)
+      if( pev_board() == PEV_BOARD_IFC1210)
       {
-	dev = strtoul( c->para[1], &p, 16);
+	for( i = 1; i < 4; i++)
+	{
+          pev_sflash_id( id, i);
+          printf("SFLASH %d identifier %02x:%02x:%02x\n", i, id[0], id[1], id[2]);
+	}
       }
-      pev_sflash_id( id, dev);
-      printf("SFLASH identifier %02x:%02x:%02x\n", id[0], id[1], id[2]);
+      else
+      {
+        pev_sflash_id( id, 0);
+        printf("SFLASH identifier %02x:%02x:%02x\n", id[0], id[1], id[2]);
+      }
       return( 0); 
     }
 
     if( cmd.operation == SFLASH_OP_RDSR)
     {
       unsigned short sr;
-      int dev;
 
-      dev = 0;
-      if( c->cnt > 1)
+      if( pev_board() == PEV_BOARD_IFC1210)
       {
-	dev = strtoul( c->para[1], &p, 16);
+	for( i = 1; i < 4; i++)
+	{
+	  sr = (unsigned short)pev_sflash_rdsr( i);
+	  printf("SFLASH %d status %04x\n", i, sr);
+	}
       }
-      sr = (unsigned short)pev_sflash_rdsr( dev);
-      printf("SFLASH status %04x\n", sr);
+      else
+      {
+	sr = (unsigned short)pev_sflash_rdsr( 0);
+	printf("SFLASH status %04x\n", sr);
+      }
       return( 0); 
     }
 
@@ -712,16 +729,13 @@ xprs_sflash( struct cli_cmd_para *c)
       int dev;
 
       dev = 0;
-      if( c->cnt < 2)
+      if( c->cnt < 3)
       {
-	printf("usage: sflash wrsr <sr> <dev>\n");
+	printf("usage: sflash wrsr <dev> <sr>\n");
 	return( -1);
       }
-      sr = strtoul( c->para[1], &p, 16);
-      if( c->cnt > 1)
-      {
-	dev = strtoul( c->para[2], &p, 16);
-      }
+      dev = strtoul( c->para[1], &p, 16);
+      sr = strtoul( c->para[2], &p, 16);
       pev_sflash_wrsr( sr, dev);
       return( 0); 
     }
@@ -938,7 +952,7 @@ xprs_sflash( struct cli_cmd_para *c)
 	  return( -1);
 	}
 	offset = cmd.fpga.offset;
-	if( offset < cmd.fpga.fpga_size)
+	if( (offset < cmd.fpga.fpga_size) && (cmd.fpga.id == 0))
 	{
 	  printf("!! You are going to overwrite the SFLASH first sector [%x]!!!!\n", offset);
 	  printf("!! That operation can kill the PEV1100 interface...\n");
@@ -1052,4 +1066,77 @@ xprs_sflash( struct cli_cmd_para *c)
     }
   }
   return( retval);
+}
+
+static char sign_passwd[16];
+static char sign_para[16][16];
+struct cli_cmd_history sign_history;
+
+int 
+xprs_sign( struct cli_cmd_para *c)
+{
+  char *para_p;
+  char *board_sign;
+  int sign_offset;
+  char *p;
+
+  if( pev_board() != PEV_BOARD_IFC1210)
+  {
+    printf("Board signature not supported on this type of board\n");
+    return(-1);
+  }
+  sign_offset = 0x103c0000;
+  board_sign = (char *)malloc(0x1000);
+  bzero( board_sign, 0x1000);
+  p = board_sign;
+  if( c->cnt)
+  {
+    if( !strcmp( "set", c->para[0]))
+    {
+      cli_history_init( &sign_history);
+      printf("Setting board signature...\n");
+      para_p = cli_get_cmd( &sign_history, "password: ");
+      if( strcmp( "goldorak", para_p))
+      {
+	printf("Wrong password !!\n");
+      }
+      printf("\n");
+      para_p = cli_get_cmd( &sign_history, "Board type: ");
+      strcpy( sign_para[0], para_p);
+      sprintf( p,"Board type: %s\n",  sign_para[0]);
+      p += strlen(p);
+      para_p = cli_get_cmd( &sign_history, "Serial number: ");
+      strcpy( sign_para[1], para_p);
+      sprintf( p, "Serial number: %s\n", sign_para[1]);
+      p += strlen(p);
+      para_p = cli_get_cmd( &sign_history, "Hardware revision: ");
+      strcpy( sign_para[2], para_p);
+      sprintf( p, "Hardware revision: %s\n", sign_para[2]);
+      p += strlen(p);
+      para_p = cli_get_cmd( &sign_history, "Fabrication date: ");
+      strcpy( sign_para[3], para_p);
+      sprintf( p, "Fabrication date: %s\n", sign_para[3]);
+      p += strlen(p);
+      para_p = cli_get_cmd( &sign_history, "Test date: ");
+      strcpy( sign_para[4], para_p);
+      sprintf( p, "Test date: %s\n", sign_para[4]);
+      p += strlen(p);
+      para_p = cli_get_cmd( &sign_history, "End customer: ");
+      strcpy( sign_para[5], para_p);
+      sprintf( p, "End customer: %s\n", sign_para[5]);
+      p += strlen(p);
+      para_p = cli_get_cmd( &sign_history, "Comment: ");
+      strcpy( sign_para[6], para_p);
+      sprintf( p, "Comment: %s\n", sign_para[6]);
+      p += strlen(p)+1;
+      *p = 0;
+      printf("\n%s\n", board_sign);
+      pev_sflash_write( sign_offset, board_sign, 0x1000);
+      return( 0);
+    }
+  }
+  pev_sflash_read( sign_offset, board_sign, 0x1000);
+  printf("\n%s\n", board_sign);
+
+  return( 0);
 }

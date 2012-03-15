@@ -38,8 +38,8 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.3  2012/03/15 14:59:02  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.4  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
  *
  * Revision 1.34  2012/02/03 10:26:07  ioxos
  * dynamic use of elbc for i2c [JFG]
@@ -1288,7 +1288,7 @@ pev_vme_irq_wait( struct pev_dev *pev,
   jiffies = msecs_to_jiffies( irq->tmo);
   if( irq->tmo)
   {
-    retval = down_timeout( &pev->vme_irq_ctl[idx].sem, jiffies);
+    /* retval = down_timeout( &pev->vme_irq_ctl[idx].sem, jiffies); */
   }
   else
   {

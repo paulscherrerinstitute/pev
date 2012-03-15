@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fpgalib.h,v $
- * Revision 1.1  2012/03/15 14:59:02  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:36  kalantari
+ * added tosca-driver_4.05
  *
  * Revision 1.1  2012/01/27 09:56:49  ioxos
  * first checkin [JFG]

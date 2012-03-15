@@ -28,8 +28,11 @@
  *  Change History
  *  
  * $Log: mcs2bin.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:38  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.4  2012/03/15 09:30:15  ioxos
+ * bug if bitstream > 0x800000 (unsigned charpwd) [JFG]
  *
  * Revision 1.3  2011/03/14 14:51:08  ioxos
  * support files up to 16 MBytes [JFG]
@@ -44,7 +47,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: mcs2bin.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: mcs2bin.c,v 1.2 2012/03/15 16:15:38 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -71,8 +74,8 @@ swap_32( int data)
   return( *(int *)co);
 }
 
-char data[256];
-char *bitstream;
+unsigned char data[256];
+unsigned char *bitstream;
 
 main( int argc,
       void *argv[])
@@ -81,7 +84,7 @@ main( int argc,
   FILE *infile, *outfile;
   int i, n;
   int type, len;
-  int addr, addr_lo, addr_hi;
+  unsigned int addr, addr_lo, addr_hi;
   unsigned char cks;
 
   i = 1;
@@ -141,7 +144,7 @@ main( int argc,
     fclose( infile);
     exit(0);
   }
-  printf("converting file %s -> %s\n", infilename, outfilename);
+  printf("NEW : converting file %s -> %s\n", infilename, outfilename);
   n = 0;
   addr_hi = 0;
   addr_lo = 0;

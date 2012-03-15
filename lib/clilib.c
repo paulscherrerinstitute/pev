@@ -30,8 +30,8 @@
  *  Change History
  *  
  *  $Log: clilib.c,v $
- *  Revision 1.1  2012/03/15 14:51:27  kalantari
- *  added exact copy of tosca-driver_4.04 from afs
+ *  Revision 1.2  2012/03/15 16:15:37  kalantari
+ *  added tosca-driver_4.05
  *
  *  Revision 1.5  2011/10/19 14:01:05  ioxos
  *  add 0x8 for backspace [JFG]
@@ -52,7 +52,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: clilib.c,v 1.1 2012/03/15 14:51:27 kalantari Exp $";
+static char *rcsid = "$Id: clilib.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #include <debug.h>

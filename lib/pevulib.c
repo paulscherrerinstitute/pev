@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.1  2012/03/15 14:51:27  kalantari
- *  added exact copy of tosca-driver_4.04 from afs
+ *  Revision 1.2  2012/03/15 16:15:37  kalantari
+ *  added tosca-driver_4.05
+ *
+ *  Revision 1.43  2012/03/15 15:23:34  ioxos
+ *  release 4.05 [JFG]
  *
  *  Revision 1.42  2012/02/28 16:08:40  ioxos
  *  set release to 4.04 [JFG]
@@ -160,7 +163,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevulib.c,v 1.1 2012/03/15 14:51:27 kalantari Exp $";
+static const char *rcsid = "$Id: pevulib.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -182,7 +185,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.04";
+char pev_lib_version[] = "4.05";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -672,7 +675,7 @@ pev_pex_read( uint reg)
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
-  //i2c.data = pev_swap_32( i2c.data);
+  /* i2c.data = pev_swap_32( i2c.data); */
 
   return( i2c.data);
 }
@@ -688,7 +691,7 @@ pev_pex_write( uint reg,
   i2c.cmd |= (reg << 3) &0x78000;
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = data;
-  //i2c.data = pev_swap_32( data);
+  /* i2c.data = pev_swap_32( data); */
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
   return( 0);

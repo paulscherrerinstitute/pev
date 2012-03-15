@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.21  2012/03/05 09:53:47  ioxos
+ * adjust casting of rdwr_filename [JFG]
  *
  * Revision 1.20  2012/02/24 10:45:04  ioxos
  * bug: cp->op initialize to 0 [JFG]
@@ -94,7 +97,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -501,7 +504,7 @@ rdwr_get_cycle_data( char *data_p,
     {
       cp->dir = 'w';
       strcpy( rdwr_filename, data_p); /* save file name */
-      cp->para = (int)rdwr_filename;   /* data parameters point to filename */
+      cp->para = (ulong)rdwr_filename;   /* data parameters point to filename */
       return(0);
     }
   }  
@@ -607,7 +610,7 @@ rdwr_get_cycle_arg( char *arg_p,
   {
     cp->op = 'f';
     strcpy( rdwr_filename, arg_p); /* save file name */
-    cp->para = (int)rdwr_filename;   /* data parameters point to filename */
+    cp->para = (ulong)rdwr_filename;   /* data parameters point to filename */
     return(0);
   }
   if( err == RDWR_STS_AM)

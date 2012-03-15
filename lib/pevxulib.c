@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevxulib.c,v $
- *  Revision 1.1  2012/03/15 14:51:27  kalantari
- *  added exact copy of tosca-driver_4.04 from afs
+ *  Revision 1.2  2012/03/15 16:15:37  kalantari
+ *  added tosca-driver_4.05
+ *
+ *  Revision 1.28  2012/03/15 15:21:53  ioxos
+ *  add pevx_board_name() + release 4.05 [JFG]
  *
  *  Revision 1.27  2012/02/28 16:08:40  ioxos
  *  set release to 4.04 [JFG]
@@ -113,7 +116,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevxulib.c,v 1.1 2012/03/15 14:51:27 kalantari Exp $";
+static const char *rcsid = "$Id: pevxulib.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -135,7 +138,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pevx_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pevx_driver_version[16];
-char pevx_lib_version[] = "4.04";
+char pevx_lib_version[] = "4.05";
 uint pevx_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -238,6 +241,12 @@ uint
 pevx_board()
 {
   return( pevx_board_id);
+}
+
+char *
+pevx_board_name()
+{
+  return( ioxos_board_name);
 }
 
 struct pev_reg_remap

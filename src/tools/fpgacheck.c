@@ -31,8 +31,8 @@
  *  Change History
  *  
  * $Log: fpgacheck.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:38  kalantari
+ * added tosca-driver_4.05
  *
  * Revision 1.1  2008/11/12 14:11:38  ioxos
  * first cvs checkin [JFG]
@@ -44,7 +44,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: fpgacheck.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: fpgacheck.c,v 1.2 2012/03/15 16:15:38 kalantari Exp $";
 #endif
 
 #include <stdlib.h>

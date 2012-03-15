@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: PevTst.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.6  2012/03/05 09:31:04  ioxos
+ * support for execution on PPC [JFG]
  *
  * Revision 1.5  2010/06/11 11:56:26  ioxos
  * add test status report [JFG]
@@ -46,7 +49,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: PevTst.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: PevTst.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #include <debug.h>
@@ -73,6 +76,8 @@ static char *rcsid = "$Id: PevTst.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
 #include <xprstst.h>
 #include <tstxlib.h>
 #include "tstlist.h"
+
+#define DEBUGno
 
 void tst_signal( int);
 int tst_init( struct xprstst *);
@@ -103,8 +108,14 @@ main( int argc,
   debug = 1;
 #endif
 
+  if( argv[4])
+  {
+    //freopen("/dev/pts/0", "r+", stdout);
+    freopen( argv[4], "r+", stdout);
+  }
+
   tm = time(0);
-  //printf("arg = %s - %s\n", argv[0], argv[1]);
+  //printf("arg = %s - %s - %s - %s - %s\n", argv[0], argv[1], argv[2], argv[3], argv[4]);
   signal( SIGUSR1, tst_signal);
 
   xt = (struct xprstst *)malloc( sizeof( struct xprstst));
@@ -112,7 +123,6 @@ main( int argc,
   tst_ctl.xt = xt;
   printf("PevTst->Entering:%s", ctime(&tm));
   printf("PevTst->Initialization");
-
 
   cfg_file = fopen( argv[1], "r");
   if( !cfg_file)

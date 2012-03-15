@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: tst_0x.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.7  2012/03/05 09:31:43  ioxos
+ * don't swap IACK read on PPC [JFG]
  *
  * Revision 1.6  2011/10/03 10:07:18  ioxos
  * add test for 4 MB boundary [JFG]
@@ -381,7 +384,11 @@ tst_09( struct tst_ctl *tc)
     /* get level from IACK */
     iack = pevx_csr_rd(  crate, reg_remap->vme_itc);
     /* perform IACK cycle manually */
+#ifdef PPC
+    iack |= *(short *)(iack_addr+(i<<1)) & 0xff;
+#else
     iack |= (*(short *)(iack_addr+(i<<1)) >> 8) & 0xff;
+#endif
     if( iack == (0x9000 | vect))
     {
       TST_LOG( tc, (logline, "->OK\n"));

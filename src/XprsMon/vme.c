@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: vme.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
  *
  * Revision 1.5  2011/12/06 13:17:31  ioxos
  * support for multi task VME IRQ [JFG]
@@ -49,7 +49,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: vme.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: vme.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #define DEBUGno

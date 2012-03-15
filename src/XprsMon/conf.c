@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.10  2012/03/15 15:11:38  ioxos
+ * adapt to IFC1210  [JFG]
  *
  * Revision 1.9  2012/01/30 11:16:23  ioxos
  * cosmetics [JFG]
@@ -61,7 +64,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -500,24 +503,35 @@ conf_show_smon( void)
   printf("      VCCaux               : %.2f [%.2f - %.2f]\n", f0, f1, f2);
   pev_smon_wr( 0x40, 0x3);
   usleep( 100000);
-  d0 = pev_smon_rd( 0x03) >> 6;
-  f0 = ((float)d0*0.001925);
-  printf("      VCC1.8-INT           : %.2f\n", f0);
-  pev_smon_wr( 0x40, 0x1b);
-  usleep( 100000);
-  d0 = pev_smon_rd( 0x1b) >> 6;
-  f0 = ((float)d0*0.00504);
-  printf("      VCC3.3-INT           : %.2f\n", f0);
-  pev_smon_wr( 0x40, 0x1c);
-  usleep( 100000);
-  d0 = pev_smon_rd( 0x1c) >> 6;
-  f0 = ((float)d0*0.00510);
-  printf("      VCC5.0-VME           : %.2f\n", f0);
-  pev_smon_wr( 0x40, 0x1d);
-  usleep( 100000);
-  d0 = pev_smon_rd( 0x1d) >> 6;
-  f0 = ((float)d0*0.00510);
-  printf("      VCC3.3-VME           : %.2f\n", f0);
+
+  if(( conf_board == PEV_BOARD_PEV1100) ||
+     ( conf_board == PEV_BOARD_IPV1102)    )
+  {
+    d0 = pev_smon_rd( 0x03) >> 6;
+    f0 = ((float)d0*0.001925);
+    printf("      VCC1.8-INT           : %.2f\n", f0);
+    pev_smon_wr( 0x40, 0x1b);
+    usleep( 100000);
+    d0 = pev_smon_rd( 0x1b) >> 6;
+    f0 = ((float)d0*0.00504);
+    printf("      VCC3.3-INT           : %.2f\n", f0);
+    pev_smon_wr( 0x40, 0x1c);
+    usleep( 100000);
+    d0 = pev_smon_rd( 0x1c) >> 6;
+    f0 = ((float)d0*0.00510);
+    printf("      VCC5.0-VME           : %.2f\n", f0);
+    pev_smon_wr( 0x40, 0x1d);
+    usleep( 100000);
+    d0 = pev_smon_rd( 0x1d) >> 6;
+    f0 = ((float)d0*0.00510);
+    printf("      VCC3.3-VME           : %.2f\n", f0);
+  }
+  if( conf_board == PEV_BOARD_IFC1210)
+  {
+    d0 = pev_smon_rd( 0x03) >> 6;
+    f0 = ((float)d0*0.00312);
+    printf("      FMC_Vadj             : %.2f [%x]\n", f0, d0);
+  }
   return;
 }
 

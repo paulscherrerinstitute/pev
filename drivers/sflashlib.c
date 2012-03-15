@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: sflashlib.c,v $
- *  Revision 1.3  2012/03/15 14:59:02  kalantari
- *  added exact copy of tosca-driver_4.04 from afs
+ *  Revision 1.4  2012/03/15 16:15:37  kalantari
+ *  added tosca-driver_4.05
+ *
+ *  Revision 1.8  2012/03/14 14:03:19  ioxos
+ *  read status should return short [JFG]
  *
  *  Revision 1.7  2012/01/27 13:13:05  ioxos
  *  prepare release 4.01 supporting x86 & ppc [JFG]
@@ -277,7 +280,7 @@ sflash_read_ID( uint io_base,
 }
 
 
-unsigned char
+unsigned short
 sflash_read_status( uint io_base)
 {
   unsigned short status;

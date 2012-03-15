@@ -48,6 +48,7 @@ int xprs_rdwr_rmw( struct cli_cmd_para *);
 int xprs_rdwr_tm( struct cli_cmd_para *);
 int xprs_csr_status( struct cli_cmd_para *);
 int xprs_sflash( struct cli_cmd_para *);
+int xprs_sign( struct cli_cmd_para *);
 int xprs_timer( struct cli_cmd_para *);
 int xprs_tinit( struct cli_cmd_para *);
 int xprs_tkill( struct cli_cmd_para *);
@@ -522,7 +523,9 @@ char *sflash_msg[]=
 { 
   "sflash operation ",
   "sflash <op> <offset> <para#0> <para#1> <para#2>",
-  "sflash id",
+  "sflash id <dev>",
+  "sflash rdsr <dev>",
+  "sflash wrsr <dev> <sr>",
   "sflash dump   <off>      <len> ",
   "sflash load   <fpga>#<i> <file> ",
   "sflash load   <off>      <file> ",
@@ -530,11 +533,19 @@ char *sflash_msg[]=
   "sflash read   <off>      <len>  <file> ",
   "sflash sign   <fpga>#<i> ",
   "sflash check  <fpga>#<i> ",
-  "   where <fpga> = fpga, pon, io, central",
+  "   where <dev> = 0,1,2,3 [fpga device]",
+  "         <fpga> = fpga, pon, io, central",
   "         <i> = 0,1,2,3 [bitstream index]",
   "         <off> = SFLASH address offset in hexadecimal ",
   "         <len> = size in bytes to transfer ",
   "         <file> = name of the to be loaded/saved ",
+0};
+
+char *sign_msg[]= 
+{ 
+  "board signature ",
+  "sign show",
+  "sign set",
 0};
 
 char *ts_msg[]  = 
@@ -724,6 +735,7 @@ struct cli_cmd_list cmd_list[] =
   { "rv"     , xprs_rdwr_dm,      rv_msg     , 0},
   { "rmw"    , xprs_rdwr_rmw,     rmw_msg    , 0},
   { "sflash" , xprs_sflash,       sflash_msg , 0},
+  { "sign"   , xprs_sign,         sign_msg   , 0},
   { "ts"     , xprs_rdwr_tm,      ts_msg     , 0},
   { "ts1"    , xprs_rdwr_tm,      ts_msg     , 0},
   { "ts2"    , xprs_rdwr_tm,      ts_msg     , 0},

@@ -27,8 +27,8 @@
  *  Change History
  *  
  *  $Log: pevrtlib.c,v $
- *  Revision 1.1  2012/03/15 14:51:27  kalantari
- *  added exact copy of tosca-driver_4.04 from afs
+ *  Revision 1.2  2012/03/15 16:15:37  kalantari
+ *  added tosca-driver_4.05
  *
  *  Revision 1.3  2010/01/13 16:51:24  ioxos
  *  add real time support for DMA list [JFG]
@@ -42,7 +42,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: pevrtlib.c,v 1.1 2012/03/15 14:51:27 kalantari Exp $";
+static char *rcsid = "$Id: pevrtlib.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #include <stdlib.h>

@@ -43,8 +43,20 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.3  2012/03/15 14:59:02  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.4  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.44  2012/03/15 15:13:40  ioxos
+ * set version to 4.05 [JFG]
+ *
+ * Revision 1.43  2012/03/14 09:51:39  ioxos
+ * support for additionnal types of IDT switches (bug correction) [JFG]
+ *
+ * Revision 1.42  2012/03/05 09:47:04  ioxos
+ * disable cache also for PMEM mapping [JFG]
+ *
+ * Revision 1.41  2012/03/01 15:23:23  ioxos
+ * if PPC make sure cache are disabled when mappig PCI addresses [JFG]
  *
  * Revision 1.40  2012/02/28 16:08:34  ioxos
  * set release to 4.04 [JFG]
@@ -216,7 +228,7 @@ int rdwr_swap_32( int);
 #endif
 
 struct pev_drv pev_drv;
-char *pev_version="4.04";
+char *pev_version="4.05";
 
 
 struct pev_drv *
@@ -343,7 +355,6 @@ pev_mmap( struct file *filp,
 
   size = vma->vm_end - vma->vm_start;
   off = vma->vm_pgoff << PAGE_SHIFT;
-
 #if defined(PPC) || defined(X86_32)
   if( off < 0x80000000)
   {
@@ -359,13 +370,25 @@ pev_mmap( struct file *filp,
   if( (off & 0xc0000000) == 0x80000000)
   {
     off &= 0x3fffffff;
+#if defined(PPC)
+    vma->vm_flags |= VM_IO | VM_RESERVED;
+    vma->vm_page_prot=pgprot_noncached(vma->vm_page_prot);
+#endif
     if( off < (ulong)pev->mem_len)
     {
+#if defined(PPC)
+      io_remap_pfn_range( vma, 
+		          vma->vm_start,
+		          (((ulong)pev->mem_base + off) >> PAGE_SHIFT),
+		          size,
+		          vma->vm_page_prot); 
+#else
       remap_pfn_range( vma, 
 		       vma->vm_start,
 		       (((ulong)pev->mem_base + off) >> PAGE_SHIFT),
 		       size,
 		       vma->vm_page_prot); 
+#endif
       return( 0);
     }
   }
@@ -373,13 +396,25 @@ pev_mmap( struct file *filp,
   if( (off & 0xc0000000) == 0xc0000000)
   {
     off &= 0x3fffffff;
+#if defined(PPC)
+    vma->vm_flags |= VM_IO | VM_RESERVED;
+    vma->vm_page_prot=pgprot_noncached(vma->vm_page_prot);
+#endif
     if( off < (ulong)pev->pmem_len)
     {
+#if defined(PPC)
+      io_remap_pfn_range( vma, 
+		          vma->vm_start,
+		          (((ulong)pev->pmem_base + off) >> PAGE_SHIFT),
+		          size,
+		          vma->vm_page_prot); 
+#else
       remap_pfn_range( vma, 
 		       vma->vm_start,
 		       (((ulong)pev->pmem_base + off) >> PAGE_SHIFT),
 		       size,
 		       vma->vm_page_prot); 
+#endif
       return( 0);
     }
   }
@@ -1238,7 +1273,9 @@ static int pev_init( void)
       while( ldev)
       {
         /* check for IDT32NT24 */
-        if( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8097))
+        if( ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8097)) ||
+            ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808a)) ||
+            ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808c))    )
         {
           /* check for port #2*/
           if( ldev->devfn == PCI_DEVFN( 2, 0))

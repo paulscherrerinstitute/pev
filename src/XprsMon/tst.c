@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: tst.c,v $
- * Revision 1.1  2012/03/15 14:50:11  kalantari
- * added exact copy of tosca-driver_4.04 from afs
+ * Revision 1.2  2012/03/15 16:15:37  kalantari
+ * added tosca-driver_4.05
+ *
+ * Revision 1.8  2012/03/05 09:33:05  ioxos
+ * support for execution on PPC [JFG]
  *
  * Revision 1.7  2010/06/11 11:52:24  ioxos
  * add test status report [JFG]
@@ -55,7 +58,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: tst.c,v 1.1 2012/03/15 14:50:11 kalantari Exp $";
+static char *rcsid = "$Id: tst.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -102,10 +105,6 @@ tst_init( void)
 
   xt = (struct xprstst *)malloc( sizeof( struct xprstst));
   xt->pev_para.crate = pev_get_crate();
-  tst_argv[0] =  "/usr/bin/xterm";
-  tst_argv[1] =  "-e";
-  tst_argv[2] =  (char *)malloc( 64);
-  tst_argv[3] =  0;
   T_pid = 0;
   X_pid = 0;
 
@@ -141,7 +140,23 @@ launch_test( char *tst_file)
     close( fd_p[0][1]);
     return( -1);
   }
+#ifdef PPC
+  tst_argv[0] =  (char *)malloc( 64);
+  strcpy(  tst_argv[0], tst_file);
+  tst_argv[1] =  "XprsTst.cfg";
+  tst_argv[2] =  (char *)malloc( 64);
+  sprintf( tst_argv[2], "%d", fd_p[0][0]);
+  tst_argv[3] =  (char *)malloc( 64);
+  sprintf( tst_argv[3], "%d", fd_p[1][1]);
+  tst_argv[4] =  "/dev/pts/0";
+  tst_argv[5] =  0;
+#else
+  tst_argv[0] =  "/usr/bin/xterm";
+  tst_argv[1] =  "-e";
+  tst_argv[2] =  (char *)malloc( 64);
+  tst_argv[3] =  0;
   sprintf( tst_argv[2], "%s %s %d %d", tst_file, cfg_filename, fd_p[0][0], fd_p[1][1]);
+#endif
   pid = fork();
   if( pid < 0)
   {
@@ -180,7 +195,11 @@ launch_test( char *tst_file)
       /* child process -> we execute PevTst */
       close( fd_p[0][1]);
       close( fd_p[1][0]);
+#ifdef PPC
+      printf("XprsTst->Launching:%s", tst_argv[0]);
+#else
       printf("XprsTst->Launching:%s", tst_argv[2]);
+#endif
       fflush( stdout);
       if( execv( tst_argv[0], tst_argv) == -1)
       {
