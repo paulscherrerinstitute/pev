@@ -1,0 +1,425 @@
++-------------------------------------------------------------------------------+
+|                                                                               |
+|                 PEV1100 Software Quick Installation Guide                     |
+|                            IOxOS Technologies                                 |
+|                               www.ioxos.ch                                    |
+|                                                                               |
++-------------------------------------------------------------------------------+
+
+Introduction
+============
+This README file contains instructions to install the software environment 
+for the PEV1100 PCI Express to VME interface.
+
+Limitations
+===========
+IOxOS Technologies provides this software without warranty, term or condition 
+of any kind, either express or implied, including, but not limited to, express 
+and implied warranties of merchantability, fitness for a particular purpose, 
+and non-infringement. 
+
+Packaging
+=========
+The software package is released in compressed tar format. The filename is
+PEV1100_<version>.tgz
+
+Sources Extraction
+==================
+The PEV1100 software can be extracted anywhere in the Linux file system. 
+The extraction process will create a directory PEV1100/ containing all software 
+sources provided by IOxOS Technologies to support the PEV1100 interface.
+
+linux-host:ioxos> tar xzf PEV1100_2.1.tgz
+
+The sources are organized as followed:
+PEV1100/
+   bin/
+   doc/
+   drivers/
+   include/
+   lib/
+   modules/
+   src/
+      tools/
+      XprsMon/
+
+Documentation
+=============
+The doc/ directory contains a pdf version of
+  - the PEV1100 user's manual
+  - the PEV1100 hardware reference
+
+The users's manual describe in details the PEV1100 features and its installation 
+procedure.
+
+The file build.all located at the root of the tree is a bash script building all 
+drivers, libraries and utilities for a “classical” linux kernel and, if found in 
+the file system for a a real time linux kernel based on Xenomai 2.4.7
+
++-------------------------------------------+
+| # check for Xenomai in the file system:   |
+|                                           |
+| XENODIR="/usr/xenomai"                    |
+| ls $XENODIR                               |
+| if [  $? -eq 0 ]; then                    |
+| XENO=1                                    |        
+| else                                      |
+| XENO=0                                    |
+| fi                                        |
+|                                           |
+| # build PEV1100 device driver             |
+| cd drivers                                |
+| ./build.linux                             |
+| if [  $XENO -eq 1 ]; then                 |
+| ./build.xeno                              |
+| fi                                        |
+|                                           |
+| # build hotplug device driver             |
+| cd ../hotplug                             |
+| ./build                                   |
+|                                           |
+| # build libraries                         |
+| cd ../lib                                 |
+| make                                      |
+| if [  $XENO -eq 1 ]; then                 |
+| make xeno                                 |
+| fi                                        |
+|                                           |
+| # build XprsMon                           |
+| cd ../src/XprsMon                         |
+| ./build.linux                             |
+| if [  $XENO -eq 1 ]; then                 |
+| ./build.xeno                              |
+| fi                                        |
+|                                           |
+| # build examples                          |
+| cd ../examples                            |
+| make                                      |
+| if [  $XENO -eq 1 ]; then                 | 
+| make xeno                                 |
+| fi                                        |
+|                                           |
+| # build configuration tools               |
+| cd ../tools                               |
+| make install                              |
+|                                           |
+| # build test suite                        |
+| cd ../XprsTst                             |
+| ./build                                   |
++-------------------------------------------+
+
+
+The PEV1100 device driver
+==========================
+The PEV1100 applications rely on the presence of a device driver in the
+kernel. IOxOS technologies provides in the PEV1100/drivers/ directory
+all sources needed to build the kernel loadable module pev.ko.
+The first operation to perform, is to build the PEV1100 device driver. 
+ 
+The Makefile rely on the presence of the Linux kernel sources on the 
+development system. 
+The Makefile is written in such a way that the pev driver is expected to 
+run on the system on which it is compiled.
+The driver sources can be compiled to run either on a classical linux or
+on a real time linux (xenomai) by defining the XENOMAI compilation.
+Two script files are provided in PEV1100/drivers to generate kernel objects 
+in the PEV1100/modules directory:
+"build.linux" creates the kernel object PEV1100/modules/pev-linux
+"build.xeno" creates the kernel object PEV1100/modules/pev-xeno
+The xenomai real time driver relies on the presence of xenomai 2.4.7 in the
+linux kernel.
+
+Building the classical linux driver
+------------------------------------
+linux_host:drivers>./build.linux
+rm -f *.o *.ko *.mod.c
+make -C /lib/modules/2.6.28.7-xeno/build M=/home/ioxos/Projects/PEV1100/drivers modules
+make[1]: Entering directory `/home/ioxos/kernel/linux-2.6.28.7'
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevdrvr.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevioctl.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevklib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/rdwrlib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/sflashlib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/maplib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/i2clib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/vmelib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/dmalib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/histolib.o
+  LD [M]  /home/ioxos/Projects/PEV1100/drivers/pev.o
+  Building modules, stage 2.
+  MODPOST 1 modules
+  CC      /home/ioxos/Projects/PEV1100/drivers/pev.mod.o
+  LD [M]  /home/ioxos/Projects/PEV1100/drivers/pev.ko
+make[1]: Leaving directory `/home/ioxos/kernel/linux-2.6.28.7'
+linux_host:drivers>
+
+Building the real time linux driver
+------------------------------------
+linux_host:drivers>./build.xeno
+rm -f *.o *.ko *.mod.c
+make -C /lib/modules/2.6.28.7-xeno/build M=/home/ioxos/Projects/PEV1100/drivers modules
+make[1]: Entering directory `/home/ioxos/kernel/linux-2.6.28.7'
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevdrvr.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevioctl.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevklib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/rdwrlib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/sflashlib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/maplib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/i2clib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/vmelib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/dmalib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/histolib.o
+  LD [M]  /home/ioxos/Projects/PEV1100/drivers/pev.o
+  Building modules, stage 2.
+  MODPOST 1 modules
+  CC      /home/ioxos/Projects/PEV1100/drivers/pev.mod.o
+  LD [M]  /home/ioxos/Projects/PEV1100/drivers/pev.ko
+make[1]: Leaving directory `/home/ioxos/kernel/linux-2.6.28.7'
+linux_host:drivers>
+
+
+linux_host:drivers>ls ../modules/
+connect  CVS  disconnect  load  pev-linux.ko  pev-xeno.ko
+linux_host:drivers>
+
+
+Building the user's library
+===========================
+The lib/ directory contains the sources of the user library interface with 
+the driver. 
+Executing a make in this directory builds the libpev.a library file.
+
+linux_host:lib>make
+gcc -I ../include  -c pevulib.c
+gcc -I ../include  -c clilib.c
+ar r libpev.a pevulib.o clilib.o
+ar: creating libpev.a
+ranlib libpev.a
+linux_host:lib>
+
+To build the library libpevrt.a interfacing with the real time driver, 
+just execute:
+linux_host:lib>make xeno
+gcc -I ../include  -I /usr/xenomai/include -c pevrtlib.c
+ar r libpevrt.a pevrtlib.o
+ar: creating libpevrt.a
+ranlib libpevrt.a
+cp /usr/xenomai/lib/librtdm.a .
+cp /usr/xenomai/lib/libnative.a .
+linux_host:lib>
+
+Building XprsMon
+================
+
+XprsMon is a command interpreter allowing a user to debug a VME system 
+controlled by a PC host through the PEV1100 interface. The sources together with 
+a Makefile shall be found in the src/XprsMon/. Executing  buil.linux in that 
+directory creates the XprsMon executable and copies it in the bin/ directory.
+
+linux_host:XprsMon>./build.linux                                                                                                     
+rm -f *.o XprsMon                                                                                                                    
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c XprsMon.c                                                                        
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c rdwr.c                                                                           
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c conf.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c sflash.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c map.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c script.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c tty.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c tst.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c timer.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c vme.c
+gcc -L ../../lib -o XprsMon XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o -lpev -lrt
+
+If Xenomai has been installed in the host filesystem, the build.xeno script 
+generates an  XprsMon application linked with the real time library and copied 
+in the bin/ directory under the name XprsMonRt.
+
+linux_host:XprsMon>./build.xeno
+rm -f *.o XprsMon
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c XprsMon.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c rdwr.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c conf.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c sflash.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c map.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c script.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c tty.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c tst.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c timer.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -I ../../include -I /usr/xenomai/include -c vme.c
+gcc -L ../../lib -o XprsMon XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o -lpev -lrt -lpevrt -lnative -lrtdm
+linux_host:XprsMon>
+
+linux_host:XprsMon>ls ../../bin
+CVS  XprsMon  XprsMonRt
+linux_host:XprsMon>
+
+
+Loading the PEV1100 device driver
+=================================
+Before running any application using the PEV1100, it is mandatory to insert dynamically either the pev-linux.ko or the pev-xeno.ko device driver in the kernel. This is done by executing the insmod program. The driver initialization function allocates dynamically the device major number. This number is needed to create the nodes allowing applications to access the device and can be find in the /proc/devices file once the driver has been successfully installed.
+The script file load located in the modules/ directory performs all these operations. It loads a kernel module according to the argument given,  retrieves the device number assigned by the kernel to the PEV1100 device and create the pev nodes in the /dev directory. It shall be noted that you must have superuser privileges to run that script.
+If the PEV1100 is not connected to the host, the device driver installation will fail. Before executing the load script, one should check with lspci that the PEV1100 has been discovered by the Linux.
+To load the Linux “classical” driver, pev-linux shall be given has argument to the load script.
+linux-host:PEV1100_2.0.0>su
+Password:
+linux-host:PEV1100_2.0.0>cd modules/
+linux-host:modules>./load pev-linux
+loading PEV1100 linux driver pev-linux.ko
+linux-host:modules>
+Using the lsmod command we can check if the pev module has been loaded
+linux-host:modules>lsmod | grep pev
+pev                    98672  0
+linux-host:modules>
+and get a list of the nodes created with read/write privileges for everybody.
+
+linux-host:modules>ls -l /dev/pev*
+crw-rw-rw- 1 root wheel 250,  0 2009-08-27 15:50 /dev/pev
+crw-rw-rw- 1 root wheel 250,  0 2009-08-27 15:50 /dev/pev0
+crw-rw-rw- 1 root wheel 250,  1 2009-08-27 15:50 /dev/pev1
+crw-rw-rw- 1 root wheel 250, 10 2009-08-27 15:50 /dev/pev10
+crw-rw-rw- 1 root wheel 250, 11 2009-08-27 15:50 /dev/pev11
+crw-rw-rw- 1 root wheel 250, 12 2009-08-27 15:50 /dev/pev12
+crw-rw-rw- 1 root wheel 250, 13 2009-08-27 15:50 /dev/pev13
+crw-rw-rw- 1 root wheel 250, 14 2009-08-27 15:50 /dev/pev14
+crw-rw-rw- 1 root wheel 250, 15 2009-08-27 15:50 /dev/pev15
+crw-rw-rw- 1 root wheel 250,  2 2009-08-27 15:50 /dev/pev2
+crw-rw-rw- 1 root wheel 250,  3 2009-08-27 15:50 /dev/pev3
+crw-rw-rw- 1 root wheel 250,  4 2009-08-27 15:50 /dev/pev4
+crw-rw-rw- 1 root wheel 250,  5 2009-08-27 15:50 /dev/pev5
+crw-rw-rw- 1 root wheel 250,  6 2009-08-27 15:50 /dev/pev6
+crw-rw-rw- 1 root wheel 250,  7 2009-08-27 15:50 /dev/pev7
+crw-rw-rw- 1 root wheel 250,  8 2009-08-27 15:50 /dev/pev8
+crw-rw-rw- 1 root wheel 250,  9 2009-08-27 15:50 /dev/pev9
+linux-host:modules>
+
+16 nodes have been created with minor device number going from 0 to 15. 
+The minor device number allows to target a specific PEV1100 board in multi-crate 
+configurations. When opening the device, a match between the position of the 
+rotary encoder located on the board and the minor device number is required.
+If compatibility with older version of the driver is needed, the rotary encoder 
+shall be set to position 0.
+If Xenomai has been installed in the Linux kernel, one can load the real time 
+driver pev-xeno. It shall be noted that pev-linux and pev-xeno cannot be loaded 
+together. They both offer the same capabilities. However, the pev-xeno version
+rely on xenomai interrupt service routines and synchronization mechanism in 
+order to guarantee real time performances.
+To load the Linux “real time” driver, pev-xeno shall be given has argument to 
+the load script. If pev-linux is already installed, don't forget to remove it.
+
+linux-host:modules>rmmod pev
+linux-host:modules>./load pev-xeno
+loading PEV1100 xenomai driver pev-xeno.ko
+linux-host:modules>
+
+When this has been done, we can run applications relying on this driver such 
+XprsMon or XprsMonRt. 
+
+Using XprsMon to access the PEV1100
+===================================
+The PEV1100 binaries are located in the PEV1100/bin directory. We first add it to the 
+default search PATH:
+
+linux-host:~>export PATH=~/PEV1100/bin:$PATH
+and we execute the PEV1100 command interpreter XprsMon:.
+linux-host:~>XprsMon 1
+
+     +-----------------------------------------+
+     |    XprsMon - PEV1100 diagnostic tool    |
+     |    IOxOS Technologies Copyright 2009    |
+     +-----------------------------------------+
+
+initializing crate 1
+Device driver: pev-linux
+XprsMon#1>
+
+
+Basically XprsMon implements a set of command interpreted and executed 
+when the user enters a command line on the keyboard. 
+A command line is an ASCIIi string made of
+ - a command code
+ - a command extension (optional)
+ - zero or more command parameters
+
+The help command displays a list of all supported command codes. 
+~?~ is an alias for help.
+
+XprsMon#1>help
+conf      dm        dma       dp
+ds        dv        fm        fp
+fs        fv        help      i2c
+ls        lv        map       pc
+pio       pm        pp        pr
+ps        pv        px        sflash
+ts        tv        timer     tinit
+tkill     tlist     tset      tstart
+tstop     tty       vme
+XprsMon#1>
+
+
+help accept one parameter which is any supported command code in 
+order to display the syntax of the command.
+
+XprsMon>? pio
+read/write data from/to PEV1100 PCI IO space
+pio.<ds> <addr> <data>
+   where <ds> = b,s,w, (data size 1,2,4)
+         <addr> = address in hexadecimal
+         <data> = data in hexadecimal [write cyle]
+XprsMon>   
+
+The command extension is separated from the command code by a comma. 
+In the example above, the pio command extension <ds> is used to define 
+the data size to be used for the read or write cycle. The command 
+parameters are the cycle target address and the data for a write operation. 
+It shall be noted that, unless otherwise stated, XprsMon integer parameters 
+are interpreted and displayed as hexadecimal values.
+
+The first command to execute could be the conf command which displays
+the PEV1100 current configuration:
+
+XprsMon#1>conf                                                
+   Static Options [0x00262ad3]                                
+      VME Interface                                           
+         A24 Base Address  : d00000                           
+         System Controller : 64x- Slot1+ SysRstEna+           
+      PLX8624 Switch                                          
+         Port0 [P3]        : Upstream : Local Clock           
+         Port1 [P4]        : Downstream                       
+         Port5 [FPGA]      : Downstream                       
+         Port6 [PCI]       : Downstream                       
+         Port8 [XMC#1]     : Downstream                       
+         Port9 [XMC#2]     : Downstream                       
+      FPGA                                                    
+         Bit Stream        : 1                                
+         PON FSM           : Disabled                         
+         MEM size          : 128 MBytes                       
+         PMEM size         : 128 MBytes                       
+         PMEM mode         : A32                              
+   VME Interface                                              
+      System Controller    : Enabled                          
+         Arbtration mode   : PRI not pipelined                
+         Bus Timeout       : 16 usec                          
+      Master               : Enabled
+         Request Mode      : Release On Request
+         Request Level     : 0
+      Slave                : Enabled
+         A24 base address  : 0xd00000
+         A32 base address  : 0x10000000
+         A32 window size   : 0x10000000
+         CR/CSR            : Berr- SlvEna+ SysFail- SysFailEna- Reset-
+      Interrupt Generator
+         Vector            : 00
+         Level             : 0
+         Mode              : Register
+         Status            : Cleared
+   FPGA System Monitor
+      Temperature          : 45.28 [48.23 - 30.02]
+      VCCint               : 1.00 [1.01 - 0.99]
+      VCCaux               : 2.51 [2.52 - 2.51]
+      VCC1.8-INT           : 1.78
+      VCC3.3-INT           : 3.23
+      VCC5.0-VME           : 5.02
+      VCC3.3-VME           : 3.33
+XprsMon#1>
+
+

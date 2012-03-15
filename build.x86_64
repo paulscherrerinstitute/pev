@@ -1,0 +1,98 @@
+#!/bin/sh
+#=========================< begin file & file header >=======================
+#  References
+#  
+#    filename : build.all
+#    author   : JFG
+#    company  : IOxOS
+#    creation : mai 20,2009
+#    version  : 0.0.1
+#
+#----------------------------------------------------------------------------
+#  Description
+#
+#    This script build everything for the PEV1100 project
+#    + loadable linux kernel module pev-linux.ko 
+#    + loadable xenomai kernel module pev-xeno.ko if xenomai is installed
+#    + loadable linux kernel module hppev.ko to support PEV1100 hot plugging 
+#    + linux user library pevulib.a 
+#    + xenomai real time user library pevrtlib.a if xenomai is installed 
+#    + the XprsMon command interpreter 
+#    + the XprsMonRt real time command interpreter if xenomai is installed 
+#    + the hppev hot plugging application 
+#    + a set of tools to build FPGA binary images 
+#    + a set of examples for linux and xenomai 
+#
+#----------------------------------------------------------------------------
+#  Copyright Notice
+#  
+#    Copyright and all other rights in this document are reserved by 
+#    IOxOS Technologies SA. This documents contains proprietary information    
+#    and is supplied on express condition that it may not be disclosed, 
+#    reproduced in whole or in part, or used for any other purpose other
+#    than that for which it is supplies, without the written consent of  
+#    IOxOS Technologies SA                                                        
+#
+#----------------------------------------------------------------------------
+#  Change History
+#  $Log : $
+#  
+#=============================< end file header >============================
+
+# check for Xenomai in the file system
+XENODIR="/usr/xenomai"
+ls $XENODIR
+if [  $? -eq 0 ]; then 
+XENO=1
+else
+XENO=0
+fi
+
+# check for MPC1200 in the project directory
+MPCDIR="../MPC1200"
+ls $MPCDIR
+if [  $? -eq 0 ]; then 
+MPC=1
+else
+MPC=0
+fi
+
+# build PEV1100 device driver
+cd drivers
+./build.linux.x86_64
+if [  $XENO -eq 1 ]; then 
+./build.xeno.x86_64
+fi
+
+# build hotplug device driver
+cd ../hotplug
+./build
+
+# build libraries
+cd ../lib
+./build.x86_64
+
+# build XprsMon
+cd ../src/XprsMon
+./build.linux.x86_64
+if [  $MPC -eq 1 ]; then 
+./build.mpc
+fi
+if [  $XENO -eq 1 ]; then 
+./build.xeno_x86_64
+fi
+
+# build examples
+cd ../examples
+make
+if [  $XENO -eq 1 ]; then 
+make xeno
+fi
+
+# build configuration tools
+cd ../tools
+make install
+
+# build test suite
+cd ../XprsTst
+./build

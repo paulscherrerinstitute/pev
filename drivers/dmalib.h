@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: dmalib.h,v $
- * Revision 1.2  2012/03/06 10:31:34  kalantari
- * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ * Revision 1.3  2012/03/15 14:59:02  kalantari
+ * added exact copy of tosca-driver_4.04 from afs
  *
  * Revision 1.7  2010/01/13 16:49:35  ioxos
  * xenomai support for DMA list [JFG]

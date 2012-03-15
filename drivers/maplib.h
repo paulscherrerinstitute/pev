@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: maplib.h,v $
- * Revision 1.2  2012/03/06 10:31:34  kalantari
- * patch for pevdrvr.c to solve VME hang-up problem due to caching
+ * Revision 1.3  2012/03/15 14:59:02  kalantari
+ * added exact copy of tosca-driver_4.04 from afs
  *
  * Revision 1.2  2008/07/04 07:40:12  ioxos
  * update address mapping functions [JFG]

@@ -1,0 +1,361 @@
+=========================< begin file & file header >=========================
+  References
+  
+    filename : LOGBOOK
+    author   : JFG
+    company  : IOxOS
+    creation : june 30,2008
+    version  : 0.0.1
+
+------------------------------------------------------------------------------
+  Description
+
+    This file contains the low level functions to perform read/write
+    operations on the resources implemented on the PEV1100.
+
+------------------------------------------------------------------------------
+  Copyright Notice
+  
+    Copyright and all other rights in this document are reserved by 
+    IOxOS Technologies SA. This documents contains proprietary information    
+    and is supplied on express condition that it may not be disclosed, 
+    reproduced in whole or in part, or used for any other purpose other
+    than that for which it is supplies, without the written consent of  
+    IOxOS Technologies SA                                                        
+
+=============================< end file header >==============================
+
+june 30, 2008 : JFG 
+  -> Create repository for PEV1100 linux software environment
+
+     LOGBOOK
+     bin/
+     drivers/
+       i2clib.c  Makefile  maplib.h   pevdrvr.h  pevklib.h  rdwrlib.c  sflashlib.c  vmelib.c
+       i2clib.h  maplib.c  pevdrvr.c  pevklib.c  pevload    rdwrlib.h  sflashlib.h  vmelib.h
+     include/
+       cli.h  debug.h  pevioctl.h  pevulib.h  rdwr.h
+     lib/
+       clilib.c  Makefile  pevulib.c
+     src/
+      tools/
+        fsm2bin.c
+      XprsMon/
+        cmdlist.h  conf.c  Makefile  rdwr.c  sflash.c  XprsMon.c
+
+july 2, 2008 : JFG
+   -> comment out debug accesses in pev_irq interrupt function
+
+july 3, 2008 : JFG
+   -> re-define data strucures for mapping functions
+      include them in pevioctl.h to be accessible to user lib
+      pev_ioctl_map is now pev_ioctl_map_pg
+      pev_map_ctl   is now pev_ioctl_map_ctl (previously in pevdrvr.h)
+
+july 3, 2008 : JFG
+   -> add mapping functions in pevkilb.c to read/clear an existing 
+      map + add map command in XprsMon
+      pev_map_read()
+      pev_map_clear()
+
+july 18, 2008 : JFG
+   -> add support for script execution in XprsMon
+      creation of script.c
+      Makefile  : add script.c
+      XprsMon.c : main()
+      script.c  : xprs_script()
+   -> debug tm and lm commands + add support to set loop counter
+      rdwr.c    : xprs_rdwr_tm()
+                  xprs_rdwr_lm()
+                  rdwr_get_cycle_arg() -> loop parameter
+                  rdwr_fill_buf()      -> walking pattern
+   -> in pm allow for single read using "."
+      rdwr.c    : xprs_rdwr_pm()
+                  rdwr_patch_addr()
+                  rdwr_get_cycle_data()
+   -> re-oganize fm function to allocated shorter buffer
+      rdwr.c    : xprs_rdwr_fm()
+   -> bug correction : map size calculation was wrong
+      map.c     : xprs_map()
+   -> show more info in conf command
+      conf.c     : xprs_conf()
+   -> correct bugs in pev driver
+      rdwrlib.c  : rdwr_wr_blk()    -> 16 bit data where handled as char
+      maplib.c   : map_blk_modify() -> update loc_sddr
+      pevklib.c  : pev_map_read()   -> map size calculation was wrong
+                   pev_map_clear()  -> do actual map cleanup
+   -> msi handling
+      pevdrvr.   : struct pev       -> replace irq by msi
+      pevdrvr.c  : pev_probe()      -> initialize A32 slave port
+                                    -> msi flag
+                   pev_do_tasklet() -> restore debugging info
+                   pev_irq()        -> restore debugging info
+july 21, 2008 : JFG
+   -> create  Makefile for tools
+August 8, 2008 : JFG
+   -> allow access to PEX86xx and PLX8112 registers from pev driver
+      pevdrvr.c : scan pci device table in pev_init() to discover PEX86xx and PLX8112
+                  map PEX86xx and PLC8112 registers
+                  install driver if PEX86xx upstream port is discovered and put protection
+                  against non existing resources
+      pevklib.c : pev_rdwr()  -> support access to PEX86xx and PLC8112 registers
+   -> allow to allocate kernel buffers for DMA transfer
+      pevdrvr.c : pec_ioctl() -> add PEV_IOCTL_DMA_ALLOC and PEV_IOCTL_DMA_FREE
+      pevklib.c : pev_rdwr()  -> support access to buffers allocated for DMA
+      pevulib.c : add functions pev_dma_alloc() and pev_dma_free()
+   -> correct bug in handling vme slave scatter/gather memory 
+      pevklib.c : pev_sg_slave_vme_set(() -> descripors are 64*16 bits
+                  pev_map_set_sg()        -> bug in mode initialization
+   -> update pevdrvr.h to allow access to PEX86xx and PLX8112 registers
+      add pex and plx parameters in  struct pev_dev{}
+   -> update ioctl.h to allow access to PEX86xx and PLX8112 registers and DMA buffers
+      define RDWR_PEX and RDWR_KMEM
+      add k_addr parameters in  struct pev_ioctl_rdwr{}
+      add struct pev_ioctl_dma
+   -> add support for FPGA signature
+      pevulib.c : add functions pev_fpga_sign() to read FPGA signature
+   -> in XprsMon allow to execute script recursively
+      allow to pass argument to a script
+      allow to add comments within command lines
+      allow to sleep within script execution
+      cli.h      : cmdline belongs now to struct cli_cmd_para{}
+      clilib.c   : cli_cmd_parse() save cmdline in struct cli_cmd_para{}
+      XprsMon.c  : parse script arguments
+      script.c   : xprs_script() -> pass arg from command line
+                                 -> # decoded as end of line
+                                 -> decode $sleep and $usleep
+                                 -> decode $sleep and $usleep
+                                 -> decode script args
+   -> in XprsMon support to handle dynamically allocated buffer for DMA
+                 support to handle PEX86xx and PLX8112 registers access
+      px  must be used to access PEX86xx and PLX8112 registers
+      dm, pm, fm must be used to access DMA buffer
+      ds, ps, fs, ls,ts must be used to access PEV1100 shared memory
+      cmdlist.h  : define new commands
+      rdwr.c     : declare last_kmem_cycle to hold parameter for DMA buffer access
+                   redefine names of mapping structures and add one pointing to kernel memory
+                   declare  a dma control structure
+                   rdwr_init()  -> initialize newly declared control structure
+                   rdwr_exit()  -> free DMA buffer
+                   rdwr_set_ioctl_arg(),xprs_rdwr_dm(),),xprs_rdwr_pm(),xprs_rdwr_fm(),...
+                                -> decode 's' as shared memory access
+                                   decode 'm' as DMA buffer access
+                                   decode 'x' as PEX or PLX register access
+   -> in XprsMon reorganize map.c (cosmetic)
+   -> in XprsMon reorganize conf.c (cosmetics)
+   -> in XprsMon reorganize sflash.c + support for FPGA signature (not finished yet) 
+   -> in tools
+      fsm2bin.c : allow for comments inside a command line
+                  define "pex" operation to access PEX86xx registers
+ 
+September 17, 2008 : JFG
+   -> support for VME configuration
+      pevioctl.h : define PEV_IOCTL_VME + pev_ioctl_vme_xxx
+      pevdrvr.c  : pev_ioctl() -> case PEV_IOCTL_VME
+      pevklib.c  : pev_vme_conf_read() -> read VME config
+                   pev_vme_conf_write()-> write VME config
+                   pev_vme_cscsr() -> handle VME CRCSR 
+      pevklib.h  : declare pev_vme_xxx_yyy() functions
+      vmelib.c  : vme_conf_get()  -> read VME config
+                  vme_conf_set()  -> set VME config
+                  vme_crcsr_set()  -> set CRCSR bits
+                  vme_crcsr_clear()  -> clear CRCSR bits
+      vmelib.h  : declare vme_conf_xxx() and vme_crcsr_xxx() functions
+      pevulib.c  : pev_vme_conf_read() -> read VME config
+                   pev_vme_conf_write()-> write VME config
+                   pev_vme_cscsr() -> handle VME CRCSR 
+   -> support for read loop with data checking
+      pevklib.c  : pev_rdwr()  -> add case RDWR_LOOP_CHECK
+      rdwrlib.c  : rdwr_loop()  -> add case RDWR_LOOP_CHECK
+   -> install frame for DMA library
+      dmalib.c  : file creation
+      dmalib.h  : file creation
+      Makefile  : add dmalib.o
+   -> in XprsMon support to drive serial line
+                 add tty command
+                 support for command execution loop
+      set frame for test environment
+      clilib.c  : accept string parameters delimitted by quotes
+      rdwr.c    : move aio control structure to XprsMon.c
+                  xprs_rdwr_tm() -> clean-up + seed update for random test loop
+                                    display test duration
+                  xprs_rdwr_lm() -> use 64 kloop instead of 1 Mloop
+                                    support for read loop with data check
+                  move xprs_rdwr_tst() to tst.c
+      cmdlist.h : add tty and tst commands
+      tty.c     : file creation
+      tst.c     : file creation
+      Makefile  : add tty.o and tst.o
+      XprsMon.c : support for command execution loop
+
+   -> in tools cleanup fsm2bin.c
+   -> add hardware configuration files
+      create directory
+      cfg/
+        fsm/
+        mcs/
+        sfl/
+      add files
+      pev_int.fsm : PEV1100 default fsm file 
+      pev1100_sw4_280808.mcs : bistream for PEV1100 without DMA
+
+November 12, 2008 : JFG
+   -> support for VME timer + some improvements
+      pevioctl.h : define PEV_IOCTL_TIMER, PEV_MAP_FIND, PEV_IOCTL_SET_XXX
+                   declare structures pev_ioctl_dma_desc and pev_ioctl_timer
+      pevdrvr.c  : pev_probe() -> mask transmission of VME BERR to host
+                               -> enable PCI master access from FPGA
+                   pev_ioctl() -> case PEV_IOCTL_TIMER
+                               -> case PEV_IOCTL_MAP_FIND
+                               -> case PEV_IOCTL_SET_XXX
+                               -> remove MAP_PRIVATE (conflict with mmap())
+                               -> add data strucrure for dma and timer
+      pevklib.c  : pev_sflash_write()  -> improve performance
+                   pev_map_find()  -> added
+                   pev_map_clear() -> return MAP_INVALID if non existing map
+                   pev_timer_xxx() -> add new functions to control timer
+      pevklib.h  : add declarations for map_find() and timer_xxx()
+      maplib.c   : map_blk_alloc() -> update offset
+                   map_blk_find()  -> return local address in map parameters
+
+      vmelib.c   : vme_timer_start()   -> added
+                   vme_timer_restart() -> added
+                   vme_timer_stop()    -> added
+                   vme_timer_read()    -> added
+      vmelib.h   : add declaration for vme_timer_xxx() functions
+                   add structure to hold vme time
+                   define control bit to drive timer related registers
+      pevulib.c  : pev_csr_set() -> bit setting in registers
+                   pev_map_find()-> look for existing mapping in a map
+                   pev_timer_xxx() -> VME timer handling functions 
+      pevulib.h  : declare pev_csr_set(),pev_map_find(),pev_timer_xxx()
+                   add structure pev_time
+   -> in XprsMon support for timer, sflash signature
+                 improve sflash read/write functions
+      cmdlist.h  : add timer and vme commands
+      sflash.c   : additionnal info in signature
+                   improve read and load commands
+                   add check command
+                   sflash_read() -> added
+      conf.c     : update show function according to new static options
+                   give info about PCIe switch configuration
+      map.c      : add map clear command
+      rdwr.c     : display cycle info in case of error in tm
+      timer.c    : contains functions to handle the VME global timer
+      vme.c      : contains functions to configure the VME interface
+      XprsMon.c  : add call to vme_init() function
+   -> in tools add support sflash checking
+      mcs2bin.c   : add support for a pex instruction
+      fpgabuild.c : check mcs file to identify FPGA device and verify coherency
+      fpgacheck.c : new file -> sflash checking tool
+      pevdrvr.c  : pev_probe() -> mask transmission of VME BERR to host
+       
+December 12, 2008 : JFG
+   -> support for DMA + IRQ table + some improvements
+      pevioctl.h : add define for MAP and DMA + modif dma data structures
+      pevdrvr.c  : include ioctllib.h + define for debugging
+                   pev_probe() -> prepare data structure for DMA in top MByte of shared memory
+                               -> enable PCI master access from FPGA
+                   pev_irq()   -> use macro for debug marker
+                                  call handler from irq_tbl[src]
+                   pev_ioctl() -> start moving code in pevioctl.c
+                               -> case PEV_IOCTL_DMA
+                   pev_init()  -> init irq_tbl with pev_irq_spurious()
+                               ->  make sure ISA mode is not set in Bridge control register 
+      pevioctl.c : contain pev_ioctl_xxx functions
+      ioctllib.h : contain pev_ioctl_xxx function declarations
+      pevdrvr.h  : add irq_tbl and dma variables in pev struct + declare pev_irq_handler
+      pevklib.c  : pev_irq_register() -> allow to register interrupt handler
+                   pev_dma_xxx() -> fnctions to handle DMA transfer
+      pevklib.h  : add declarations for pev_irq_register() and pev_dma_xxx() 
+      dmalib.c  : contain function handling PEV1100 DMA hardware
+      dmalib.h  : add declarations for dma_xxx() 
+      Makefile   : add pevioctl.o
+      pevulib.c  : pev_mmap()/pev_munmap -> call mmap/munmap from pev_ioctl_map arguments
+                   pev_dma_move()-> function to move data with PEV1100 DMA
+      pevulib.h  : declare pev_mmap/munmap(),pev_dma_move()
+      XprsMon.c  : compare command with length of entry
+      cmdlist.h  : add command to access pci addresses (dp,pp,..)
+      rdwr.c     : allow to give pci adresses
+                   support for address extension addr:ext
+                   support for DMA transfer
+
+January 6, 2009 : JFG
+   -> cleanup before first official release
+      add README file
+
+January 6, 2009 : JFG
+   -> cleanup + support for DMA status
+      dmalib.c   : add dma_get_desc()
+      dmalib.h   : add dma_get_desc()
+      pevdrvr.c  : set no debug
+      pevioctl.c : add pev_dma_status()
+      pevklib.c  : add pev_dma_status()
+      pevklib.h  : add pev_dma_status()
+      pevioctl.h : declare struct pev_ioctl_dma_sts
+      pevulib.c  : add pev_dma_status()
+   -> add /src/examples
+      Makefile
+      BerrTst.c
+      VmeTst.c
+      DmaTst.c
+   -> config file (.mcs, .sfl), use generic name for CVS storage
+      create VERSION file in mcs/ to keep track of hardware versions
+
+April 4, 2009 : JFG
+   -> move ioctl code from pevdrvr.c to pevioctl.c completed
+   -> driver include support for XENOMAI
+      compilation flag XENOMAI has been introduced to allow the driver to work with a 
+      linux kernel 2.6.28.7 including xenomai 2.4.7
+      histogramming capabilities to allow performance measurement (up to 16 histograms)
+      Makefile  : compilation flag -DXENOMAI + file histolib.c
+      pevdrvr.c : conditionnal compilation #ifdef XENOMAI
+                  pev_init() -> register xenomai driver
+
+   -> support for multi crate
+      the driver has been extended to support up to 16 crates.
+      the pev_dev{} data structures is now referenced 16 time in a more general pev_drv{}
+      data structure. 
+      pev_drvr.c : pev_init() -> create 16 minor devices
+                     scan the pci table t find all PEX8624 switches (switch = board). 
+                     the crate number (rotary encoder) defines the minor number of each board
+                     for each board found:
+                       - allocate a pev_dev{} data structure and register it in pev_drv{}
+                       - search for the FPGA end point (port#5) and call pev_probe() by hand
+                         (don't use anymore pci_register())
+                       - search for PEX8112 PCIe/PCI bridge (port#6)
+                     install interrupt function in pev_probe() (one for each board)
+                   pev_exit() -> for each board call pev_remove by hand
+                   pev_irq()  -> for each board support 64 interrupt sources
+      pevklib.c  : sflash_xxx()-> io_base as first arg
+                   timer_irq_xxx() -> support to handle timer interrupt
+                   histo_xxx() -> support for histogramming functions
+      sflashlib.c : pass io_base as first arg to each function
+      histolib.c  : creation -> histogramming library to allow perf measurements
+      XprsMon.c   : support for multicrate
+      pevulib.c   : support for multicrate
+
+August 16, 2010 : JFG 
+   -> tagging release 3.4
+      support for execution of DMA list to read VME
+      change kernel memory allocation mechanism: use get_free_pages() instead of kmalloc()
+
+November 29, 2010 : JFG 
+   -> tagging release 3.7
+      release for Eurocopter delivery
+
+October 19, 2011 : JFG 
+   -> tagging release 3.11
+      support for P2020 powerpc (IPV1102)
+      support for VME interrupt handling
+
+January 6, 2012 : JFG 
+   -> tagging release 3.13
+      support for X86 32 bit
+===============================< end of file >================================
+
+
+
+
+
+ 

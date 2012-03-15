@@ -1,17 +1,17 @@
 /*=========================< begin file & file header >=======================
  *  References
  *  
- *    filename : i2clib.h
+ *    filename : fpgalib.h
  *    author   : JFG
  *    company  : IOxOS
- *    creation : june 30,2008
+ *    creation : november 30,2011
  *    version  : 0.0.1
  *
  *----------------------------------------------------------------------------
  *  Description
  *
  *    This file contain the declarations of all exported functions define in
- *    vmelib.c
+ *    fpgalib.c
  *
  *----------------------------------------------------------------------------
  *  Copyright Notice
@@ -23,32 +23,26 @@
  *    than that for which it is supplies, without the written consent of  
  *    IOxOS Technologies SA                                                        
  *
- *----------------------------------------------------------------------------
+ *----------------------------------------------------------------------------d
  *  Change History
  *  
- * $Log: i2clib.h,v $
- * Revision 1.3  2012/03/15 14:59:02  kalantari
+ * $Log: fpgalib.h,v $
+ * Revision 1.1  2012/03/15 14:59:02  kalantari
  * added exact copy of tosca-driver_4.04 from afs
  *
- * Revision 1.2  2012/01/27 13:13:04  ioxos
- * prepare release 4.01 supporting x86 & ppc [JFG]
- *
- * Revision 1.1.1.1  2008/07/01 09:48:06  ioxos
- * Import sources for PEV1100 project [JFG]
+ * Revision 1.1  2012/01/27 09:56:49  ioxos
+ * first checkin [JFG]
  *
  *  
  *=============================< end file header >============================*/
 
-#ifndef _H_I2CLIB
-#define _H_I2CLIB
+#ifndef _H_FPGALIB
+#define _H_FPGALIB
 
-void i2c_set_elb( uint);
-uint i2c_cmd( uint, uint, uint);
-uint i2c_read( uint, uint);
-uint i2c_write( uint, uint, uint, uint);
-uint i2c_wait( uint, uint);
+void fpga_set_dev( uint);
+uint fpga_load( ulong, unsigned char *, uint, uint);
 
-#endif /*  _H_I2CLIB */
+#endif /*  _H_FPGALIB */
 
 
 /*================================< end file >================================*/

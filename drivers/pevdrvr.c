@@ -43,11 +43,8 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.2  2012/03/06 10:31:34  kalantari
- * patch for pevdrvr.c to solve VME hang-up problem due to caching
- *
- * Revision 1.41  2012/03/01 15:23:23  ioxos
- * if PPC make sure cache are disabled when mappig PCI addresses [JFG]
+ * Revision 1.3  2012/03/15 14:59:02  kalantari
+ * added exact copy of tosca-driver_4.04 from afs
  *
  * Revision 1.40  2012/02/28 16:08:34  ioxos
  * set release to 4.04 [JFG]
@@ -346,6 +343,7 @@ pev_mmap( struct file *filp,
 
   size = vma->vm_end - vma->vm_start;
   off = vma->vm_pgoff << PAGE_SHIFT;
+
 #if defined(PPC) || defined(X86_32)
   if( off < 0x80000000)
   {
@@ -361,25 +359,13 @@ pev_mmap( struct file *filp,
   if( (off & 0xc0000000) == 0x80000000)
   {
     off &= 0x3fffffff;
-#if defined(PPC)
-    vma->vm_flags |= VM_IO | VM_RESERVED;
-    vma->vm_page_prot=pgprot_noncached(vma->vm_page_prot);
-#endif
     if( off < (ulong)pev->mem_len)
     {
-#if defined(PPC)
-      io_remap_pfn_range( vma, 
-		          vma->vm_start,
-		          (((ulong)pev->mem_base + off) >> PAGE_SHIFT),
-		          size,
-		          vma->vm_page_prot); 
-#else
       remap_pfn_range( vma, 
 		       vma->vm_start,
 		       (((ulong)pev->mem_base + off) >> PAGE_SHIFT),
 		       size,
 		       vma->vm_page_prot); 
-#endif
       return( 0);
     }
   }
