@@ -40,6 +40,8 @@
 #define VME24_MAP_SIZE 	0x800000      	/* 8 MB A24 */
 #define VMECR_MAP_SIZE 	0x800000	/* 8 MB CR/CSR */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 */
+#define USR1_MAP_SIZE 	0x100000	/* 1 MB A16 */
+#define USR2_MAP_SIZE 	0x100000	/* 1 MB A16 */
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
 #define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
@@ -49,7 +51,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.6 2012/03/13 13:05:36 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.7 2012/03/21 10:24:35 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -401,6 +403,7 @@ int pevAsynRead(
     }
     
     regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap); 
+    callbackRequest((CALLBACK*)cbStruct);
     return 0;
 
 }
@@ -494,6 +497,7 @@ int pevAsynWrite(
     }
       
     regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + offset, NULL, swap); 
+    callbackRequest((CALLBACK*)cbStruct);
     return 0;
 }
 
@@ -785,18 +789,33 @@ int pevConfigure(
 	  }
 	device->dmaSpace = DMA_SPACE_PCIE;
      }
-   else			/*******************   To BE DONE ***********************/
-   if( strcmp(resource, "USR")==0 ) 
+   else			
+   if( strcmp(resource, "USR1")==0 ) 
      {
-  	device->pev_rmArea_map.mode = MAP_SPACE_USR;
+  	device->pev_rmArea_map.mode = MAP_SPACE_USR1;
   	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
   	device->pev_rmArea_map.rem_addr = 0x000000; 		
-  	device->pev_rmArea_map.size = VME16_MAP_SIZE;
+  	device->pev_rmArea_map.size = USR1_MAP_SIZE;
 	if( offset > VME16_MAP_SIZE) 
 	  {
 	    printf("pevConfigure: ERROR, too big offset\n");
 	    exit(0);
 	  }
+	  device->dmaSpace = DMA_SPACE_USR1;
+     }
+   else			
+   if( strcmp(resource, "USR2")==0 ) 
+     {
+  	device->pev_rmArea_map.mode = MAP_SPACE_USR2;
+  	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.rem_addr = 0x000000; 		
+  	device->pev_rmArea_map.size = USR2_MAP_SIZE;
+	if( offset > VME16_MAP_SIZE) 
+	  {
+	    printf("pevConfigure: ERROR, too big offset\n");
+	    exit(0);
+	  }
+	  device->dmaSpace = DMA_SPACE_USR2;
      }
    else
    if( strcmp(resource, "VME_A16")==0 ) 
@@ -1003,14 +1022,16 @@ int pevAsynConfigure(
   {
     printf(" -> disabled\n");
   }
-  
+
+/*  
   if( mapExists )
     {
       device->pev_rmArea_map = pev_rmArea_map;
       printf ("pevAsynConfigure: skip mapping...\n");
       goto SKIP_PEV_RESMAP;
     }
-      
+*/
+     
   epicsAtExit((void*)pevDrvAtexit, device);
   
   device->pev_dmaBuf.size = DMA_BUF_SIZE;
@@ -1055,18 +1076,33 @@ int pevAsynConfigure(
 	  }
 	device->dmaSpace = DMA_SPACE_PCIE;
      }
-   else			/*******************   To BE DONE ***********************/
-   if( strcmp(resource, "USR")==0 ) 
+   else			
+   if( strcmp(resource, "USR1")==0 ) 
      {
-  	device->pev_rmArea_map.mode = MAP_SPACE_USR;
+  	device->pev_rmArea_map.mode = MAP_SPACE_USR1;
   	 device->pev_rmArea_map.sg_id = MAP_MASTER_32;
   	device->pev_rmArea_map.rem_addr = 0x000000; 		
-  	device->pev_rmArea_map.size = VME16_MAP_SIZE;
+  	device->pev_rmArea_map.size = USR1_MAP_SIZE;
 	if( offset > VME16_MAP_SIZE) 
 	  {
 	    printf("pevConfigure: ERROR, too big offset\n");
 	    exit(0);
 	  }/**/
+	device->dmaSpace = DMA_SPACE_USR1;
+     }
+   else			
+   if( strcmp(resource, "USR2")==0 ) 
+     {
+  	device->pev_rmArea_map.mode = MAP_SPACE_USR2;
+  	 device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.rem_addr = 0x000000; 		
+  	device->pev_rmArea_map.size = USR2_MAP_SIZE;
+	if( offset > VME16_MAP_SIZE) 
+	  {
+	    printf("pevConfigure: ERROR, too big offset\n");
+	    exit(0);
+	  }/**/
+	device->dmaSpace = DMA_SPACE_USR2;
      }
    else
    if( strcmp(resource, "VME_A16")==0 ) 
