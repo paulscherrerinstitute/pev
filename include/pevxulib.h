@@ -27,8 +27,17 @@
  *  Change History
  *  
  * $Log: pevxulib.h,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.12  2012/04/12 13:45:39  ioxos
+ * bug in eeprom_.. declaration [JFG]
+ *
+ * Revision 1.11  2012/04/12 13:43:50  ioxos
+ * support for eeprom access [JFG]
+ *
+ * Revision 1.10  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
  *
  * Revision 1.9  2012/01/26 15:57:09  ioxos
  * prepare for IFC1210 support [JFG]
@@ -130,6 +139,15 @@ int pev_vme_irq_armwait( uint, struct pev_ioctl_vme_irq *, uint, uint *);
 int pev_vme_irq_clear( uint, struct pev_ioctl_vme_irq *);
 int pevx_elb_rd( uint, int);
 int pevx_elb_wr( uint, int, int);
+int pevx_fifo_init( uint);
+int pevx_fifo_status( uint, uint, uint *);
+int pevx_fifo_clear( uint, uint, uint *);
+int pevx_fifo_wait_ef( uint, uint,  uint *, uint);
+int pevx_fifo_wait_ff( uint, uint,  uint *, uint);
+int pevx_fifo_read( uint, uint,  uint *, uint, uint *);
+int pevx_fifo_write( uint, uint,  uint *, uint, uint *);
+int pevx_eeprom_rd( uint,  uint, char *, uint);
+int pevx_eeprom_wr( uint, uint, char *, uint);
 #ifdef _cplusplus
 }
 #endif

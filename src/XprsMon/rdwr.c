@@ -27,8 +27,17 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.24  2012/04/12 13:31:07  ioxos
+ * support for dma swapping [JFG]
+ *
+ * Revision 1.23  2012/03/27 09:17:41  ioxos
+ * add support for FIFOs [JFG]
+ *
+ * Revision 1.22  2012/03/21 11:28:30  ioxos
+ * buf for CSR access [JFG]
  *
  * Revision 1.21  2012/03/05 09:53:47  ioxos
  * adjust casting of rdwr_filename [JFG]
@@ -97,7 +106,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -327,6 +336,7 @@ struct pev_ioctl_map_pg shm_mas_map;
 #endif
 struct pev_ioctl_map_pg shm_slv_map;
 struct pev_ioctl_map_pg kmem_slv_map;
+struct pev_ioctl_map_pg csr_slv_map;
 extern struct aiocb aiocb;
 extern char aio_buf[256];
 struct pev_ioctl_buf dma_buf;
@@ -390,6 +400,13 @@ rdwr_init( void)
     pev_map_alloc( &kmem_slv_map);
   }
 
+  csr_slv_map.rem_addr = 0x0;
+  csr_slv_map.mode = 0x3003;
+  csr_slv_map.flag = 0x0;
+  csr_slv_map.sg_id = MAP_SLAVE_VME;
+  csr_slv_map.size = 0x100000;
+  pev_map_alloc( &csr_slv_map);
+
   bzero( (char *)&aiocb, sizeof(struct aiocb) );
   aiocb.aio_fildes = STDIN_FILENO;
   aiocb.aio_buf = aio_buf;
@@ -412,6 +429,7 @@ rdwr_exit( void)
     pev_map_free( &kmem_slv_map);
     pev_buf_free( &dma_buf);
   }
+  pev_map_free( &csr_slv_map);
   return(0);
 }
 
@@ -1119,7 +1137,7 @@ xprs_rdwr_dm( struct cli_cmd_para *c)
 
   mp = (struct pev_ioctl_map_pg *)0;
   if( c->cmd[1] == 'e') cp = &last_elb_cycle;
-  if( c->cmd[1] == 'r') cp = &last_cfg_cycle;
+  if( c->cmd[1] == 'r') cp = &last_csr_cycle;
   if( c->cmd[1] == 'v')
   {
     cp = &last_vme_cycle;
@@ -1913,7 +1931,7 @@ xprs_rdwr_pm( struct cli_cmd_para *c)
   if( c->cmd[1] == 'c') cp = &last_cfg_cycle;
   if( c->cmd[1] == 'e') cp = &last_elb_cycle;
   if( c->cmd[1] == 'i') cp = &last_io_cycle;
-  if( c->cmd[1] == 'r') cp = &last_cfg_cycle;
+  if( c->cmd[1] == 'r') cp = &last_csr_cycle;
   if( c->cmd[1] == 'x') cp = &last_pex_cycle;
   mp = (struct pev_ioctl_map_pg *)0;
   if( c->cmd[1] == 'v')
@@ -2394,10 +2412,31 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       dma_req.des_mode = 0x0;
       if( npara == 3)
       {
-	if( sw == 's')
+        if( ( dma_req.des_space & DMA_SPACE_MASK) ==  DMA_SPACE_VME)
 	{
-	  printf("set destination swapping\n");
-	  dma_req.des_mode = DMA_SWAP;
+	  if( ( sw == 's') ||( sw == 'a')) 
+	  {
+	    printf("set VME destination swapping\n");
+	    dma_req.des_mode = DMA_VME_SWAP;
+	  }
+	}
+	else
+	{
+ 	  if( sw == 'w')
+	  {
+	    printf("set destination word swapping\n");
+	    dma_req.des_space |= DMA_SPACE_WS;
+	  }
+ 	  if( sw == 'd')
+	  {
+	    printf("set destination double word swapping\n");
+	    dma_req.des_space |= DMA_SPACE_DS;
+	  }
+ 	  if( sw == 'q')
+	  {
+	    printf("set destination quad word swapping\n");
+	    dma_req.des_space |= DMA_SPACE_QS;
+	  }
 	}
       }
       sw = 0;
@@ -2406,20 +2445,41 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       dma_req.src_mode = 0x0;
       if( npara == 3)
       {
-	if( sw == 's')
+        if( ( dma_req.src_space & DMA_SPACE_MASK) ==  DMA_SPACE_VME)
 	{
-	  printf("set source swapping\n");
-	  dma_req.src_mode = DMA_SWAP;
+	  if( ( sw == 's') ||( sw == 'a')) 
+	  {
+	    printf("set VME source auto swapping\n");
+	    dma_req.src_mode = DMA_VME_SWAP;
+	  }
+	}
+        else
+	{
+ 	  if( sw == 'w')
+	  {
+	    printf("set source word swapping\n");
+	    dma_req.src_space |= DMA_SPACE_WS;
+	  }
+ 	  if( sw == 'd')
+	  {
+	    printf("set source double word swapping\n");
+	    dma_req.src_space |= DMA_SPACE_DS;
+	  }
+ 	  if( sw == 'q')
+	  {
+	    printf("set source quad word swapping\n");
+	    dma_req.src_space |= DMA_SPACE_QS;
+	  }
 	}
       }
 
       sscanf( c->para[3], "%x", &dma_req.size);
 
-      if( dma_req.des_space == DMA_SPACE_PCIE)
+      if( (dma_req.des_space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
       {
 	dma_req.des_addr += (ulong)dma_buf.b_addr;       /* add buffer base address */
       }
-      if( dma_req.src_space == DMA_SPACE_PCIE)
+      if( (dma_req.src_space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
       {
 	dma_req.src_addr += (ulong)dma_buf.b_addr;       /* add buffer base address */
       }

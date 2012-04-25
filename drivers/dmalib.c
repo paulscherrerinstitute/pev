@@ -27,8 +27,20 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.4  2012/03/15 16:15:36  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.21  2012/04/17 11:57:44  ioxos
+ * bug correction for VME list mode on PPC [JFG]
+ *
+ * Revision 1.20  2012/04/17 08:11:48  ioxos
+ * support VME list mode on PPC [JFG]
+ *
+ * Revision 1.19  2012/04/17 07:47:03  ioxos
+ * support pipe mode on PPC [JFG]
+ *
+ * Revision 1.18  2012/04/12 13:33:37  ioxos
+ * support for dma swapping [JFG]
  *
  * Revision 1.17  2012/02/14 16:12:54  ioxos
  * support for byte swapping [JFG]
@@ -130,7 +142,8 @@ struct dma_ctl
   uint rd_chain_offset;
   uint buf_offset;
   uint shm_size;
-  uint io_base;
+  uint io_base_rd;
+  uint io_base_wr;
   uint wr_chain_cnt;
   uint rd_chain_cnt;
   void *dma_buf_kaddr;
@@ -169,7 +182,8 @@ dma_init( int crate,
 	  void *shm_ptr,
 	  ulong shm_base,
 	  uint shm_size,
-	  uint io_base)
+	  uint io_base_rd,
+	  uint io_base_wr)
 {
   struct dma_ctl *dc;
 
@@ -186,7 +200,8 @@ dma_init( int crate,
   dc->wr_chain_offset = (uint)shm_base;
   dc->rd_chain_offset = (uint)shm_base + sizeof( struct dma_chain);
   dc->buf_offset = (uint)shm_base + 2*sizeof( struct dma_chain);
-  dc->io_base = io_base;
+  dc->io_base_rd = io_base_rd;
+  dc->io_base_wr = io_base_wr;
   dc->wr_chain_cnt = 1;
   dc->rd_chain_cnt = 1;
   dc->dma_buf_kaddr = NULL;
@@ -251,7 +266,7 @@ dma_set_ctl( uint space,
   uint ctl;
 
   ctl = 0x2000 | (trig << 10) | (intr << 14);
-  ctl |= 0x80000 | ((mode&0xff) << 20);
+  ctl |= 0x80000 | ((mode&0x3ff) << 20);
   if( (space & DMA_SPACE_MASK) == DMA_SPACE_VME)
   { 
     if( space < 0x30)
@@ -280,7 +295,7 @@ dma_set_rd_desc( int crate,
 		 ulong des_addr, 
 		 uint size,
 		 unsigned char space,
-		 char mode)
+		 uint mode)
 {
   struct dma_ctl *dc;
   struct dma_desc *dd;
@@ -319,7 +334,7 @@ dma_set_wr_desc( int crate,
 		 ulong src_addr, 
 		 uint size,
 		 unsigned char space,
-		 char mode)
+		 uint mode)
 {
   struct dma_ctl *dc;
   struct dma_desc *dd;
@@ -410,7 +425,8 @@ dma_set_pipe_desc( int crate,
 		   ulong  src_addr, 
 		   uint size,
 		   char des_space,
-		   char src_space)
+		   char src_space,
+		   uint mode)
 {
   struct dma_ctl *dc;
   struct dma_desc *dd_r, *dd_w;
@@ -421,18 +437,22 @@ dma_set_pipe_desc( int crate,
   uint next_r, next_w;
   uint ctl_r, ctl_w;
   volatile uint sync_desc;
+  uint mode_rd, mode_wr;
+
+  mode_rd = mode >> 16;
+  mode_wr = mode & 0xffff;
 
   dc = &dma_ctl[crate];
   if( size <= 0x1000)
   {
-    wdo = dma_set_wr_desc( crate, -1, src_addr, size, src_space, 0);
-    rdo = dma_set_rd_desc( crate, -1, des_addr, size, des_space, 0);
-    outl( rdo | 0x6, dc->io_base + 0x904); /* start read engine waiting for trigger from write */
-    outl( wdo, dc->io_base + 0xa04); /* start write engine */
+    wdo = dma_set_wr_desc( crate, -1, src_addr, size, src_space, mode_wr);
+    rdo = dma_set_rd_desc( crate, -1, des_addr, size, des_space, mode_rd);
+    outl( rdo | 0x6, dc->io_base_rd + 0x04);   /* start read engine waiting for trigger from write */
+    outl( wdo, dc->io_base_wr + 0x04);         /* start write engine */
     return( 0);
   }
 
-  debugk(("in dma_set_pipe_desc( %lx, %lx, %x, %x)...\n", src_addr, des_addr, size, src_space));
+  debugk(("in dma_set_pipe_desc( %lx, %lx, %x, %x,%x)...\n", src_addr, des_addr, size, src_space,mode));
   dd_r = (struct dma_desc *)dc->rd_chain_p;
   dd_w = (struct dma_desc *)dc->wr_chain_p;
   wdo = dc->wr_chain_offset;
@@ -453,10 +473,10 @@ dma_set_pipe_desc( int crate,
 
 
   /* open write chain with time marker element                 */
-  dd_w->ctl = 0xb2000;           /* get current time           */
+  dd_w->ctl = SWAP32(0xb2000);           /* get current time           */
   dd_w->wcnt = 0;                /* don't perform any transfer */
   dd_w->shm_addr = 0;            /* SHM local buffer           */
-  dd_w->next = next_w;           /* chain to next descriptor   */            
+  dd_w->next = SWAP32(next_w);           /* chain to next descriptor   */            
   dd_w->rem_addr_l = 0;          /* remote address             */
   dd_w->rem_addr_h = 0;
   dd_w++;
@@ -490,7 +510,7 @@ dma_set_pipe_desc( int crate,
     ctl_w |= 0x90000;
   }
   /* generate timing info  */
-  ctl_r = 0x2c00;
+  ctl_r = 0x2000;
   if( des_space < 0x30)
   {
     ctl_r |= 0x80000;
@@ -511,21 +531,21 @@ dma_set_pipe_desc( int crate,
   while( nbuf--)
   {
     /* prepare write element */
-    dd_w->ctl = ctl_w;
-    dd_w->wcnt = (uint)src_space << 24 | buf_cnt;    /* 4kbyte, VME A32  */
-    dd_w->shm_addr = shm_addr;                       /* SHM local buffer */
-    dd_w->next = next_w;                             /*last descriptor   */
-    dd_w->rem_addr_l = (uint)src_addr;               /* source address      */
+    dd_w->ctl = SWAP32(ctl_w | ((mode_wr&0x3ff) << 20));
+    dd_w->wcnt = SWAP32((uint)src_space << 24 | buf_cnt);    /* 4kbyte, VME A32  */
+    dd_w->shm_addr = SWAP32(shm_addr);                       /* SHM local buffer */
+    dd_w->next = SWAP32(next_w);                             /*last descriptor   */
+    dd_w->rem_addr_l = SWAP32((uint)src_addr);               /* source address      */
     dd_w->rem_addr_h = 0;
     dd_w++;
     next_w += sizeof(struct dma_desc);
 
     /* prepare read element */
-    dd_r->ctl = ctl_r;
-    dd_r->wcnt = (uint)des_space << 24 | buf_cnt;    /* 4kbyte, VME A32  */
-    dd_r->shm_addr = shm_addr;                       /* SHM local buffer */
-    dd_r->next = next_r | 0x4;                       /* wait for trig from write engine */   
-    dd_r->rem_addr_l = (uint)des_addr;               /* destination address      */
+    dd_r->ctl = SWAP32(ctl_r | ((mode_rd&0x3ff) << 20));
+    dd_r->wcnt = SWAP32((uint)des_space << 24 | buf_cnt);    /* 4kbyte, VME A32  */
+    dd_r->shm_addr = SWAP32(shm_addr);                       /* SHM local buffer */
+    dd_r->next = SWAP32(next_r | 0x6);                       /* wait for trig from write engine */   
+    dd_r->rem_addr_l = SWAP32((uint)des_addr);               /* destination address      */
     dd_r->rem_addr_h = 0;
     dd_r++;
     next_r += sizeof(struct dma_desc);
@@ -537,40 +557,40 @@ dma_set_pipe_desc( int crate,
   if( last_cnt) /* create last descriptor */
   {
     /* prepare last write element */
-    dd_w->ctl = ctl_w;
-    dd_w->wcnt = (uint)src_space << 24 | last_cnt;    /* 4kbyte, VME A32  */
-    dd_w->shm_addr = shm_addr;                    /* SHM local buffer */
-    dd_w->next = 0x10;                            /*last descriptor   */
-    dd_w->rem_addr_l = (uint)src_addr;            /* src address      */
+    dd_w->ctl = SWAP32(ctl_w | ((mode_wr&0x3ff) << 20));
+    dd_w->wcnt = SWAP32((uint)src_space << 24 | last_cnt);    /* 4kbyte, VME A32  */
+    dd_w->shm_addr = SWAP32(shm_addr);                    /* SHM local buffer */
+    dd_w->next = SWAP32(0x10);                            /*last descriptor   */
+    dd_w->rem_addr_l = SWAP32((uint)src_addr);            /* src address      */
     dd_w->rem_addr_h = 0;
     /* prepare last read element */
-    dd_r->ctl = ctl_r | 0x8000;                   /* generate interrupt at end of chain */
-    dd_r->wcnt = (uint)des_space << 24 | last_cnt;    /* 4kbyte, VME A32  */
-    dd_r->shm_addr = shm_addr;                    /* SHM local buffer */
-    dd_r->next = 0x14;                            /* wait for trig from write engine and stop */   
-    dd_r->rem_addr_l = (uint)des_addr;            /* dest address      */
+    dd_r->ctl = SWAP32(ctl_r | 0x8000 | ((mode_rd&0x3ff) << 20));                   /* generate interrupt at end of chain */
+    dd_r->wcnt = SWAP32((uint)des_space << 24 | last_cnt);    /* 4kbyte, VME A32  */
+    dd_r->shm_addr = SWAP32(shm_addr);                    /* SHM local buffer */
+    dd_r->next = SWAP32(0x16);                            /* wait for trig from write engine and stop */   
+    dd_r->rem_addr_l = SWAP32((uint)des_addr);            /* dest address      */
     dd_r->rem_addr_h = 0;
   }
   else /* update last descriptor */
   {
     /* close write chain */
     dd_w--;
-    dd_w->next = 0x10;                 /*last descriptor   */
+    dd_w->next = SWAP32(0x10);                 /*last descriptor   */
 
     /* close read chain */
     dd_r--;
-    dd_r->ctl = ctl_r | 0x8000;        /* generate interrupt at end of chain */  
-    dd_r->next = 0x14;                 /* wait for trig from write engine and stop */
+    dd_r->ctl = SWAP32(ctl_r | 0x8000 | ((mode_rd&0x3ff) << 20));        /* generate interrupt at end of chain */  
+    dd_r->next = SWAP32(0x16);                 /* wait for trig from write engine and stop */
   }
   sync_desc = dd_w->status;                 /* synchronize descriptor writing */
   sync_desc = dd_r->status;                 /* synchronize descriptor writing */
 
   //outl( 0, dc->io_base + 0x850);         /* reset read counter                               */
   //outl( 0, dc->io_base + 0x858);         /* reset write counter                              */
-  outl( 0x8200, dc->io_base + 0x850);      /* enable read pipe                                 */
-  outl( 0x80c0, dc->io_base + 0x858);      /* enable write pipe                                */
-  outl( rdo | 0x4, dc->io_base + 0x904); /* start read engine waiting for trigger from write */
-  outl( wdo, dc->io_base + 0xa04);       /* start write engine                               */
+  //outl( 0x8200, dc->io_base_rd + 0x850);      /* enable read pipe                                 */
+  //outl( 0x80c0, dc->io_base_wr + 0x858);      /* enable write pipe                                */
+  outl( rdo | 0x6, dc->io_base_rd + 0x04); /* start read engine waiting for trigger from write */
+  outl( wdo, dc->io_base_wr + 0x04);       /* start write engine                               */
 
   return( 0);
 }
@@ -612,10 +632,10 @@ dma_set_list_desc( int crate,
 #endif
 
   /* open write chain with time marker element                 */
-  dd_w->ctl = 0x2000;            /* get current time           */
+  dd_w->ctl = SWAP32(0x2000);            /* get current time           */
   dd_w->wcnt = 0;                /* don't perform any transfer */
   dd_w->shm_addr = 0;            /* SHM local buffer           */
-  dd_w->next = next_w;           /* chain to next descriptor   */            
+  dd_w->next = SWAP32(next_w);           /* chain to next descriptor   */            
   dd_w->rem_addr_l = 0;          /* remote address             */
   dd_w->rem_addr_h = 0;
   dd_w++;
@@ -632,12 +652,12 @@ dma_set_list_desc( int crate,
     debugk(("transfer from vme addr : 0x%lx to shm offset : 0x%x [size = %d]\n", 
             vme_list[i].addr & ~7, tot_size, shm_list[i].size));
     /* build chain descriptor for VME -> shm transfer */
-    ctl = dma_set_ctl( vme_list[i].mode, 0, 0, 0);
-    dd_w->ctl = ctl;
-    dd_w->wcnt = (((vme_list[i].mode & 0xf0) | DMA_SPACE_VME) << 24) | shm_list[i].size;
-    dd_w->shm_addr = shm_addr + tot_size;                   
-    dd_w->next = next_w;                                    
-    dd_w->rem_addr_l = (uint)(vme_list[i].addr & ~7);    
+    ctl = dma_set_ctl( vme_list[i].mode, 0, 0, req->src_mode);
+    dd_w->ctl = SWAP32(ctl);
+    dd_w->wcnt = SWAP32((((vme_list[i].mode & 0xf0) | DMA_SPACE_VME) << 24) | shm_list[i].size);
+    dd_w->shm_addr = SWAP32(shm_addr + tot_size);                   
+    dd_w->next = SWAP32(next_w);                                    
+    dd_w->rem_addr_l = SWAP32((uint)(vme_list[i].addr & ~7));    
     dd_w->rem_addr_h = 0;
     dd_w++;
     next_w += sizeof(struct dma_desc);
@@ -646,16 +666,16 @@ dma_set_list_desc( int crate,
     tot_size += shm_list[i].size;
   }
   /* end chain on last element */
-  (dd_w-1)->ctl = ctl | 0xc00; /* generate trig out at end of transfer */
-  (dd_w-1)->next = 0x10;       /* end of transfer                      */
+  (dd_w-1)->ctl = SWAP32(ctl | 0xc00); /* generate trig out at end of transfer */
+  (dd_w-1)->next = SWAP32(0x10);       /* end of transfer                      */
   debugk(("total size = %4d\n", tot_size));
 
   /* Build descriptor for SHM -> KBUF transfer */
-  dd_r->ctl = dma_set_ctl( 0, 0, 2, 0);         /* generate interrupt at end of transfer */                
-  dd_r->wcnt = tot_size;   
-  dd_r->shm_addr = shm_addr;                    /* SHM local buffer */
-  dd_r->next = 0x14;                            /* wait for trig from write engine and stop */   
-  dd_r->rem_addr_l = (uint)dc->dma_buf_baddr;   /* dest address      */
+  dd_r->ctl =  SWAP32(dma_set_ctl( 0, 0, 2, (req->des_space & 0x30) << 4));         /* generate interrupt at end of transfer */                
+  dd_r->wcnt = SWAP32(tot_size);   
+  dd_r->shm_addr = SWAP32(shm_addr);                    /* SHM local buffer */
+  dd_r->next = SWAP32(0x16);                            /* wait for trig from write engine and stop */   
+  dd_r->rem_addr_l = SWAP32((uint)dc->dma_buf_baddr);   /* dest address      */
   dd_r->rem_addr_h = 0;
   dc->rd_chain_cnt = 1;
 

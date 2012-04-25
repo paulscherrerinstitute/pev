@@ -19,9 +19,6 @@
 #include <epicsThread.h>
 #include <epicsMessageQueue.h>
 
- /* 
-#include <pthread.h>
-#include <mqueue.h>    message queue stuff */
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -36,12 +33,12 @@
 
 #define MAGIC 		1100 		/*  pev1100 */
 #define SHMEM_MAP_SIZE 	0x8000000     	/* 128 MB DDR2 shared memory in PMEM */
-#define VME32_MAP_SIZE 	0x800000      	/* 8  MB A32 */
+#define VME32_MAP_SIZE 	0x800000      	/* 8 MB A32 */
 #define VME24_MAP_SIZE 	0x800000      	/* 8 MB A24 */
 #define VMECR_MAP_SIZE 	0x800000	/* 8 MB CR/CSR */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 */
-#define USR1_MAP_SIZE 	0x100000	/* 1 MB A16 */
-#define USR2_MAP_SIZE 	0x100000	/* 1 MB A16 */
+#define USR1_MAP_SIZE 	0x100000	/* 1 MB  */
+#define USR2_MAP_SIZE 	0x100000	/* 1 MB  */
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
 #define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
@@ -51,7 +48,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.7 2012/03/21 10:24:35 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.8 2012/04/25 13:18:28 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -365,6 +362,11 @@ int pevAsynRead(
       swap = 0;
 #endif
     }
+    if( device->pev_rmArea_map.mode & (MAP_SPACE_USR1 || MAP_SPACE_USR1) ) 
+    {  
+      srcMode = DMA_SWAP;
+      swap = 1;
+    }
       
     if( nelem > 100 ) 		/* do DMA */
     {  
@@ -402,10 +404,8 @@ int pevAsynRead(
       }
     }
     
-    regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap); 
-    callbackRequest((CALLBACK*)cbStruct);
+    regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap);        
     return 0;
-
 }
 
 int pevAsynWrite(
@@ -454,6 +454,8 @@ int pevAsynWrite(
       swap = 0;
 #endif
     }
+    if( device->pev_rmArea_map.mode & (MAP_SPACE_USR1 || MAP_SPACE_USR1) )
+      swap = 1;
     
     if(nelem > 100)
     {

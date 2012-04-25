@@ -27,8 +27,20 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.20  2012/04/12 13:45:39  ioxos
+ * bug in eeprom_.. declaration [JFG]
+ *
+ * Revision 1.19  2012/04/12 13:43:50  ioxos
+ * support for eeprom access [JFG]
+ *
+ * Revision 1.18  2012/03/29 08:43:11  ioxos
+ * get rid of old stuff [JFG]
+ *
+ * Revision 1.17  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
  *
  * Revision 1.16  2012/01/26 15:57:09  ioxos
  * prepare for IFC1210 support [JFG]
@@ -107,27 +119,6 @@ uint pev_board( void);
 struct pev_reg_remap *pev_io_remap( void);
 struct pev_node *pev_set_crate( uint);
 int pev_exit( struct pev_node *);
-int pev_vme_write_byte( uint,  char, ulong, uint);
-int pev_vme_write_short( uint,  short, ulong, uint);
-int pev_vme_write_int( uint,  int, ulong, uint);
-int pev_vme_write_long( uint,  long, ulong, uint);
-int pev_vme_write_block( uint,  void *, ulong, uint, uint);
-int pev_vme_read_byte( uint,  void *, ulong, uint);
-int pev_vme_read_short( uint,  void *, ulong, uint);
-int pev_vme_read_int( uint,  void *, ulong, uint);
-int pev_vme_read_long( uint,  void *, ulong, uint);
-int pev_vme_read_block( uint,  void *, ulong, uint, uint);
-int pev_exit( struct pev_node *);
-int pev_shm_write_byte( uint,  char, ulong);
-int pev_shm_write_short( uint,  short, ulong);
-int pev_shm_write_int( uint,  int, ulong);
-int pev_shm_write_long( uint,  long, ulong);
-int pev_shm_write_block( uint,  void *, ulong, uint);
-int pev_shm_read_byte( uint,  void *, ulong);
-int pev_shm_read_short( uint,  void *, ulong);
-int pev_shm_read_int( uint,  void *, ulong);
-int pev_shm_read_long( uint,  void *, ulong);
-int pev_shm_read_block( uint,  void *, ulong, uint);
 int pev_rdwr( struct pev_ioctl_rdwr *);
 void *pev_mmap( struct pev_ioctl_map_pg *);
 int pev_munmap( struct pev_ioctl_map_pg *);
@@ -175,6 +166,15 @@ void pev_csr_wr( int, int);
 void pev_csr_set( int, int);
 int pev_elb_rd( int);
 int pev_elb_wr( int, int);
+int pev_fifo_init( void);
+int pev_fifo_status( uint, uint *);
+int pev_fifo_clear( uint, uint *);
+int pev_fifo_wait_ef( uint,  uint *, uint);
+int pev_fifo_wait_ff( uint,  uint *, uint);
+int pev_fifo_read( uint,  uint *, uint, uint *);
+int pev_fifo_write( uint,  uint *, uint, uint *);
+int pev_eeprom_rd( uint,  char *, uint);
+int pev_eeprom_wr( uint,  char *, uint);
 #ifdef _cplusplus
 }
 #endif

@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: rdwrlib.c,v $
- *  Revision 1.4  2012/03/15 16:15:37  kalantari
- *  added tosca-driver_4.05
+ *  Revision 1.5  2012/04/25 13:18:28  kalantari
+ *  added i2c epics driver and updated linux driver to v.4.10
+ *
+ *  Revision 1.8  2012/03/21 14:42:33  ioxos
+ *  correct memory leek in rdwr_rd_blk() [JFG]
  *
  *  Revision 1.7  2012/01/27 13:13:05  ioxos
  *  prepare release 4.01 supporting x86 & ppc [JFG]
@@ -783,6 +786,7 @@ rdwr_rd_blk( void *u_buf,
       }
     }
   }
+  kfree( k_buf);
   return( retval);
 }
 

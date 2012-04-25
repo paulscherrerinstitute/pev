@@ -24,8 +24,17 @@
  *  Change History
  *  
  * $Log: tst_0x.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.10  2012/03/21 10:55:09  ioxos
+ * cleanup & cosmetics [JFG]
+ *
+ * Revision 1.9  2012/03/21 10:15:24  ioxos
+ * support for fast execution mode [JFG]
+ *
+ * Revision 1.8  2012/03/19 10:04:10  ioxos
+ * test 1 check software configuration [JFG]
  *
  * Revision 1.7  2012/03/05 09:31:43  ioxos
  * don't swap IACK read on PPC [JFG]
@@ -74,6 +83,7 @@ typedef unsigned int u32;
 #include "tstxlib.h"
 
 extern struct pev_reg_remap *reg_remap;
+char *ident="        ";
 
 int  
 mytst_xxx( struct tst_ctl *tc,
@@ -114,9 +124,33 @@ mytst_xxx( struct tst_ctl *tc,
 }
 
 int  
+tst_config( struct tst_ctl *tc,
+	 int mode,
+	 char *tst_id)
+{
+  time_t tm;
+  char *ct;
+  int retval;
+
+  tm = time(0);
+  ct = ctime(&tm);
+  TST_LOG( tc, (logline, "\n%s->Entering:%s", tst_id, ct));
+
+  TST_LOG( tc, (logline, "%s->Checking %s configuration", tst_id, pevx_board_name()));
+  TST_LOG( tc, (logline, "\n%sDriver         = %s                           -> OK", ident,  pevx_get_driver_version()));
+  TST_LOG( tc, (logline, "\n%sLibrary        = %s                           -> OK", ident,  pevx_get_lib_version()));
+
+tst_config_exit:
+  tm = time(0);
+  ct = ctime(&tm);
+  TST_LOG( tc, (logline, "\n%s->Exiting:%s", tst_id, ct));
+  return( retval | TST_STS_DONE);
+}
+
+int  
 tst_01( struct tst_ctl *tc)
 {
-  return( mytst_xxx( tc, 0, "Tst:01"));
+  return( tst_config( tc, 0, "Tst:01"));
 }
 
 static uint shm_off, size;
@@ -188,13 +222,17 @@ tst_shm( struct tst_ctl *tc,
     pevx_map_modify(  crate, &ms);
     if( tst_check_cmd_tstop())
     {
-      TST_LOG( tc, (logline, "->Stopped"));
+      TST_LOG( tc, (logline, "                  -> Stopped"));
       retval = TST_STS_STOPPED;
       break;
     }
     else
     {
-      TST_LOG( tc, (logline, "->OK\r"));
+      TST_LOG( tc, (logline, "                  -> OK\r"));
+    }
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 9) break;
     }
   }
 
@@ -260,13 +298,17 @@ tst_vme( struct tst_ctl *tc,
     shm_off += size;
     if( tst_check_cmd_tstop())
     {
-      TST_LOG( tc, (logline, "->Stopped"));
+      TST_LOG( tc, (logline, "                  ->Stopped"));
       retval = TST_STS_STOPPED;
       break;
     }
     else
     {
-      TST_LOG( tc, (logline, "->OK\r"));
+      TST_LOG( tc, (logline, "                  ->OK\r"));
+    }
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 9) break;
     }
   }
   xt->vme_map_shm.rem_addr = rem_addr;
@@ -322,11 +364,11 @@ tst_08( struct tst_ctl *tc)
     iack = pevx_csr_rd(  crate, reg_remap->vme_itc);
     if( iack == (0x9000 | vect))
     {
-      TST_LOG( tc, (logline, "->OK\n"));
+      TST_LOG( tc, (logline, "                              ->OK\n"));
     }
     else
     {
-      TST_LOG( tc, (logline, "->NOK: %08x\n", iack));
+      TST_LOG( tc, (logline, "                              ->NOK: %08x\n", iack));
       retval = TST_STS_ERR;
     }
   }
@@ -391,11 +433,12 @@ tst_09( struct tst_ctl *tc)
 #endif
     if( iack == (0x9000 | vect))
     {
-      TST_LOG( tc, (logline, "->OK\n"));
+      TST_LOG( tc, (logline, "                              ->OK\n"));
     }
     else
     {
-      TST_LOG( tc, (logline, "->NOK: IACK=%08x - CSR=%08x\n", iack, pevx_csr_rd(  crate, reg_remap->vme_itc + 0x4)));
+      TST_LOG( tc, (logline, "                              ->NOK: IACK=%08x - CSR=%08x\n", 
+		    iack, pevx_csr_rd(  crate, reg_remap->vme_itc + 0x4)));
       retval = TST_STS_ERR;
     }
   }

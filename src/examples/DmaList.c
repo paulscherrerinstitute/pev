@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: DmaList.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.5  2012/04/18 07:44:15  ioxos
+ * cosmetics [JFG]
  *
  * Revision 1.4  2010/01/13 16:53:43  ioxos
  * Cosmetics [JFG]
@@ -253,6 +256,7 @@ tst_dma_read( ulong vme_addr)
   void *uaddr;
   uint usec[3];
   int data;
+  unsigned char *p, *q;
 
   size = 0x100000;
 
@@ -312,9 +316,11 @@ tst_dma_read( ulong vme_addr)
   {
     for( i = 0; i < dma_list[j].size; i++)
     {
-      if( *(unsigned char *)(d+n) != *(unsigned char *)(shm_loc_addr + (dma_list[j].addr & 0xfffff) + i))
+      p = (unsigned char *)(d+n);
+      q = (unsigned char *)(shm_loc_addr + (dma_list[j].addr & 0xfffff) + i);
+      if( *p != *p)
       {
-	printf("transfer error %p - %x\n", shm_loc_addr + (dma_list[j].addr & 0xfffff) + i, n);
+	printf("transfer error %p - %x [%x - %x]\n", p, n, *p, *q);
 	return( 0);
       }
       n++;

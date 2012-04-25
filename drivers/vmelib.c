@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: vmelib.c,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
  *
  * Revision 1.10  2011/03/03 15:42:15  ioxos
  * support for 1MBytes VME slave granularity [JFG]

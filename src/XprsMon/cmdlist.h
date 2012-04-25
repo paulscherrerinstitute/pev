@@ -60,6 +60,8 @@ int xprs_tstop( struct cli_cmd_para *);
 int xprs_tty( struct cli_cmd_para *);
 int xprs_vme( struct cli_cmd_para *);
 int xprs_vme_rmw( struct cli_cmd_para *);
+int xprs_fifo( struct cli_cmd_para *);
+int xprs_eeprom( struct cli_cmd_para *);
 
 
 char *conf_msg[] = 
@@ -163,11 +165,28 @@ char *dv_msg[] =
   "         <am> = cr, a16, a24, a32, blt",
 0};
 
+char *eeprom_msg[] = 
+{ 
+  "eeprom access ",
+  "eeprom dump <offset> <count> ",
+0};
+
 char *evt_msg[] = 
 { 
   "event handling ",
   "evt wait ",
   "evt set ",
+0};
+
+char *fifo_msg[] = 
+{ 
+  "perform operation on communication FIFOs ",
+  "fifo init ",
+  "fifo.<idx> status ",
+  "fifo.<idx> clear ",
+  "fifo.<idx> read ",
+  "fifo.<idx> write <data> ",
+  "   where <idx> = fifo indexl [from 0 to 3]",
 0};
 
 char *fm_msg[]  = 
@@ -600,6 +619,10 @@ char *tlist_msg[] =
 char *tset_msg[] = 
 {
   "set test control parameter",
+  "tset exec=fast -> execute test in fast mode [default]",
+  "tset exec=val  -> execute test in validation mode",
+  "tset err=stop  -> stop test execution if error [default]",
+  "tset err=cont  -> go for next test if error",
   "tset loop=<n>",
   "     where <n>   = number of time a test is execute (0->infinite)",
   "tset logfile=<filename>",
@@ -684,6 +707,8 @@ struct cli_cmd_list cmd_list[] =
   { "du2"    , xprs_rdwr_dm,      du_msg     , 0},
   { "dv"     , xprs_rdwr_dm,      dv_msg     , 0},
 /*{ "evt"    , xprs_rdwr_evt,     evt_msg    , 0},*/
+  { "eeprom" , xprs_eeprom,       eeprom_msg , 0},
+  { "fifo"   , xprs_fifo,         fifo_msg   , 0},
   { "fm"     , xprs_rdwr_fm,      fm_msg     , 0},
   { "fp"     , xprs_rdwr_fm,      fp_msg     , 0},
   { "fpga"   , xprs_fpga,         fpga_msg   , 0},

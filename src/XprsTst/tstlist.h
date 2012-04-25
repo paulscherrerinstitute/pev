@@ -57,6 +57,14 @@ int tst_2c( struct tst_ctl *);
 int tst_2d( struct tst_ctl *);
 int tst_2e( struct tst_ctl *);
 int tst_2f( struct tst_ctl *);
+int tst_80( struct tst_ctl *);
+int tst_81( struct tst_ctl *);
+int tst_82( struct tst_ctl *);
+int tst_83( struct tst_ctl *);
+int tst_84( struct tst_ctl *);
+int tst_85( struct tst_ctl *);
+int tst_86( struct tst_ctl *);
+int tst_87( struct tst_ctl *);
 
 
 char *tst_01_msg[] = 
@@ -171,6 +179,46 @@ char *tst_2f_msg[] =
 {
   "Test DMA: SHM -> VME 2eSST320",
 0};
+char *tst_80_msg[] = 
+{
+  "Test access to I2C devices",
+0};
+
+char *tst_81_msg[] = 
+{
+  "Test 81",
+0};
+
+char *tst_82_msg[] = 
+{
+  "Test 82",
+0};
+
+char *tst_83_msg[] = 
+{
+  "Test 83",
+0};
+
+char *tst_84_msg[] = 
+{
+  "Test 84",
+0};
+
+char *tst_85_msg[] = 
+{
+  "Test PMC connector IFC1210",
+0};
+
+char *tst_86_msg[] = 
+{
+  "Test FMC connector IFC1210",
+0};
+
+char *tst_87_msg[] = 
+{
+  "Test VME P2 connector IFC1210",
+0};
+
 
 struct tst_list
 {
@@ -210,6 +258,16 @@ struct tst_list tst_list[] =
   { 0x2d, tst_2d, tst_2d_msg, 0},
   { 0x2e, tst_2e, tst_2e_msg, 0},
   { 0x2f, tst_2f, tst_2f_msg, 0},
+  { 0x80, tst_80, tst_80_msg, 0},
+#ifdef SPARE
+  { 0x81, tst_81, tst_81_msg, 0},
+  { 0x82, tst_82, tst_82_msg, 0},
+  { 0x83, tst_83, tst_83_msg, 0},
+  { 0x84, tst_84, tst_84_msg, 0},
+#endif
+  { 0x85, tst_85, tst_85_msg, 0},
+  { 0x86, tst_86, tst_86_msg, 0},
+  { 0x87, tst_87, tst_87_msg, 0},
   { 0,} 
 };
 

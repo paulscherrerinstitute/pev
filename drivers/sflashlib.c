@@ -27,8 +27,8 @@
  *  Change History
  *  
  *  $Log: sflashlib.c,v $
- *  Revision 1.4  2012/03/15 16:15:37  kalantari
- *  added tosca-driver_4.05
+ *  Revision 1.5  2012/04/25 13:18:28  kalantari
+ *  added i2c epics driver and updated linux driver to v.4.10
  *
  *  Revision 1.8  2012/03/14 14:03:19  ioxos
  *  read status should return short [JFG]

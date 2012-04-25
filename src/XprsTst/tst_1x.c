@@ -24,8 +24,14 @@
  *  Change History
  *  
  * $Log: tst_1x.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.4  2012/03/21 10:55:09  ioxos
+ * cleanup & cosmetics [JFG]
+ *
+ * Revision 1.3  2012/03/21 10:15:44  ioxos
+ * support for fast execution mode [JFG]
  *
  * Revision 1.2  2010/06/11 11:56:01  ioxos
  * add test status report [JFG]
@@ -91,7 +97,7 @@ dma_shm_kbuf( struct tst_ctl *tc,
   err = tstx_dma_move_shm_pci( crate, SHM_DMA_ADDR( xt)+shm_off, KBUF_DMA_ADDR( xt)+kbuf_off, size, mode);
   if( err < 0)
   {
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:DMA\n"));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n"));
     retval = TST_STS_ERR;
     goto dma_shm_kbuf_end;
   }
@@ -99,13 +105,18 @@ dma_shm_kbuf( struct tst_ctl *tc,
   {
     usleep( 10000);
   }
+  else
+  {
+    usleep( 20);
+  }
 
   /* check data in shm before shm_off                     */
   err = tst_cpu_cmp( shm_cpu_base, ref_buf_2, shm_off, 4);
   if( err != shm_off)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]",
+		  tst_id, err, data, ref));
     retval = TST_STS_ERR;
     goto dma_shm_kbuf_end;
   }
@@ -114,7 +125,8 @@ dma_shm_kbuf( struct tst_ctl *tc,
   if( err != size)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, shm_off + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, shm_off + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_shm_kbuf_end;
   }
@@ -123,13 +135,14 @@ dma_shm_kbuf( struct tst_ctl *tc,
   if( err != 0x1000)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, shm_off + size + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]",
+		  tst_id, shm_off + size + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_shm_kbuf_end;
   }
   if( tst_check_cmd_tstop())
   {
-    TST_LOG( tc, (logline, "->Stopped", tst_id));
+    TST_LOG( tc, (logline, "                ->Stopped", tst_id));
     retval = TST_STS_STOPPED;
   }
 dma_shm_kbuf_end:
@@ -176,7 +189,11 @@ tst_dma_shm_kbuf( struct tst_ctl *tc,
     {
       break;
     }
-    TST_LOG( tc, (logline, "->OK\r"));
+    TST_LOG( tc, (logline, "                ->OK\r"));
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 0x10) break;
+    }
   }
   free( ref_buf_1);
   free( ref_buf_2);
@@ -225,7 +242,7 @@ dma_kbuf_shm( struct tst_ctl *tc,
   err = tstx_dma_move_pci_shm( crate, KBUF_DMA_ADDR( xt)+kbuf_off, SHM_DMA_ADDR( xt)+shm_off, size, mode);
   if( err < 0)
   {
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:DMA\n", tst_id));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n", tst_id));
     retval = TST_STS_ERR;
     goto dma_kbuf_shm_end;
   }
@@ -239,7 +256,8 @@ dma_kbuf_shm( struct tst_ctl *tc,
   if( err != kbuf_off)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:KBUF compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:KBUF compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, err, data, ref));
     retval = TST_STS_ERR;
     goto dma_kbuf_shm_end;
   }
@@ -248,7 +266,8 @@ dma_kbuf_shm( struct tst_ctl *tc,
   if( err != size)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:KBUF compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, kbuf_off + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:KBUF compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, kbuf_off + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_kbuf_shm_end;
   }
@@ -257,13 +276,14 @@ dma_kbuf_shm( struct tst_ctl *tc,
   if( err != 0x100000 - kbuf_off - size)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:KBUF compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, kbuf_off + size + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:KBUF compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, kbuf_off + size + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_kbuf_shm_end;
   }
   if( tst_check_cmd_tstop())
   {
-    TST_LOG( tc, (logline, "->Stopped"));
+    TST_LOG( tc, (logline, "                ->Stopped"));
     retval = TST_STS_STOPPED;
   }
 dma_kbuf_shm_end:
@@ -311,7 +331,11 @@ tst_dma_kbuf_shm( struct tst_ctl *tc,
     {
       break;
     }
-    TST_LOG( tc, (logline, "->OK\r"));
+    TST_LOG( tc, (logline, "                ->OK\r"));
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 0x10) break;
+    }
   }
   free( ref_buf_1);
   free( ref_buf_2);

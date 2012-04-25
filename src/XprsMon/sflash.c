@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: sflash.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
  *
  * Revision 1.11  2012/03/15 15:10:07  ioxos
  * add board signature [JFG]
@@ -66,7 +66,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: sflash.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: sflash.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #define DEBUGno

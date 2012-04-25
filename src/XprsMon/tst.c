@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: tst.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.9  2012/03/21 11:29:41  ioxos
+ * adjust default test file for PEV, IPV, IFC [JFG]
  *
  * Revision 1.8  2012/03/05 09:33:05  ioxos
  * support for execution on PPC [JFG]
@@ -58,7 +61,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: tst.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: tst.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -122,7 +125,7 @@ tst_exit( void)
 }
 
 int
-launch_test( char *tst_file)
+launch_test( char *tst_file, char *tty)
 {
   int sts;
   char tmp[64];
@@ -148,7 +151,9 @@ launch_test( char *tst_file)
   sprintf( tst_argv[2], "%d", fd_p[0][0]);
   tst_argv[3] =  (char *)malloc( 64);
   sprintf( tst_argv[3], "%d", fd_p[1][1]);
-  tst_argv[4] =  "/dev/pts/0";
+  //tst_argv[4] =  "/dev/pts/0";
+  tst_argv[4] =  (char *)malloc( 64);
+  strcpy(  tst_argv[4], tty);
   tst_argv[5] =  0;
 #else
   tst_argv[0] =  "/usr/bin/xterm";
@@ -279,13 +284,34 @@ xprs_tinit( struct cli_cmd_para *c)
   }
   fwrite( xt, sizeof( struct xprstst), 1, cfg_file);
   fclose( cfg_file);
-  if( !c->cnt)
+  switch( c->cnt)
   {
-    retval = launch_test("./PevTst");
-  }
-  else
-  {
-    retval = launch_test(c->para[0]);
+    case 0:
+    {
+      retval = -1;
+      if( pev_board() == PEV_BOARD_PEV1100)
+      {
+	retval = launch_test("./PevTst",  "/dev/pts/0");
+      }
+      if( pev_board() == PEV_BOARD_IPV1102)
+      {
+	retval = launch_test("./IpvTst",  "/dev/pts/0");
+      }
+      if( pev_board() == PEV_BOARD_IFC1210)
+      {
+	retval = launch_test("./IfcTst",  "/dev/pts/0");
+      }
+      break;
+    }
+    case 1:
+    {
+      retval = launch_test(c->para[0],  "/dev/pts/0");
+      break;
+    }
+    default:
+    {
+      retval = launch_test(c->para[0],  c->para[1]);
+    }
   }
 
   if( retval == 0) return( 0);

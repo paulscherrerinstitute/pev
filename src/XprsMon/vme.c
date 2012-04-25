@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: vme.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.6  2012/04/05 13:52:43  ioxos
+ * tmo in decimal [JFG]
  *
  * Revision 1.5  2011/12/06 13:17:31  ioxos
  * support for multi task VME IRQ [JFG]
@@ -49,7 +52,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: vme.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: vme.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -229,7 +232,7 @@ xprs_vme( struct cli_cmd_para *c)
           tmo = 0;
           if( cnt --)
           {
-            tmo = strtoul( c->para[i+2], &p, 16);
+            tmo = strtoul( c->para[i+2], &p, 10);
             if( p ==  c->para[i+2])
             {
               printf("%s : bad timeout value\n", c->para[i+2]);

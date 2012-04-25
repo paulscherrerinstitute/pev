@@ -84,9 +84,10 @@ fi
 
 # build examples
 cd ../examples
-make
+make -f Makefile.x86 clean
+make -f Makefile.x86
 if [  $XENO -eq 1 ]; then 
-make xeno
+make -f Makefile.x86 xeno
 fi
 
 # build configuration tools
@@ -95,4 +96,5 @@ make install
 
 # build test suite
 cd ../XprsTst
-./build
+make -f Makefile.x86 clean
+make -f Makefile.x86 EXTRAFLAG='-DLINUX -DX86_64'

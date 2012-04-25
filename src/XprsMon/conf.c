@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.11  2012/03/21 11:27:46  ioxos
+ * Voltage readout for IFC1210 [JFG]
  *
  * Revision 1.10  2012/03/15 15:11:38  ioxos
  * adapt to IFC1210  [JFG]
@@ -64,7 +67,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -529,7 +532,7 @@ conf_show_smon( void)
   if( conf_board == PEV_BOARD_IFC1210)
   {
     d0 = pev_smon_rd( 0x03) >> 6;
-    f0 = ((float)d0*0.00312);
+    f0 = ((float)d0*0.0025);
     printf("      FMC_Vadj             : %.2f [%x]\n", f0, d0);
   }
   return;

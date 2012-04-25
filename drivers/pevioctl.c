@@ -29,8 +29,14 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.16  2012/04/05 13:44:31  ioxos
+ * dynamic io_remap [JFG]
+ *
+ * Revision 1.15  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
  *
  * Revision 1.14  2012/01/27 13:13:05  ioxos
  * prepare release 4.01 supporting x86 & ppc [JFG]
@@ -251,14 +257,14 @@ pev_ioctl_evt( struct pev_dev *pev,
     case PEV_IOCTL_EVT_WAIT:
     {
       debugk(( KERN_ALERT "wait for semaphore\n"));
-      retval = down_interruptible( &pev->sem);
+      //retval = down_interruptible( &pev->sem);
       debugk(( KERN_ALERT "semaphore unlocked\n"));
       break;
     }
     case PEV_IOCTL_EVT_SET:
     {
       debugk(( KERN_ALERT "set semaphore\n"));
-      up( &pev->sem);
+      //up( &pev->sem);
       break;
     }
   }
@@ -298,6 +304,73 @@ pev_ioctl_histo( struct pev_dev *pev,
      
   return( retval);
 }
+
+int
+pev_ioctl_fifo( struct pev_dev *pev,
+	        unsigned int cmd, 
+	        unsigned long arg)
+{
+  int retval = 0;  
+  struct pev_ioctl_fifo fifo;
+
+  if( !pev->dev)
+  {
+    return( -ENODEV);
+  }
+  if( cmd == PEV_IOCTL_FIFO_INIT)
+  {
+    pev_fifo_init(pev);
+    return( 0);
+  }
+  if( copy_from_user(&fifo, (void *)arg, sizeof(fifo)))
+  {
+    return( -EFAULT);
+  }
+  switch ( cmd)
+  {
+    case PEV_IOCTL_FIFO_RD:
+    {
+      retval = pev_fifo_read( pev, &fifo);
+      break;
+    }
+    case PEV_IOCTL_FIFO_WR:
+    {
+      retval = pev_fifo_write( pev, &fifo);
+      break;
+    }
+    case PEV_IOCTL_FIFO_STATUS:
+    {
+      pev_fifo_status(pev, &fifo);
+      break;
+    }
+    case PEV_IOCTL_FIFO_CLEAR:
+    {
+      pev_fifo_clear(pev, &fifo);
+      break;
+    }
+    case PEV_IOCTL_FIFO_WAIT_EF:
+    {
+      retval = pev_fifo_wait_ef(pev, &fifo);
+      break;
+    }
+    case PEV_IOCTL_FIFO_WAIT_FF:
+    {
+      retval = pev_fifo_wait_ff(pev, &fifo);
+      break;
+    }
+    default:
+    {
+      return( -EINVAL);
+    }
+  }
+  if( copy_to_user( (void *)arg, &fifo, sizeof( fifo)))
+  {
+    return -EFAULT;
+  }
+     
+  return( retval);
+}
+
 
 int
 pev_ioctl_i2c( struct pev_dev *pev,
@@ -531,6 +604,7 @@ pev_ioctl_rw( struct pev_dev *pev,
 {
   int retval = 0;  
   struct pev_ioctl_rw rw;
+  char *ptr;
  
   if( !pev->dev)
   {
@@ -564,37 +638,55 @@ pev_ioctl_rw( struct pev_dev *pev,
     case PEV_IOCTL_RD_PMEM_8:
     {
       if( rw.offset > pev->pmem_len - 1) return( -EFAULT);
-      rw.data = (u32)( *(u8 *)(pev->pmem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //rw.data = (u32)( *(u8 *)(pev->pmem_ptr + rw.offset));
+      rw.data = (u32)( *(u8 *)ptr);
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_RD_PMEM_16:
     {
       if( rw.offset > pev->pmem_len - 2) return( -EFAULT);
-      rw.data = (u32)( *(u16 *)(pev->pmem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //rw.data = (u32)( *(u16 *)(pev->pmem_ptr + rw.offset));
+      rw.data = (u32)( *(u16 *)ptr);
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_RD_PMEM_32:
     {
       if( rw.offset > pev->pmem_len - 4) return( -EFAULT);
-      rw.data = *(u32 *)(pev->pmem_ptr + rw.offset);
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //rw.data = *(u32 *)(pev->pmem_ptr + rw.offset);
+      rw.data = (u32)( *(u32 *)ptr);
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_RD_MEM_8:
     {
       if( rw.offset > pev->mem_len - 1) return( -EFAULT);
-      rw.data = (u32)( *(u8 *)(pev->mem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //rw.data = (u32)( *(u8 *)(pev->mem_ptr + rw.offset));
+      rw.data = (u32)( *(u8 *)ptr);
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_RD_MEM_16:
     {
       if( rw.offset > pev->mem_len - 2) return( -EFAULT);
-      rw.data = (u32)( *(u16 *)(pev->mem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //rw.data = (u32)( *(u16 *)(pev->mem_ptr + rw.offset));
+      rw.data = (u32)( *(u16 *)ptr);
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_RD_MEM_32:
     {
       if( rw.offset > pev->mem_len - 4) return( -EFAULT);
-      rw.data = *(u32 *)(pev->mem_ptr + rw.offset);
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //rw.data = *(u32 *)(pev->mem_ptr + rw.offset);
+      rw.data = (u32)( *(u32 *)ptr);
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_RD_CSR_8:
@@ -658,37 +750,55 @@ pev_ioctl_rw( struct pev_dev *pev,
     case PEV_IOCTL_WR_PMEM_8:
     {
       if( rw.offset > pev->pmem_len - 1) return( -EFAULT);
-      *(u8 *)(pev->pmem_ptr + rw.offset) = (u8)rw.data;
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //*(u8 *)(pev->pmem_ptr + rw.offset) = (u8)rw.data;
+      *(u8 *)ptr = (u8)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_WR_PMEM_16:
     {
       if( rw.offset > pev->pmem_len - 2) return( -EFAULT);
-      *(u16 *)(pev->pmem_ptr + rw.offset) = (u16)rw.data;
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //*(u16 *)(pev->pmem_ptr + rw.offset) = (u16)rw.data;
+      *(u16 *)ptr = (u16)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_WR_PMEM_32:
     {
       if( rw.offset > pev->pmem_len - 4) return( -EFAULT);
-      *(u32 *)(pev->pmem_ptr + rw.offset) = rw.data;
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //*(u32 *)(pev->pmem_ptr + rw.offset) = rw.data;
+      *(u32 *)ptr = rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_WR_MEM_8:
     {
       if( rw.offset > pev->mem_len - 1) return( -EFAULT);
-      *(u8 *)(pev->mem_ptr + rw.offset) = (u8)rw.data;
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //*(u8 *)(pev->mem_ptr + rw.offset) = (u8)rw.data;
+      *(u8 *)ptr = (u8)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_WR_MEM_16:
     {
       if( rw.offset > pev->mem_len - 2) return( -EFAULT);
-      *(u16 *)(pev->mem_ptr + rw.offset) = (u16)rw.data;
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //*(u16 *)(pev->mem_ptr + rw.offset) = (u16)rw.data;
+      *(u16 *)ptr = (u16)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_WR_MEM_32:
     {
       if( rw.offset > pev->mem_len - 4) return( -EFAULT);
-      *(u32 *)(pev->mem_ptr + rw.offset) = rw.data;
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //*(u32 *)(pev->mem_ptr + rw.offset) = rw.data;
+      *(u32 *)ptr = rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_WR_CSR_8:
@@ -762,54 +872,78 @@ pev_ioctl_rw( struct pev_dev *pev,
     {
       u32 tmp;
       if( rw.offset > pev->pmem_len - 1) return( -EFAULT);
-      tmp = (u32)( *(u8 *)(pev->pmem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //tmp = (u32)( *(u8 *)(pev->pmem_ptr + rw.offset));
+      tmp = (u32)( *(u8 *)ptr);
       rw.data |= tmp;
-      *(u8 *)(pev->pmem_ptr + rw.offset) = (u8)rw.data;
+      //*(u8 *)(pev->pmem_ptr + rw.offset) = (u8)rw.data;
+      *(u8 *)ptr = (u8)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_SET_PMEM_16:
     {
       u32 tmp;
       if( rw.offset > pev->pmem_len - 2) return( -EFAULT);
-      tmp = (u32)( *(u16 *)(pev->pmem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //tmp = (u32)( *(u16 *)(pev->pmem_ptr + rw.offset));
+      tmp = (u32)( *(u16 *)ptr);
       rw.data |= tmp;
-      *(u16 *)(pev->pmem_ptr + rw.offset) = (u16)rw.data;
+      //*(u16 *)(pev->pmem_ptr + rw.offset) = (u16)rw.data;
+      *(u16 *)ptr = (u16)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_SET_PMEM_32:
     {
       u32 tmp;
       if( rw.offset > pev->pmem_len - 4) return( -EFAULT);
-      tmp = (u32)( *(u16 *)(pev->pmem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->pmem_base + rw.offset, 8);
+      //tmp = (u32)( *(u32 *)(pev->pmem_ptr + rw.offset));
+      tmp = *(u32 *)ptr;
       rw.data |= tmp;
-      *(u32 *)(pev->pmem_ptr + rw.offset) = rw.data;
+      //*(u32 *)(pev->pmem_ptr + rw.offset) = rw.data;
+      *(u32 *)ptr = rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_SET_MEM_8:
     {
      u32 tmp;
       if( rw.offset > pev->mem_len - 1) return( -EFAULT);
-      tmp = (u32)( *(u8 *)(pev->mem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //tmp = (u32)( *(u8 *)(pev->mem_ptr + rw.offset));
+      tmp = (u32)( *(u8 *)ptr);
       rw.data |= tmp;
-      *(u8 *)(pev->mem_ptr + rw.offset) = (u8)rw.data;
+      //*(u8 *)(pev->mem_ptr + rw.offset) = (u8)rw.data;
+      *(u8 *)ptr = (u8)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_SET_MEM_16:
     {
       u32 tmp;
       if( rw.offset > pev->mem_len - 2) return( -EFAULT);
-      tmp = (u32)( *(u16 *)(pev->mem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //tmp = (u32)( *(u16 *)(pev->mem_ptr + rw.offset));
+      tmp = (u32)( *(u16 *)ptr);
       rw.data |= tmp;
-      *(u16 *)(pev->mem_ptr + rw.offset) = (u16)rw.data;
+      //*(u16 *)(pev->mem_ptr + rw.offset) = (u16)rw.data;
+      *(u16 *)ptr = (u16)rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_SET_MEM_32:
     {
       u32 tmp;
       if( rw.offset > pev->mem_len - 4) return( -EFAULT);
-      tmp = (u32)( *(u32 *)(pev->mem_ptr + rw.offset));
+      ptr = (char *)ioremap( pev->mem_base + rw.offset, 8);
+      //tmp = (u32)( *(u32 *)(pev->mem_ptr + rw.offset));
+      tmp = *(u32 *)ptr;
       rw.data |= tmp;
-      *(u32 *)(pev->mem_ptr + rw.offset) = rw.data;
+      //*(u32 *)(pev->mem_ptr + rw.offset) = rw.data;
+      *(u32 *)ptr = rw.data;
+      iounmap( ptr);
       break;
     }
     case PEV_IOCTL_SET_CSR_8:

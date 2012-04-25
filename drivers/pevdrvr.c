@@ -43,8 +43,26 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.50  2012/04/19 08:40:39  ioxos
+ * tagging rel-4-10 [JFG]
+ *
+ * Revision 1.49  2012/04/18 07:51:29  ioxos
+ * release 4.09 [JFG]
+ *
+ * Revision 1.48  2012/04/05 13:43:32  ioxos
+ * dynamic io_remap + I2C & SPI locking + CSR window if supported by fpga [JFG]
+ *
+ * Revision 1.47  2012/03/27 11:47:46  ioxos
+ * set version to 4.07 [JFG]
+ *
+ * Revision 1.46  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
+ *
+ * Revision 1.45  2012/03/21 14:43:20  ioxos
+ * set software revision to 4.06 [JFG]
  *
  * Revision 1.44  2012/03/15 15:13:40  ioxos
  * set version to 4.05 [JFG]
@@ -228,7 +246,7 @@ int rdwr_swap_32( int);
 #endif
 
 struct pev_drv pev_drv;
-char *pev_version="4.05";
+char *pev_version="4.10";
 
 
 struct pev_drv *
@@ -297,11 +315,9 @@ pev_irq( int irq,
   /* generate IACK cycle */
   base =  p->io_base  + p->io_remap.iloc_itc;
   ip = inl(  base);
-  MARK( p->mem_ptr+0x00, 0xa5a5a5a5);
 
   /* get interrupt source */
   src = (ip >> 8) & 0x3f;
-  MARK( p->mem_ptr+0x0c, src);
 
   //base += (( ip >> 2) & 0xc00);
   if( p->io_remap.short_io)
@@ -314,14 +330,12 @@ pev_irq( int irq,
   }
   ip = 1 << ((ip>>8)&0xf);
   p->irq_pending = ip;
-  MARK( p->mem_ptr+0x04, ip);
 
   /* mask interrupt source */
   outl( ip, base + 0xc);
 
   /* increment interrupt count */
   p->irq_cnt += 1;
-  MARK( p->mem_ptr+0x08, p->irq_cnt);
 
   /* activates tasket handling interrupts */
   p->irq_tbl[src].func( p, src, p->irq_tbl[src].arg);
@@ -574,12 +588,57 @@ pev_ioctl( struct file *filp,
     }
     case PEV_IOCTL_I2C:
     {
-      retval = pev_ioctl_i2c( pev, cmd, arg);
+      if( pev->io_remap.short_io)
+      {
+	if( down_interruptible( &pev->sem_remap))
+	{
+	  retval = -EFAULT;
+	  break;
+	}
+      }
+      if( !down_interruptible( &pev->i2c_lock))
+      {
+        retval = pev_ioctl_i2c( pev, cmd, arg);
+	up( &pev->i2c_lock);
+      }
+      else
+      {
+	retval = -EFAULT;
+      }
+      if( pev->io_remap.short_io)
+      {
+	up( &pev->sem_remap);
+      }
+      break;
+    }
+    case PEV_IOCTL_FIFO:
+    {
+      retval = pev_ioctl_fifo( pev, cmd, arg);
       break;
     }
     case PEV_IOCTL_SFLASH:
     {
-      retval = pev_ioctl_sflash( pev, cmd, arg);
+      if( pev->io_remap.short_io)
+      {
+	if( down_interruptible( &pev->sem_remap))
+	{
+	  retval = -EFAULT;
+	  break;
+	}
+      }
+      if( !down_interruptible( &pev->spi_lock))
+      {
+	retval = pev_ioctl_sflash( pev, cmd, arg);
+	up( &pev->spi_lock);
+      }
+      else
+      {
+	retval = -EFAULT;
+      }
+      if( pev->io_remap.short_io)
+      {
+	up( &pev->sem_remap);
+      }
       break;
     }
     case PEV_IOCTL_FPGA:
@@ -823,14 +882,8 @@ pev_probe( struct pev_dev *pev)
   pev->mem_len = pci_resource_len( dev, 2);
   pev->io_base    = pci_resource_start( dev, 4);
   pev->io_len    = pci_resource_len( dev, 4);
+  pev->csr_base = 0;
   pev->csr_ptr = NULL;
-  if( ( pev->board == PEV_BOARD_IFC1210) ||
-      ( pev->board == PEV_BOARD_IPV1102)    )
-  {
-    printk("PCI window size limitation due to vmalloc problem : PMEM <= 128 Mb - MEM <= 64 Mb\n");
-    if(  pev->pmem_len > 0x8000000) pev->pmem_len = 0x8000000;   /* artificial limitation to 128 MBytes due to linux vmalloc() problem */
-    if(  pev->mem_len > 0x4000000)   pev->mem_len = 0x4000000;   /* artificial limitation to 64 MBytes due to linux vmalloc() problem */
-  }
   if( pev->board == PEV_BOARD_IFC1210)
   {
     pev->csr_base    = pci_resource_start( dev, 3);
@@ -862,6 +915,9 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap.vme_itc   = PEV_SCSR_ITC_VME;
     pev->io_remap.dma_itc   = PEV_SCSR_ITC_DMA;
     pev->io_remap.usr_itc   = PEV_SCSR_ITC_USR;
+    pev->io_remap.usr_fifo  = PEV_SCSR_USR_FIFO;
+    pev->fpga =  inl( pev->io_base + 4);
+    pev->fpga =  (pev->fpga&0x00ff00ff) | ((pev->fpga&0xff000000) >> 16) | ((pev->fpga&0xff00) << 16) ;
   }
   else
   {
@@ -884,6 +940,9 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap.vme_itc   = PEV_CSR_ITC_VME;
     pev->io_remap.dma_itc   = PEV_CSR_ITC_DMA;
     pev->io_remap.usr_itc   = PEV_CSR_ITC_USR;
+    pev->io_remap.usr_fifo  = PEV_CSR_USR_FIFO;
+    pev->fpga =  inl( pev->io_base + 0x18);
+    pev->fpga =  (pev->fpga&0x00ff00ff) | ((pev->fpga&0xff000000) >> 16) | ((pev->fpga&0xff00) << 16) ;
   }
 
   pev->shm_len = 0x8000000 << ((inl( pev->io_base + pev->io_remap.iloc_ctl) >> 8) & 3); /* get SHM size             */
@@ -894,32 +953,19 @@ pev_probe( struct pev_dev *pev)
   pev->map_mas64.sg_id = MAP_INVALID;
   if( pev->pmem_len)
   {
-    pev->pmem_ptr = ioremap(pev->pmem_base, pev->pmem_len);
-    if( pev->pmem_ptr == 0)
-    {
-      debugk(("Failed to remap PEV prefetchable memory space [size = %x]\n", pev->pmem_len));
-    }
-    else
-    {
-      debugk(("pev pmem space mapping = %px - %x\n", pev->pmem_ptr, pev->pmem_len));
+    debugk(("pev pmem space mapping = %px - %x\n", pev->pmem_base, pev->pmem_len));
 
-      /* prepare scatter/gather for PCI PMEM space */
-      //pev->map_mas64.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 28) & 0x7);
-      pev->map_mas64.pg_size = 0x400000;
-      pev->map_mas64.pg_num = pev->pmem_len/pev->map_mas64.pg_size;
-      if( ( pev->board == PEV_BOARD_IFC1210) ||
-          ( pev->board == PEV_BOARD_IPV1102)    )
-      {
-	if( pev->map_mas64.pg_num  > 0x20) pev->map_mas64.pg_num = 0x20; /* artificial limitation to 64 MBytes due to linux vmalloc() problem */
-      }
-      pev->map_mas64.loc_base = (u64)pev->pmem_base;
-      pev->map_mas64.sg_id = MAP_MASTER_64;
-      pev->map_mas64.map_p = (struct pev_map_blk *)0;
-      pev_map_init( pev, &pev->map_mas64);
-      for( i = 0; i <  pev->map_mas64.pg_num; i++)
-      {
-	pev_sg_master_64_set( pev, i, 0, 0); 
-      }
+    /* prepare scatter/gather for PCI PMEM space */
+    //pev->map_mas64.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 28) & 0x7);
+    pev->map_mas64.pg_size = 0x400000;
+    pev->map_mas64.pg_num = pev->pmem_len/pev->map_mas64.pg_size;
+    pev->map_mas64.loc_base = (u64)pev->pmem_base;
+    pev->map_mas64.sg_id = MAP_MASTER_64;
+    pev->map_mas64.map_p = (struct pev_map_blk *)0;
+    pev_map_init( pev, &pev->map_mas64);
+    for( i = 0; i <  pev->map_mas64.pg_num; i++)
+    {
+      pev_sg_master_64_set( pev, i, 0, 0); 
     }
   }
   else
@@ -931,52 +977,59 @@ pev_probe( struct pev_dev *pev)
   pev->map_mas32.sg_id = MAP_INVALID;
   if( pev->mem_len)
   {
-    pev->mem_ptr = ioremap(pev->mem_base, pev->mem_len);
-    if( pev->mem_ptr == 0)
-    {
-      debugk(("Failed to remap PEV non prefetchable memory space [size = %x]\n", pev->mem_len));
-    }
-    else
-    {
-      debugk(("pev mem space mapping = %px - %x\n", pev->mem_ptr, pev->mem_len));
+    debugk(("pev mem space mapping = %px - %x\n", pev->mem_base, pev->mem_len));
 
-      /* prepare scatter/gather for PCI MEM space */
-      //pev->map_mas32.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 24) & 0x7);
-      pev->map_mas32.pg_size = 0x100000;
-      pev->map_mas32.pg_num = pev->mem_len/pev->map_mas32.pg_size;
-      if( ( pev->board == PEV_BOARD_IFC1210) ||
-          ( pev->board == PEV_BOARD_IPV1102)    )
+    /* prepare scatter/gather for PCI MEM space */
+    //pev->map_mas32.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 24) & 0x7);
+    pev->map_mas32.pg_size = 0x100000;
+    pev->map_mas32.pg_num = pev->mem_len/pev->map_mas32.pg_size;
+    /* check for 4*1 MBytes window with IO register mapping in last page */
+    if( ( pev->board == PEV_BOARD_PEV1100) ||
+        ( pev->board == PEV_BOARD_IPV1102)    )
+    {
+      //if( pev->map_mas32.pg_num == 4)
+      if( pev->fpga > 0x12010000)
       {
-	if( pev->map_mas32.pg_num  > 0x10) pev->map_mas32.pg_num = 0x10; /* artificial limitation to 64 MBytes due to linux vmalloc() problem */
+        /* don't allocate last page */
+        //pev->map_mas32.pg_num = 3;
+        pev->map_mas32.pg_num -= 1;
+        /* use it to acces CSR */
+        //pev->csr_base    = pev->mem_base + 0x3fe000;
+        pev->csr_base    = pev->mem_base + (pev->map_mas32.pg_num)*0x100000 + 0xfe000;
+        pev->csr_len    = 0x1000;
+        pev->csr_ptr = ioremap(pev->csr_base, pev->csr_len);
       }
-      pev->map_mas32.pg_num -= 1; /* reserve last page for DMA chains */
-      pev->map_mas32.loc_base = (u64)pev->mem_base;
-      pev->map_mas32.sg_id = MAP_MASTER_32;
-      pev->map_mas32.map_p = (struct pev_map_blk *)0;
-      pev_map_init( pev, &pev->map_mas32);
-      debugk(("pev mem space scatter gather = %x - %x\n",
-                                               pev->map_mas32.pg_size, 
-                                               pev->map_mas32.pg_num));
-      for( i = 0; i <  pev->map_mas32.pg_num; i++)
-      {
-	pev_sg_master_32_set( pev, i, 0, 0); 
-      }
-      pev->dma_shm_len = pev->map_mas32.pg_size;
-      pev->dma_shm_base = pev->shm_len - pev->dma_shm_len;
-      pev_sg_master_32_set( pev, i, pev->dma_shm_base, 0x2003); /* point to SHM last MByte */
-      pev->dma_shm_ptr = pev->mem_ptr + (i*pev->map_mas32.pg_size);
-      debugk(("pev mem space DMA = %x - %p - %llx\n",
-                                   pev->dma_shm_len, 
-                                   pev->dma_shm_ptr, 
-                                   pev->dma_shm_base));
-      pev_dma_init( pev);
+    }
+    pev->map_mas32.pg_num -= 1; /* reserve last page for DMA chains */
+    pev->map_mas32.loc_base = (u64)pev->mem_base;
+    pev->map_mas32.sg_id = MAP_MASTER_32;
+    pev->map_mas32.map_p = (struct pev_map_blk *)0;
+    pev_map_init( pev, &pev->map_mas32);
+    debugk(("pev mem space scatter gather = %x - %x\n",
+                                            pev->map_mas32.pg_size, 
+                                            pev->map_mas32.pg_num));
+    for( i = 0; i <  pev->map_mas32.pg_num; i++)
+    {
+      pev_sg_master_32_set( pev, i, 0, 0); 
+    }
+    pev->dma_shm_len = pev->map_mas32.pg_size;
+    pev->dma_shm_base = pev->shm_len - pev->dma_shm_len;
+    pev_sg_master_32_set( pev, i, pev->dma_shm_base, 0x2003); /* point to SHM last MByte */
+    pev->dma_shm_ptr = ioremap( pev->mem_base + (i*pev->map_mas32.pg_size), pev->dma_shm_len);
+    debugk(("pev mem space DMA = %x - %p - %llx\n",
+                                 pev->dma_shm_len, 
+                                 pev->dma_shm_ptr, 
+                                 pev->dma_shm_base));
+    pev_dma_init( pev);
+    if( pev->csr_ptr)
+    {
+      pev_sg_master_32_set( pev, i+1, 0, 0x3003); /* point to CSR space */
     }
   }
   else
   {
     debugk(("Didn't find PEV non prefetchable memory space [BAR2]\n"));
   }
-
 
   /* initialize VME CSR */
   if( pev->io_remap.short_io)
@@ -1014,11 +1067,14 @@ pev_probe( struct pev_dev *pev)
 
 #ifndef CONFIG_PREEMPT_RT
   //init_MUTEX_LOCKED( &pev->sem);
-  sema_init( &pev->sem, 0);
+  //sema_init( &pev->sem, 0);
 #endif
   
   pev_timer_init( pev);                        /* initialize VME timer           */
   pev_vme_irq_init( pev);
+  sema_init( &pev->sem_remap, 1);             /* initialize locking semaphore for IO remapping           */
+  sema_init( &pev->i2c_lock, 1);              /* initialize locking semaphore for I2C controller         */
+  sema_init( &pev->spi_lock, 1);              /* initialize locking semaphore for SPI controller         */
  
   return( 0);
 }
@@ -1041,13 +1097,9 @@ pev_remove(struct pev_dev *pev)
     /* return resources to OS */
     pev_dma_exit( pev);
 
-    if( pev->pmem_ptr)
+    if( pev->dma_shm_ptr)
     {
-      iounmap( pev->pmem_ptr);
-    }
-    if( pev->mem_ptr)
-    {
-      iounmap( pev->mem_ptr);
+      iounmap( pev->dma_shm_ptr);
     }
 #ifdef XENOMAI
     rtdm_irq_free(&pev->rtdm_irq);

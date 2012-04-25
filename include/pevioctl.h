@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.33  2012/04/12 13:31:58  ioxos
+ * support for dma swapping [JFG]
+ *
+ * Revision 1.32  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
  *
  * Revision 1.31  2012/02/14 16:09:49  ioxos
  * add support DMA byte swapping [JFG]
@@ -150,6 +156,7 @@ typedef unsigned char uchar;
 #define PEV_SCSR_VME_CSR    0xd0
 #define PEV_SCSR_ILOC_SPI   0xd0
 #define PEV_SCSR_ILOC_I2C   0xf0
+#define PEV_SCSR_USR_FIFO   0xe0
 #define PEV_SCSR_ITC_SHIFT  8
 #define PEV_SCSR_ITC_MASK   0x30
 #define PEV_SCSR_SEL_ILOC   0x00000000
@@ -170,6 +177,7 @@ typedef unsigned char uchar;
 #define PEV_CSR_DMA_RD    0x900
 #define PEV_CSR_DMA_WR    0xa00
 #define PEV_CSR_USR_BASE  0xc00
+#define PEV_CSR_USR_FIFO  0xc00
 #define PEV_CSR_ITC       0x80
 #define PEV_CSR_ITC_ILOC  0x80
 #define PEV_CSR_ITC_VME   0x480
@@ -202,6 +210,7 @@ struct pev_reg_remap
   uint dma_wr;
   uint dma_itc;
   uint usr_itc;
+  uint usr_fifo;
 };
 
 #define PEV_BOARD_PEV1100 0x73571100
@@ -342,6 +351,15 @@ struct pev_reg_remap
 
 #define PEV_IOCTL_FPGA            0x000b0000
 #define PEV_IOCTL_FPGA_LOAD       0x000b0001
+
+#define PEV_IOCTL_FIFO            0x000c0000
+#define PEV_IOCTL_FIFO_INIT       0x000c0001
+#define PEV_IOCTL_FIFO_RD         0x000c0002
+#define PEV_IOCTL_FIFO_WR         0x000c0303
+#define PEV_IOCTL_FIFO_CLEAR      0x000c0004
+#define PEV_IOCTL_FIFO_WAIT_EF    0x000c0005
+#define PEV_IOCTL_FIFO_WAIT_FF    0x000c0006
+#define PEV_IOCTL_FIFO_STATUS     0x000c0007
 
 #define PEV_IOCTL_MFCC            0x00200000
 #define PEV_IOCTL_MFCC_FIFO       0x00200001
@@ -693,6 +711,10 @@ struct pev_ioctl_buf
 #define DMA_PCIE_RR3      0x20  /* 3 outstanding read request */
 
 #define DMA_SWAP          0x40  /* automatic byte swapping */  
+#define DMA_VME_SWAP      0x40  /* automatic VME byte swapping */  
+#define DMA_SPACE_WS      0x10
+#define DMA_SPACE_DS      0x20
+#define DMA_SPACE_QS      0x30
 
 struct pev_ioctl_dma_req
 {
@@ -762,6 +784,15 @@ struct pev_ioctl_timer
   uint time;        /* tick counter (msec)    */
   uint utime;       /* usec counter           */
   uint mode;        /* operating mode         */
+};
+
+struct pev_ioctl_fifo
+{
+  uint idx;
+  uint sts;
+  uint *data;
+  uint cnt;
+  uint tmo;
 };
 
 struct pev_ioctl_intr

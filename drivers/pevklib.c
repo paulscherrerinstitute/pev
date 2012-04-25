@@ -38,8 +38,26 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.40  2012/04/18 07:42:07  ioxos
+ * delay work around for eeprom_wr [JFG]
+ *
+ * Revision 1.39  2012/04/17 07:47:03  ioxos
+ * support pipe mode on PPC [JFG]
+ *
+ * Revision 1.38  2012/04/12 13:33:13  ioxos
+ * support for dma swapping + eeprom bug correction [JFG]
+ *
+ * Revision 1.37  2012/04/05 13:42:36  ioxos
+ * dynamic io_remap + pev_fifo_wait_ef: reset sem & clear any pending IRQ [JFG]
+ *
+ * Revision 1.36  2012/03/29 09:07:15  ioxos
+ * update fifo->cnt with wcnt [JFG]
+ *
+ * Revision 1.35  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
  *
  * Revision 1.34  2012/02/03 10:26:07  ioxos
  * dynamic use of elbc for i2c [JFG]
@@ -166,6 +184,7 @@
 #include "fpgalib.h"
 #include "vmelib.h"
 #include "dmalib.h"
+#include "fifolib.h"
 #include "pevdrvr.h"
 #include "pevklib.h"
 #include "histolib.h"
@@ -196,6 +215,7 @@ pev_rdwr(struct pev_dev *pev,
 {
   struct pev_rdwr_mode *m;
   void *pev_addr;
+  int pev_remap;
 
   m = &rdwr_p->mode;
   if( ( m->space < 0x10) && !pev->dev)
@@ -204,6 +224,7 @@ pev_rdwr(struct pev_dev *pev,
   }
 
   pev_addr = NULL;
+  pev_remap = 0;
 
   if( rdwr_p->len) /* block transfer */
   {
@@ -214,12 +235,16 @@ pev_rdwr(struct pev_dev *pev,
     if( m->space == RDWR_PMEM)
     {
       if( rdwr_p->offset + rdwr_p->len >= pev->pmem_len) return( -EFAULT);
-      pev_addr = pev->pmem_ptr + rdwr_p->offset;
+      //pev_addr = pev->pmem_ptr + rdwr_p->offset;
+      pev_addr = ioremap( pev->pmem_base + rdwr_p->offset, rdwr_p->len);
+      pev_remap = 1;
     }
     if( m->space == RDWR_MEM)
     {
       if( rdwr_p->offset + rdwr_p->len >= pev->mem_len) return( -EFAULT);
-      pev_addr = pev->mem_ptr + rdwr_p->offset;
+      //pev_addr = pev->mem_ptr + rdwr_p->offset;
+      pev_addr = ioremap( pev->mem_base + rdwr_p->offset, rdwr_p->len);
+      pev_remap = 1;
     }
     if( m->space == RDWR_CSR)
     {
@@ -321,12 +346,16 @@ pev_rdwr(struct pev_dev *pev,
   if( m->space == RDWR_PMEM) /* PMEM cycle */
   {
     if( rdwr_p->offset >  pev->pmem_len - m->ds) return( -EINVAL);
-    pev_addr = pev->pmem_ptr + rdwr_p->offset;
+    //pev_addr = pev->pmem_ptr + rdwr_p->offset;
+    pev_addr = ioremap( pev->pmem_base + rdwr_p->offset, 8);
+    pev_remap = 1;
   }
   if( m->space == RDWR_MEM) /* MEM cycle */
   {
     if( rdwr_p->offset >  pev->mem_len - m->ds) return( -EINVAL);
-    pev_addr = pev->mem_ptr + rdwr_p->offset;
+    //pev_addr = pev->mem_ptr + rdwr_p->offset;
+    pev_addr = ioremap( pev->mem_base + rdwr_p->offset, 8);
+    pev_remap = 1;
   }
   if( m->space == RDWR_CSR) /* CSR cycle */
   {
@@ -390,6 +419,10 @@ pev_rdwr(struct pev_dev *pev,
     else /* read cycle */
     {
       return( rdwr_rd_sgl( rdwr_p->buf, pev_addr, m));
+    }
+    if( pev_remap)
+    {
+      iounmap( pev_addr);
     }
   }
   return( -EINVAL);
@@ -1010,6 +1043,9 @@ pev_map_clear(struct pev_dev *pev,
   return(0);
 }
 
+
+
+
 static ulong
 pev_i2c_set_reg( struct pev_dev *pev,
 		 int elbc)
@@ -1080,6 +1116,7 @@ pev_i2c_dev_write(struct pev_dev *pev,
   //printk("pev_i2c_dev_write(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
   i2c_wait( reg_p, 100000);
+
   return;
 }
 
@@ -1100,6 +1137,7 @@ pev_i2c_pex_write(struct pev_dev *pev,
 {
   i2c_write( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, i2c_para_p->cmd, i2c_para_p->data);
   i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
+
   return;
 }
 
@@ -1109,8 +1147,12 @@ pev_idt_eeprom_read(struct pev_dev *pev,
 {
   unsigned char *k_buf, *p;
   int order, data, tmo, i;
-  struct pev_rdwr_mode mode;
   int retval;
+
+  if( (rdwr_p->offset + rdwr_p->len) > 0x10000)
+  {
+    return( -EIO);
+  }
 
   order = get_order( rdwr_p->len); 
   k_buf = (unsigned char *)__get_free_pages( GFP_KERNEL, order);
@@ -1118,22 +1160,23 @@ pev_idt_eeprom_read(struct pev_dev *pev,
   {
     return(-ENOMEM);
   }
-  mode.dir = RDWR_READ;
-  mode.space = RDWR_ELB;
-  mode.ds = RDWR_INT;
-  mode.swap = RDWR_NOSWAP;
   p = k_buf;
 
+  if( pci_write_config_dword( pev->pex, 0xff8, 0x3f190))
+  {
+    return( -EIO);
+  }
   for( i = 0; i < rdwr_p->len; i++)
   { 
-    data = 0x4000000 + i;
-    rdwr_idt_wr( pev->pex, &data, 0x3f190, &mode);
+    data = 0x4000000 + rdwr_p->offset + i;
+    pci_write_config_dword( pev->pex, 0xffc, data);
     data = 0;
-    tmo = 1000;
-    while(!(data & 0x2000000) && --tmo)
+    tmo = 100000;
+    do
     {
-      rdwr_idt_rd( pev->pex, &data, 0x3f190, &mode);
+      pci_read_config_dword( pev->pex, 0xffc, &data);
     }
+    while( ((data & 0x3000000) != 0x2000000) && --tmo);
     *p++ = (unsigned char)((data >> 16) & 0xff);
   }
   if( copy_to_user( rdwr_p->buf, k_buf, rdwr_p->len))
@@ -1146,13 +1189,21 @@ pev_idt_eeprom_read(struct pev_dev *pev,
   return( retval);
 }
 
+/* declare semaphore to perform delay */
+struct semaphore pev_eeprom_sem;
 int
 pev_idt_eeprom_write(struct pev_dev *pev,
 		     struct pev_ioctl_rdwr *rdwr_p)
 {
   unsigned char *k_buf, *p;
-  int order, data, tmo, i;
-  struct pev_rdwr_mode mode;
+  int order, i, data;
+  volatile int tmo;
+  int retval;
+
+  if( (rdwr_p->offset + rdwr_p->len) > 0x10000)
+  {
+    return( -EIO);
+  }
 
   order = get_order( rdwr_p->len); 
   k_buf = (unsigned char *)__get_free_pages( GFP_KERNEL, order);
@@ -1165,22 +1216,26 @@ pev_idt_eeprom_write(struct pev_dev *pev,
     free_pages( (unsigned long)k_buf, order);
     return( -EIO);
   }
-  mode.dir = RDWR_READ;
-  mode.space = RDWR_ELB;
-  mode.ds = RDWR_INT;
-  mode.swap = RDWR_NOSWAP;
-  p = k_buf;
 
+  if( pci_write_config_dword( pev->pex, 0xff8, 0x3f190))
+  {
+    return( -EIO);
+  }
+  p = k_buf;
   for( i = 0; i < rdwr_p->len; i++)
   { 
-    data = (*p++ << 16) + i;
-    rdwr_idt_wr( pev->pex, &data, 0x3f190, &mode);
-    data = 0;
-    tmo = 1000;
-    while(!(data & 0x2000000) && --tmo)
+    /* init semaphore to perform delay */
+    sema_init( &pev_eeprom_sem, 0);
+    data = (*p++ << 16) + rdwr_p->offset + i;
+    pci_write_config_dword( pev->pex, 0xffc, data);
+    tmo = 100000;
+    do
     {
-      rdwr_idt_rd( pev->pex, &data, 0x3f190, &mode);
+      pci_read_config_dword( pev->pex, 0xffc, &data);
     }
+    while( ((data & 0x3000000) != 0x2000000) && --tmo);
+    /* add delay because hardware gives command complete too early !!!  */
+    retval = down_timeout( &pev_eeprom_sem, 1);
   }
 
   free_pages( (unsigned long)k_buf, order);
@@ -1237,7 +1292,7 @@ pev_vme_irq_alloc( struct pev_dev *pev,
   }
   pev->vme_irq_ctl[idx].set = irq->irq;
   irq->irq |= ( idx << 16);
-  printk("pev_vme_irq_alloc(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
+  //printk("pev_vme_irq_alloc(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
 
     /* mask VME  interrupts belonging to set */
   debugk(("VME IRQ unmasking -> %08x\ - %08n", pev->vme_irq_ctl[idx].set, pev->vme_irq_set));
@@ -1257,7 +1312,7 @@ pev_vme_irq_arm( struct pev_dev *pev,
   int idx;
 
   idx = (irq->irq >> 16) & 0xf;
-  printk("pev_vme_irq_arm(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
+  //printk("pev_vme_irq_arm(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
   if( (pev->vme_irq_ctl[idx].set & 0xffff) != (irq->irq & 0xffff))
   {
     return( -1);
@@ -1284,11 +1339,11 @@ pev_vme_irq_wait( struct pev_dev *pev,
 
   pev->vme_status |= VME_IRQ_WAITING;
   idx = (irq->irq >> 16) & 0xf;
-  printk("pev_vme_irq_wait(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
+  //printk("pev_vme_irq_wait(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
   jiffies = msecs_to_jiffies( irq->tmo);
   if( irq->tmo)
   {
-    /* retval = down_timeout( &pev->vme_irq_ctl[idx].sem, jiffies); */
+    retval = down_timeout( &pev->vme_irq_ctl[idx].sem, jiffies);
   }
   else
   {
@@ -1318,7 +1373,7 @@ pev_vme_irq_clear( struct pev_dev *pev,
   int idx;
 
   idx = (irq->irq >> 16) & 0xf;
-  printk("pev_vme_irq_clear(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
+  //printk("pev_vme_irq_clear(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
   if( (pev->vme_irq_ctl[idx].set & 0xffff) != (irq->irq & 0xffff))
   {
     return( -1);
@@ -1649,6 +1704,212 @@ pev_timer_read( struct pev_dev *pev,
   return;
 }
 
+void 
+pev_fifo_irq(struct pev_dev *pev, int src, void *arg)
+{
+//  printf("fifo interrupt; %d\n", idx);
+//  NOTE: If the above print is present, it is necessary to
+//  wait after a call to pevx_fifo_wait_XX before any printing
+//  otherwise VxWorks seems to lock. (fg 10-01-2012)
+
+    up( &pev->fifo_sem[src&7]);
+    return;
+}
+void 
+pev_fifo_init(struct pev_dev *pev)
+{
+  int i;
+  u32 value;
+
+  if( pev->io_remap.short_io)
+  {
+    outl( PEV_SCSR_SEL_USR, pev->io_base);
+  }
+  fifo_init( pev->io_base + pev->io_remap.usr_fifo);
+
+  for (i = 0; i < 8; i++) 
+  {
+    pev_irq_register(pev, 0x30+i, pev_fifo_irq, NULL);
+    sema_init( &pev->fifo_sem[i], 0);
+  }
+
+  /* enable USR global interupt */
+  value = 0x3;
+  outl( value, pev->io_base + pev->io_remap.usr_itc + 0x04);
+
+  return;
+}
+
+void
+pev_fifo_status( struct pev_dev *pev,
+	         struct pev_ioctl_fifo *fifo)
+
+{
+  if( pev->io_remap.short_io)
+  {
+    outl( PEV_SCSR_SEL_USR, pev->io_base);
+  }
+  /* get FIFO status*/
+  fifo_status( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+
+  return;
+}
+
+void
+pev_fifo_clear( struct pev_dev *pev,
+	        struct pev_ioctl_fifo *fifo)
+
+{
+  uint irq;
+
+  if( pev->io_remap.short_io)
+  {
+    outl( PEV_SCSR_SEL_USR, pev->io_base);
+  }
+  /* mask FIFO  interrupts */
+  irq = 1 << fifo->idx;
+  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x0c);
+  irq = 0x10 << fifo->idx;
+  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x0c);
+  /* clear FIFO */
+  fifo_clear( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+  /* reset semaphores */
+  sema_init( &pev->fifo_sem[fifo->idx], 0);
+  sema_init( &pev->fifo_sem[fifo->idx+4], 0);
+  return;
+}
+
+int
+pev_fifo_wait_ef( struct pev_dev *pev,
+	          struct pev_ioctl_fifo *fifo)
+
+{
+  uint irq;
+  int retval;
+  int jiffies;
+
+  irq = 1 << fifo->idx;
+  if( pev->io_remap.short_io)
+  {
+    outl( PEV_SCSR_SEL_USR, pev->io_base);
+  }
+  /* reset semaphores */
+  sema_init( &pev->fifo_sem[fifo->idx], 0);
+
+  /* clear FIFO  interrupts */
+  outl( irq << 16, pev->io_base + pev->io_remap.usr_itc);
+
+  /* unmask FIFO  interrupts */
+  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x08);
+
+  /* wait for semaphores */
+  jiffies = msecs_to_jiffies( fifo->tmo);
+  if( fifo->tmo)
+  {
+    retval = down_timeout( &pev->fifo_sem[fifo->idx], jiffies);
+  }
+  else
+  {
+    retval = down_interruptible( &pev->fifo_sem[fifo->idx]);
+  }
+
+  fifo_status( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+
+  return( retval);
+}
+
+
+int
+pev_fifo_wait_ff( struct pev_dev *pev,
+	          struct pev_ioctl_fifo *fifo)
+
+{
+  uint irq;
+  int retval;
+  int jiffies;
+
+  irq = 0x10 << fifo->idx;
+  if( pev->io_remap.short_io)
+  {
+    outl( PEV_SCSR_SEL_USR, pev->io_base);
+  }
+  /* reset semaphores */
+  sema_init( &pev->fifo_sem[fifo->idx+4], 0);
+
+  /* clear FIFO  interrupts */
+  outl( irq << 16, pev->io_base + pev->io_remap.usr_itc);
+
+  /* unmask FIFO  interrupts */
+  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x08);
+
+  /* wait for semaphores */
+  jiffies = msecs_to_jiffies( fifo->tmo);
+  if( fifo->tmo)
+  {
+    retval = down_timeout( &pev->fifo_sem[fifo->idx+4], jiffies);
+  }
+  else
+  {
+    retval = down_interruptible( &pev->fifo_sem[fifo->idx+4]);
+  }
+
+  fifo_status( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+
+  return( retval);
+}
+
+int 
+pev_fifo_read( struct pev_dev *pev,
+	       struct pev_ioctl_fifo *fifo)
+
+{
+  int *ptr, bcnt, wcnt;
+
+
+  bcnt = sizeof(int) * fifo->cnt;
+  ptr = (int *)kmalloc( bcnt, GFP_KERNEL);
+  if( pev->io_remap.short_io)
+  {
+    outl( PEV_SCSR_SEL_USR, pev->io_base);
+  }
+  wcnt = fifo_read( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, ptr, fifo->cnt, &fifo->sts);
+  fifo->cnt = wcnt;
+  bcnt = sizeof(int) * wcnt;
+  if( copy_to_user( fifo->data, ptr, bcnt))
+  {
+    wcnt = -EFAULT;
+  }
+  kfree( ptr);
+  return( wcnt);
+}
+
+int 
+pev_fifo_write( struct pev_dev *pev,
+	        struct pev_ioctl_fifo *fifo)
+
+{
+  int *ptr, wcnt, bcnt;
+
+  bcnt = sizeof(int) * fifo->cnt;
+  ptr = (int *)kmalloc( bcnt, GFP_KERNEL);
+  if( copy_from_user(ptr, fifo->data, bcnt))
+  {
+    wcnt = -EFAULT;
+    fifo->cnt = 0;
+  }
+  else
+  {
+    if( pev->io_remap.short_io)
+    {
+      outl( PEV_SCSR_SEL_USR, pev->io_base);
+    }
+    wcnt = fifo_write( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, ptr, fifo->cnt, &fifo->sts);
+    fifo->cnt = wcnt;
+  }
+  kfree( ptr);
+  return( wcnt);
+}
+
 
 void
 pev_dma_irq( struct pev_dev *pev,
@@ -1673,7 +1934,7 @@ pev_dma_init( struct pev_dev *pev)
   ulong baddr;
   int order;
 
-  dma_init( pev->crate, pev->dma_shm_ptr, pev->dma_shm_base, pev->dma_shm_len, pev->io_base);
+  dma_init( pev->crate, pev->dma_shm_ptr, pev->dma_shm_base, pev->dma_shm_len, pev->io_base + pev->io_remap.dma_rd, pev->io_base + pev->io_remap.dma_wr);
   //kaddr = kmalloc( 0x100000, GFP_KERNEL);
   //kaddr = kmalloc( 0x20000, GFP_KERNEL | __GFP_DMA);
   order = get_order( 0x100000); 
@@ -1739,7 +2000,36 @@ pev_dma_move_blk( struct pev_dev *pev,
   int retval;
   uint wdo;
   uint rdo;
+  uint swap_rd;
+  uint swap_wr;
 
+
+  swap_rd = 0;
+  swap_wr = 0;
+  if( ( dma->src_space & DMA_SPACE_MASK) !=  DMA_SPACE_VME)
+  {
+    if( ( dma->src_space & DMA_SPACE_MASK) ==  DMA_SPACE_SHM)
+    {
+      swap_rd |= (dma->src_space & 0x30) << 4;
+    }
+    else
+    {
+      swap_wr |= (dma->src_space & 0x30) << 4;
+    }
+    dma->src_space &= DMA_SPACE_MASK;
+  }
+  if( ( dma->des_space & DMA_SPACE_MASK) !=  DMA_SPACE_VME)
+  {
+    if( ( dma->des_space & DMA_SPACE_MASK) ==  DMA_SPACE_SHM)
+    {
+      swap_wr |= (dma->des_space & 0x30) << 4;
+    }
+    else
+    {
+      swap_rd |= (dma->des_space & 0x30) << 4;
+    }
+    dma->des_space &= DMA_SPACE_MASK;
+  }
   retval = 0;
   *irq_p = 0x00;
 
@@ -1751,7 +2041,7 @@ pev_dma_move_blk( struct pev_dev *pev,
     }
     else
     {
-      rdo = dma_set_rd_desc( pev->crate, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode);
+      rdo = dma_set_rd_desc( pev->crate, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd);
       outl( rdo, pev->io_base + pev->io_remap.dma_rd + 0x04); /* start read engine */
       pev->dma_status = DMA_RUN_RD0;
       *irq_p = 0x03;
@@ -1761,7 +2051,7 @@ pev_dma_move_blk( struct pev_dev *pev,
   {
     if( ( dma->des_space & DMA_SPACE_MASK) ==  DMA_SPACE_SHM)
     {
-      wdo = dma_set_wr_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode);
+      wdo = dma_set_wr_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr);
       outl( wdo, pev->io_base + pev->io_remap.dma_wr + 0x04); /* start write engine */
       pev->dma_status = DMA_RUN_WR0;
       *irq_p = 0x30;
@@ -1772,12 +2062,26 @@ pev_dma_move_blk( struct pev_dev *pev,
 	      dma->src_space, dma->des_space));
       if( dma->start_mode & DMA_MODE_PIPE)
       {
-        dma_set_pipe_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->des_space, dma->src_space);
+	uint mode;
+
+	mode = ((dma->des_mode | swap_rd) << 16) | ((dma->src_mode | swap_wr) & 0xffff);
+        if( pev->io_remap.short_io)
+        {
+          outl( PEV_SCSR_SEL_DMA, pev->io_base);
+	  outl( 0x8200, pev->io_base + 0xc8);      /* enable read pipe                                 */
+	  outl( 0x80c0, pev->io_base + 0xcc);      /* enable write pipe                                */
+        }
+	else
+	{
+	  outl( 0x8200, pev->io_base + 0x850);      /* enable read pipe                                 */
+	  outl( 0x80c0, pev->io_base + 0x858);      /* enable write pipe                                */
+	}
+        dma_set_pipe_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->des_space, dma->src_space, mode);
       }
       else
       {
-        wdo = dma_set_wr_desc( pev->crate, -1, dma->src_addr, dma->size, dma->src_space, dma->src_mode);
-        rdo = dma_set_rd_desc( pev->crate, -1, dma->des_addr, dma->size, dma->des_space, dma->des_mode);
+        wdo = dma_set_wr_desc( pev->crate, -1, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr);
+        rdo = dma_set_rd_desc( pev->crate, -1, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd);
         outl( rdo | 0x6, pev->io_base + pev->io_remap.dma_rd + 0x04); /* start read engine waiting for trigger from write */
         outl( wdo, pev->io_base + pev->io_remap.dma_wr + 0x04); /* start write engine */
       }

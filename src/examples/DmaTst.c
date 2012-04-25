@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: DmaTst.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.10  2012/04/18 07:44:15  ioxos
+ * cosmetics [JFG]
  *
  * Revision 1.9  2010/08/26 14:29:24  ioxos
  * cleanup void pointers and char * [JFG]
@@ -464,9 +467,9 @@ tst_dma_read( long vme_addr,
   dma_req.wait_mode = DMA_WAIT_INTR;
 
 
-  pev_dma_move(&dma_req);
+  retval = pev_dma_move(&dma_req);
   pev_timer_read( &tmi);
-  pev_dma_move(&dma_req);
+  retval = pev_dma_move(&dma_req);
   pev_timer_read( &tmo);
   utmi = (tmi.utime & 0x1ffff);
   utmo = (tmo.utime & 0x1ffff);

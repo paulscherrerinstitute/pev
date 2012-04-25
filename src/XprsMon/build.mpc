@@ -29,6 +29,6 @@
 #  
 #=============================< end file header >============================
 
-make clean
-make EXTRAFLAG=-DMPC
+make -f Makefile.x86 clean
+make -f Makefile.x86 EXTRAFLAG=-DMPC
 cp XprsMon ../../bin/XprsMonMpc

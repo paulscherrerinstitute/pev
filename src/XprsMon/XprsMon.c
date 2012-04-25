@@ -24,8 +24,26 @@
  *  Change History
  *  
  * $Log: XprsMon.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.34  2012/04/19 08:40:39  ioxos
+ * tagging rel-4-10 [JFG]
+ *
+ * Revision 1.33  2012/04/18 07:51:29  ioxos
+ * release 4.09 [JFG]
+ *
+ * Revision 1.32  2012/04/10 08:32:03  ioxos
+ * version 4.08 [JFG]
+ *
+ * Revision 1.31  2012/03/27 11:47:47  ioxos
+ * set version to 4.07 [JFG]
+ *
+ * Revision 1.30  2012/03/21 14:43:20  ioxos
+ * set software revision to 4.06 [JFG]
+ *
+ * Revision 1.29  2012/03/21 11:26:18  ioxos
+ * update copyright [JFG]
  *
  * Revision 1.28  2012/03/15 15:12:16  ioxos
  * set version to 4.05 [JFG]
@@ -115,7 +133,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: XprsMon.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: XprsMon.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #include <debug.h>
@@ -151,7 +169,7 @@ typedef unsigned int u32;
 #include "cmdlist.h"
 
 
-char XprsMon_version[] = "4.05";
+char XprsMon_version[] = "4.10";
 
 int xprs_cmd_exec( struct cli_cmd_list *, struct cli_cmd_para *);
 
@@ -197,9 +215,9 @@ main( int argc,
   }
   printf("\n");
   printf("     +-----------------------------------------+\n");
-  printf("     |    XprsMon - %s diagnostic tool    |\n", pev_board_name());
-  printf("     |    IOxOS Technologies Copyright 2009    |\n");
-  printf("     |    Version %s - %s %s  |\n", XprsMon_version, __DATE__, __TIME__);
+  printf("     |  XprsMon - %s diagnostic tool      |\n", pev_board_name());
+  printf("     |  IOxOS Technologies Copyright 2009-2012 |\n");
+  printf("     |  Version %s - %s %s    |\n", XprsMon_version, __DATE__, __TIME__);
   printf("     +-----------------------------------------+\n");
   printf("\n");
 

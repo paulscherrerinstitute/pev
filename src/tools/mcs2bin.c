@@ -28,8 +28,8 @@
  *  Change History
  *  
  * $Log: mcs2bin.c,v $
- * Revision 1.2  2012/03/15 16:15:38  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
  *
  * Revision 1.4  2012/03/15 09:30:15  ioxos
  * bug if bitstream > 0x800000 (unsigned charpwd) [JFG]
@@ -47,7 +47,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: mcs2bin.c,v 1.2 2012/03/15 16:15:38 kalantari Exp $";
+static char *rcsid = "$Id: mcs2bin.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #include <stdlib.h>

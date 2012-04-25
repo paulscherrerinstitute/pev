@@ -27,8 +27,35 @@
  *  Change History
  *  
  *  $Log: pevxulib.c,v $
- *  Revision 1.2  2012/03/15 16:15:37  kalantari
- *  added tosca-driver_4.05
+ *  Revision 1.3  2012/04/25 13:18:28  kalantari
+ *  added i2c epics driver and updated linux driver to v.4.10
+ *
+ *  Revision 1.37  2012/04/19 08:40:39  ioxos
+ *  tagging rel-4-10 [JFG]
+ *
+ *  Revision 1.36  2012/04/18 07:51:29  ioxos
+ *  release 4.09 [JFG]
+ *
+ *  Revision 1.35  2012/04/12 13:41:02  ioxos
+ *  support for eeprom access [JFG]
+ *
+ *  Revision 1.34  2012/04/10 08:32:03  ioxos
+ *  version 4.08 [JFG]
+ *
+ *  Revision 1.33  2012/03/27 11:58:30  ioxos
+ *  mistyping [JFG]
+ *
+ *  Revision 1.32  2012/03/27 11:47:47  ioxos
+ *  set version to 4.07 [JFG]
+ *
+ *  Revision 1.31  2012/03/27 09:17:40  ioxos
+ *  add support for FIFOs [JFG]
+ *
+ *  Revision 1.30  2012/03/21 14:43:20  ioxos
+ *  set software revision to 4.06 [JFG]
+ *
+ *  Revision 1.29  2012/03/21 11:23:25  ioxos
+ *  support to read CSR from PCI MEM window [JFG]
  *
  *  Revision 1.28  2012/03/15 15:21:53  ioxos
  *  add pevx_board_name() + release 4.05 [JFG]
@@ -116,7 +143,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevxulib.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static const char *rcsid = "$Id: pevxulib.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -138,7 +165,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pevx_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pevx_driver_version[16];
-char pevx_lib_version[] = "4.05";
+char pevx_lib_version[] = "4.10";
 uint pevx_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -358,17 +385,27 @@ int
 pevx_csr_rd( uint crate, int idx)
 {
   struct pev_ioctl_rw rd;
+  int mode;
 
   if( pevx[crate])
   {
     pev = pevx[crate];
     if( pev->fd > 0)
     {
-      rd.offset = idx;
+      mode = 0;
+      if( idx & 0x80000000) mode = 1;
+      rd.offset = idx & 0x7fffffff;
       rd.data = 0x0;
 
-      ioctl( pev->fd, PEV_IOCTL_RD_IO_32, &rd);
-
+      if( mode)
+      {
+        ioctl( pev->fd, PEV_IOCTL_RD_CSR_32, &rd);
+	rd.data = pevx_swap_32( rd.data);
+      }
+      else
+      {
+        ioctl( pev->fd, PEV_IOCTL_RD_IO_32, &rd);
+      }
       return( rd.data);
     }
   }
@@ -379,16 +416,27 @@ int
 pevx_csr_wr( uint crate, int idx, int data)
 {
   struct pev_ioctl_rw wr;
+  int mode;
 
   if( pevx[crate])
   {
     pev = pevx[crate];
     if( pev->fd > 0)
     {
-      wr.offset = idx;
-      wr.data = data;
+      mode = 0;
+      if( idx & 0x80000000) mode = 1;
+      wr.offset = idx & 0x7fffffff;;
 
-      return( ioctl( pev->fd, PEV_IOCTL_WR_IO_32, &wr));
+      if( mode)
+      {
+	wr.data = pevx_swap_32( data);
+	return( ioctl( pev->fd, PEV_IOCTL_WR_CSR_32, &wr));
+      }
+      else
+      {
+	wr.data = data;
+	return( ioctl( pev->fd, PEV_IOCTL_WR_IO_32, &wr));
+      }
     }
   }
   return(-1);
@@ -398,16 +446,27 @@ int
 pevx_csr_set( uint crate, int idx, int data)
 {
   struct pev_ioctl_rw wr;
+  int mode;
 
   if( pevx[crate])
   {
     pev = pevx[crate];
     if( pev->fd > 0)
     {
-      wr.offset = idx;
-      wr.data = data;
+      mode = 0;
+      if( idx & 0x80000000) mode = 1;
+      wr.offset = idx & 0x7fffffff;;
 
-      return( ioctl( pev->fd, PEV_IOCTL_SET_IO_32, &wr));
+      if( mode)
+      {
+	wr.data = pevx_swap_32( data);
+        return( ioctl( pev->fd, PEV_IOCTL_SET_CSR_32, &wr));
+      }
+      else
+      {
+	wr.data = data;
+        return( ioctl( pev->fd, PEV_IOCTL_SET_IO_32, &wr));
+      }
     }
   }
   return(-1);
@@ -1207,3 +1266,191 @@ pevx_timer_read( uint crate,
   }
   return( tmr.time); 
 } 
+
+int
+pevx_fifo_init( uint crate)
+{
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_INIT, NULL);
+  return( retval);
+}
+
+int
+pevx_fifo_status( uint crate,
+	          uint idx,
+	 	 uint *sts)
+{
+  struct pev_ioctl_fifo fifo;
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  fifo.idx = idx;  
+  fifo.sts = 0;  
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_STATUS, &fifo);
+  if( sts)
+  {
+    *sts = fifo.sts;
+  }
+  if( ! retval)
+  {
+    retval = fifo.sts;
+  }
+  return( retval);
+}
+
+int
+pevx_fifo_clear( uint crate,
+	         uint idx,
+		 uint *sts)
+{
+  struct pev_ioctl_fifo fifo;
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  fifo.idx = idx;  
+  fifo.sts = 0;  
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_CLEAR, &fifo);
+  if( sts)
+  {
+    *sts = fifo.sts;
+  }
+  return( retval);
+}
+
+int
+pevx_fifo_wait_ef( uint crate,
+	           uint idx,
+		   uint *sts,
+		   uint tmo)
+{
+  struct pev_ioctl_fifo fifo;
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  fifo.idx = idx;  
+  fifo.tmo = tmo;  
+  fifo.sts = 0;  
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_WAIT_EF, &fifo);
+  if( sts)
+  {
+    *sts = fifo.sts;
+  }
+  return( retval);
+}
+
+int
+pevx_fifo_wait_ff( uint crate,
+	           uint idx,
+		   uint *sts,
+		   uint tmo)
+{
+  struct pev_ioctl_fifo fifo;
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  fifo.idx = idx;  
+  fifo.tmo = tmo;  
+  fifo.sts = 0;  
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_WAIT_FF, &fifo);
+  if( sts)
+  {
+    *sts = fifo.sts;
+  }
+  return( retval);
+}
+
+int
+pevx_fifo_read( uint crate,
+	        uint idx,
+	        uint *data,
+	        uint wcnt,
+	        uint *sts)
+{
+  struct pev_ioctl_fifo fifo;
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  fifo.idx = idx;  
+  fifo.data = data;  
+  fifo.cnt = wcnt;  
+  fifo.sts = 0;  
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_RD, &fifo);
+  if( sts)
+  {
+    *sts = fifo.sts;
+  }
+  return( retval);
+}
+
+int
+pevx_fifo_write( uint crate,
+	         uint idx,
+	         uint *data,
+	         uint wcnt,
+	         uint *sts)
+{
+  struct pev_ioctl_fifo fifo;
+  int retval;
+  
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  fifo.idx = idx;  
+  fifo.data = data;  
+  fifo.cnt = wcnt;  
+  fifo.sts = 0;  
+  retval = ioctl( pev->fd, PEV_IOCTL_FIFO_WR, &fifo);
+  if( sts)
+  {
+    *sts = fifo.sts;
+  }
+  return( retval);
+}
+
+int
+pevx_eeprom_rd( uint crate,
+	       uint offset,
+	       char *data,
+	       uint cnt)
+{
+  struct pev_ioctl_rdwr rdwr;
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  rdwr.buf = data;
+  rdwr.offset = offset;
+  rdwr.len = cnt;
+  return( ioctl( pev->fd, PEV_IOCTL_EEPROM_RD, &rdwr));
+}
+
+int
+pevx_eeprom_wr( uint crate,
+	       uint offset,
+	       char *data,
+	       uint cnt)
+{
+  struct pev_ioctl_rdwr rdwr;
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  rdwr.buf = data;
+  rdwr.offset = offset;
+  rdwr.len = cnt;
+  return( ioctl( pev->fd, PEV_IOCTL_EEPROM_WR, &rdwr));
+}

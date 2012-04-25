@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: map.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
  *
  * Revision 1.6  2012/01/27 15:55:44  ioxos
  * prepare release 4.01 supporting x86 & ppc [JFG]
@@ -52,7 +52,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: map.c,v 1.2 2012/03/15 16:15:37 kalantari Exp $";
+static char *rcsid = "$Id: map.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
 #endif
 
 #define DEBUGno

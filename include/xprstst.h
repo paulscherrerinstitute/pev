@@ -30,6 +30,7 @@ struct tst_ctl
   struct xprstst *xt;
   int para_cnt;
   char **para_p;
+  int exec_mode;
 };
 
 #define SHM_CPU_ADDR( xt)      xt->cpu_map_shm.usr_addr
@@ -57,6 +58,8 @@ struct tst_ctl
 
 #define TST_ERR_CONT       0x00000000
 #define TST_ERR_HALT       0x00000001
+
+#define TST_EXEC_FAST      0x00000001
 
 
 char logline[0x101];

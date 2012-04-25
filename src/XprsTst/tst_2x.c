@@ -24,8 +24,14 @@
  *  Change History
  *  
  * $Log: tst_2x.c,v $
- * Revision 1.2  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.5  2012/03/21 10:55:09  ioxos
+ * cleanup & cosmetics [JFG]
+ *
+ * Revision 1.4  2012/03/21 10:20:39  ioxos
+ * support for fast execution mode [JFG]
  *
  * Revision 1.3  2010/06/11 11:56:01  ioxos
  * add test status report [JFG]
@@ -94,7 +100,7 @@ dma_shm_vme( struct tst_ctl *tc,
   err = tstx_dma_move_shm_vme( crate, SHM_DMA_ADDR( xt)+shm_off, shm_vme_base+vme_off, mode, size, TST_DMA_INTR);
   if( err < 0)
   {
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:DMA\n"));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n"));
     retval = TST_STS_ERR;
     goto dma_shm_vme_end;
   }
@@ -104,7 +110,8 @@ dma_shm_vme( struct tst_ctl *tc,
   if( err != shm_off)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, err, data, ref));
     retval = TST_STS_ERR;
     goto dma_shm_vme_end;
   }
@@ -113,7 +120,8 @@ dma_shm_vme( struct tst_ctl *tc,
   if( err != size)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, shm_off + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, shm_off + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_shm_vme_end;
   }
@@ -122,13 +130,14 @@ dma_shm_vme( struct tst_ctl *tc,
   if( err != 0x1000)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, shm_off + size + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:SHM compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, shm_off + size + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_shm_vme_end;
   }
   if( tst_check_cmd_tstop())
   {
-    TST_LOG( tc, (logline, "->Stopped", tst_id));
+    TST_LOG( tc, (logline, "                ->Stopped", tst_id));
     retval = TST_STS_STOPPED;
   }
 
@@ -173,7 +182,11 @@ tst_dma_shm_vme32( struct tst_ctl *tc,
     {
       break;
     }
-    TST_LOG( tc, (logline, "->OK\r"));
+    TST_LOG( tc, (logline, "                ->OK\r"));
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 0x10) break;
+    }
   }
   free( ref_buf_1);
   free( ref_buf_2);
@@ -221,7 +234,11 @@ tst_dma_shm_vme64( struct tst_ctl *tc,
     {
       break;
     }
-    TST_LOG( tc, (logline, "->OK\r"));
+    TST_LOG( tc, (logline, "                ->OK\r"));
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 0x10) break;
+    }
   }
   free( ref_buf_1);
   free( ref_buf_2);
@@ -304,7 +321,7 @@ dma_vme_shm( struct tst_ctl *tc,
   err = tstx_dma_move_vme_shm( crate, shm_vme_base+vme_off, SHM_DMA_ADDR( xt)+shm_off, mode, size, TST_DMA_INTR);
   if( err < 0)
   {
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:DMA\n", tst_id));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n", tst_id));
     retval = TST_STS_ERR;
     goto dma_vme_shm_end;
   }
@@ -314,7 +331,8 @@ dma_vme_shm( struct tst_ctl *tc,
   if( err != vme_off-0x80000)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:VME compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:VME compare error at offset 0x%x [0x%08x!=0x%08x]",
+		  tst_id, err, data, ref));
     retval = TST_STS_ERR;
     goto dma_vme_shm_end;
   }
@@ -323,7 +341,8 @@ dma_vme_shm( struct tst_ctl *tc,
   if( err != size)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:VME compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, vme_off + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:VME compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, vme_off + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_vme_shm_end;
   }
@@ -334,13 +353,14 @@ dma_vme_shm( struct tst_ctl *tc,
   if( err != 0x1000)
   {
     tst_get_cmp_err( &data, &ref, 4);
-    TST_LOG( tc, (logline, "->NOK\n%s->ERROR:VME compare error at offset 0x%x [0x%08x!=0x%08x]", tst_id, vme_off + size + err, data, ref));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:VME compare error at offset 0x%x [0x%08x!=0x%08x]", 
+		  tst_id, vme_off + size + err, data, ref));
     retval = TST_STS_ERR;
     goto dma_vme_shm_end;
   }
   if( tst_check_cmd_tstop())
   {
-    TST_LOG( tc, (logline, "->Stopped"));
+    TST_LOG( tc, (logline, "                ->Stopped"));
     retval = TST_STS_STOPPED;
   }
 dma_vme_shm_end:
@@ -385,7 +405,11 @@ tst_dma_vme_shm32( struct tst_ctl *tc,
     {
       break;
     }
-    TST_LOG( tc, (logline, "->OK\r"));
+    TST_LOG( tc, (logline, "                ->OK\r"));
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 0x10) break;
+    }
   }
   free( ref_buf_1);
   free( ref_buf_2);
@@ -434,7 +458,11 @@ tst_dma_vme_shm64( struct tst_ctl *tc,
     {
       break;
     }
-    TST_LOG( tc, (logline, "->OK\r"));
+    TST_LOG( tc, (logline, "                ->OK\r"));
+    if( tc->exec_mode & TST_EXEC_FAST)
+    {
+      if( i > 0x10) break;
+    }
   }
   free( ref_buf_1);
   free( ref_buf_2);

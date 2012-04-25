@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fpgalib.h,v $
- * Revision 1.2  2012/03/15 16:15:36  kalantari
- * added tosca-driver_4.05
+ * Revision 1.3  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
  *
  * Revision 1.1  2012/01/27 09:56:49  ioxos
  * first checkin [JFG]

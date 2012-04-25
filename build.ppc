@@ -82,3 +82,16 @@ if [  $XENO -eq 1 ]; then
 ./build.xeno
 fi
 
+# build examples
+cd ../examples
+make -f Makefile.ppc clean
+make -f Makefile.ppc
+if [  $XENO -eq 1 ]; then 
+make -f Makefile.ppc xeno
+fi
+
+# build test suite
+cd ../XprsTst
+make -f Makefile.ppc clean
+make -f Makefile.ppc
+

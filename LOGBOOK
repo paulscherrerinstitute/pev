@@ -352,6 +352,12 @@ October 19, 2011 : JFG
 January 6, 2012 : JFG 
    -> tagging release 3.13
       support for X86 32 bit
+
+April 18, 2012 : JFG 
+   -> tagging release 4.10
+      support for PEV1100 - VCC1104 - IPV1102 - IFC1210
+      support for x86_32, x86_64, p2020 (cross development)
+
 ===============================< end of file >================================
 
 

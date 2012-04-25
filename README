@@ -9,7 +9,16 @@
 Introduction
 ============
 This README file contains instructions to install the software environment 
-for the PEV1100 PCI Express to VME interface.
+for the PCI Express to VME interface (PEV).
+This interface is implemented on the following boards produced by IOxOS Tecnologies:
+- PEV1100
+- VCC11004
+- VCC1105
+- IPV1102
+- IFC1210
+The CPU driving the interface can be hosted on the board itself or connected to the
+interface though a PCI express extenal cable.
+Two type of hosts are supported, X86 and Powerpc.
 
 Limitations
 ===========
@@ -29,32 +38,47 @@ The PEV1100 software can be extracted anywhere in the Linux file system.
 The extraction process will create a directory PEV1100/ containing all software 
 sources provided by IOxOS Technologies to support the PEV1100 interface.
 
-linux-host:ioxos> tar xzf PEV1100_2.1.tgz
+linux-host:ioxos> tar xzf PEV1100_4.1.tgz
 
 The sources are organized as followed:
 PEV1100/
    bin/
    doc/
    drivers/
+   hotplug/
    include/
    lib/
    modules/
+   scripts/
    src/
+      examples/
       tools/
       XprsMon/
+      XprsTst/
 
 Documentation
 =============
 The doc/ directory contains a pdf version of
+  - the PEV software API
   - the PEV1100 user's manual
   - the PEV1100 hardware reference
+  - the IPV1102 hardware reference
+  - the IFC1210 hardware reference
 
-The users's manual describe in details the PEV1100 features and its installation 
-procedure.
+The users's manuals describe in details features and its installation procedures.
+The PEV
 
-The file build.all located at the root of the tree is a bash script building all 
+The file build.xxx located at the root of the tree is a bash script building all 
 drivers, libraries and utilities for a “classical” linux kernel and, if found in 
 the file system for a a real time linux kernel based on Xenomai 2.4.7
+The file build.x86_64 shall be used on a Linux 64 bit X86 host operating system.
+The file build.x86_32 shall be used on a Linux 64 bit X86 host operating system.
+The file build.ppc shall be used to cross compile for on a Linux 32 bit PPC host 
+operating system. In this case the path to the directory containing the cross tools
+shall be updated. By default it is set to:
+"/opt/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin"
+It also expect the sources of the kernel on which it will run to be in the directory:
+"../../linux"
 
 +-------------------------------------------+
 | # check for Xenomai in the file system:   |
@@ -131,10 +155,11 @@ linux kernel.
 
 Building the classical linux driver
 ------------------------------------
-linux_host:drivers>./build.linux
+linux_host:drivers>./build.linux.xxx (where xxx is either x86_64, x86_32 or ppc)
 rm -f *.o *.ko *.mod.c
-make -C /lib/modules/2.6.28.7-xeno/build M=/home/ioxos/Projects/PEV1100/drivers modules
-make[1]: Entering directory `/home/ioxos/kernel/linux-2.6.28.7'
+make -C /lib/modules/2.6.31.5-0.1-desktop/build M=/home/ioxos/Projects/PEV1100/drivers modules
+make[1]: Entering directory `/usr/src/linux-2.6.31.5-0.1-obj/x86_64/desktop'
+make -C ../../../linux-2.6.31.5-0.1 O=/usr/src/linux-2.6.31.5-0.1-obj/x86_64/desktop/. modules
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevdrvr.o
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevioctl.o
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/pevklib.o
@@ -144,13 +169,15 @@ make[1]: Entering directory `/home/ioxos/kernel/linux-2.6.28.7'
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/i2clib.o
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/vmelib.o
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/dmalib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/fifolib.o
+  CC [M]  /home/ioxos/Projects/PEV1100/drivers/fpgalib.o
   CC [M]  /home/ioxos/Projects/PEV1100/drivers/histolib.o
   LD [M]  /home/ioxos/Projects/PEV1100/drivers/pev.o
   Building modules, stage 2.
   MODPOST 1 modules
   CC      /home/ioxos/Projects/PEV1100/drivers/pev.mod.o
   LD [M]  /home/ioxos/Projects/PEV1100/drivers/pev.ko
-make[1]: Leaving directory `/home/ioxos/kernel/linux-2.6.28.7'
+make[1]: Leaving directory `/usr/src/linux-2.6.31.5-0.1-obj/x86_64/desktop'
 linux_host:drivers>
 
 Building the real time linux driver
@@ -189,12 +216,22 @@ The lib/ directory contains the sources of the user library interface with
 the driver. 
 Executing a make in this directory builds the libpev.a library file.
 
-linux_host:lib>make
-gcc -I ../include  -c pevulib.c
-gcc -I ../include  -c clilib.c
-ar r libpev.a pevulib.o clilib.o
+linux_host:lib>./build.x86_64
+ls: cannot access /usr/xenomai: No such file or directory
+rm -f *.o *.a
+gcc -I ../include  -DX86_64 -c pevulib.c
+gcc -I ../include  -DX86_64 -c pevxulib.c
+gcc -I ../include  -DX86_64 -c clilib.c
+gcc -I ../include  -DX86_64 -c tstlib.c
+gcc -I ../include  -DX86_64 -c tstxlib.c
+ar r libpev.a pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
 ar: creating libpev.a
 ranlib libpev.a
+g++ -I ../include  -DX86_64 -o pevulib++.o -c pevulib.c
+g++ -I ../include  -DX86_64 -o pevxulib++.o -c pevxulib.c
+ar r libpev++.a pevulib++.o pevxulib++.o
+ar: creating libpev++.a
+ranlib libpev++.a
 linux_host:lib>
 
 To build the library libpevrt.a interfacing with the real time driver, 
@@ -216,19 +253,24 @@ controlled by a PC host through the PEV1100 interface. The sources together with
 a Makefile shall be found in the src/XprsMon/. Executing  buil.linux in that 
 directory creates the XprsMon executable and copies it in the bin/ directory.
 
-linux_host:XprsMon>./build.linux                                                                                                     
-rm -f *.o XprsMon                                                                                                                    
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c XprsMon.c                                                                        
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c rdwr.c                                                                           
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c conf.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c sflash.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c map.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c script.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c tty.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c tst.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c timer.c
-gcc -g -DLITTLE_ENDIAN -DDEBUG  -I ../../include -c vme.c
-gcc -L ../../lib -o XprsMon XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o -lpev -lrt
+linux_host:XprsMon>./build.linux.xxx  (where xxx is either x86_64, x86_32 or ppc)    
+rm -f *.o XprsMon
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c XprsMon.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c rdwr.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c conf.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c sflash.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c map.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c script.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c tty.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c tst.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c timer.c
+gcc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c vme.c
+cc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c i2c.c
+cc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c fpga.c
+cc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c fifo.c
+cc -g -DLITTLE_ENDIAN -DDEBUG -I ../../include -c eeprom.c
+gcc -L ../../lib -o XprsMon XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o fifo.o eeprom.o -lpev -lrt
+linux_host:XprsMon>
 
 If Xenomai has been installed in the host filesystem, the build.xeno script 
 generates an  XprsMon application linked with the real time library and copied 
@@ -263,8 +305,9 @@ To load the Linux “classical” driver, pev-linux shall be given has argument 
 linux-host:PEV1100_2.0.0>su
 Password:
 linux-host:PEV1100_2.0.0>cd modules/
-linux-host:modules>./load pev-linux
-loading PEV1100 linux driver pev-linux.ko
+linux-host:modules>./load pev-linux-xxx  (where xxx is either x86_64, x86_32 or ppc)
+loading PEV1100 linux driver pev-linux-x86_64.ko
+creating PEV devices
 linux-host:modules>
 Using the lsmod command we can check if the pev module has been loaded
 linux-host:modules>lsmod | grep pev
@@ -321,16 +364,17 @@ default search PATH:
 
 linux-host:~>export PATH=~/PEV1100/bin:$PATH
 and we execute the PEV1100 command interpreter XprsMon:.
-linux-host:~>XprsMon 1
+linux-host:~>XprsMon 2
+initializing crate 2
 
      +-----------------------------------------+
-     |    XprsMon - PEV1100 diagnostic tool    |
-     |    IOxOS Technologies Copyright 2009    |
+     |  XprsMon - PEV1100 diagnostic tool      |
+     |  IOxOS Technologies Copyright 2009-2012 |
+     |  Version 4.09 - Apr 18 2012 11:46:53    |
      +-----------------------------------------+
 
-initializing crate 1
 Device driver: pev-linux
-XprsMon#1>
+XprsMon#2>
 
 
 Basically XprsMon implements a set of command interpreted and executed 
@@ -343,17 +387,29 @@ A command line is an ASCIIi string made of
 The help command displays a list of all supported command codes. 
 ~?~ is an alias for help.
 
-XprsMon#1>help
-conf      dm        dma       dp
-ds        dv        fm        fp
-fs        fv        help      i2c
-ls        lv        map       pc
-pio       pm        pp        pr
-ps        pv        px        sflash
-ts        tv        timer     tinit
-tkill     tlist     tset      tstart
-tstop     tty       vme
-XprsMon#1>
+XprsMon#2>help
+conf      dm        dma       de
+dp        dr        ds        ds1
+ds2       du        du1       du2
+dv        eeprom    fifo      fm
+fp        fpga      fs        fs1
+fs2       fu        fu1       fu2
+fv        help      i2c       lql
+ls        ls1       ls2       lu
+lu1       lu2       lv        map
+pc        pe        pio       pm
+pp        pr        ps        ps1
+ps2       pu        pu1       pu2
+pv        px        rm        re
+rp        rr        rs        rs1
+rs2       ru        ru1       ru2
+rv        rmw       sflash    sign
+ts        ts1       ts2       tu
+tu1       tu2       tv        timer
+tinit     tkill     tlist     tset
+tstart    tstatus   tstop     tty
+vme
+XprsMon#2>
 
 
 help accept one parameter which is any supported command code in 
@@ -377,49 +433,55 @@ are interpreted and displayed as hexadecimal values.
 The first command to execute could be the conf command which displays
 the PEV1100 current configuration:
 
-XprsMon#1>conf                                                
-   Static Options [0x00262ad3]                                
-      VME Interface                                           
-         A24 Base Address  : d00000                           
-         System Controller : 64x- Slot1+ SysRstEna+           
-      PLX8624 Switch                                          
-         Port0 [P3]        : Upstream : Local Clock           
-         Port1 [P4]        : Downstream                       
-         Port5 [FPGA]      : Downstream                       
-         Port6 [PCI]       : Downstream                       
-         Port8 [XMC#1]     : Downstream                       
-         Port9 [XMC#2]     : Downstream                       
-      FPGA                                                    
-         Bit Stream        : 1                                
-         PON FSM           : Disabled                         
-         MEM size          : 128 MBytes                       
-         PMEM size         : 128 MBytes                       
-         PMEM mode         : A32                              
-   VME Interface                                              
-      System Controller    : Enabled                          
-         Arbtration mode   : PRI not pipelined                
-         Bus Timeout       : 16 usec                          
+XprsMon#2>conf                     
+   Static Options [0x003422d3]     
+      VME Interface                
+         A24 Base Address  : d00000
+         System Controller : 64x- Slot1+ SysRstEna+
+         Auto ID           : disabled              
+      PLX8624 Switch                               
+         Port0 [P3]        : Upstream : Local Clock
+         Port1 [P4]        : Downstream            
+         Port5 [FPGA]      : Downstream            
+         Port6 [PCI]       : Downstream            
+         Port8 [XMC#1]     : Downstream            
+         Port9 [XMC#2]     : Downstream            
+      FPGA                                         
+         Bit Stream        : 1                     
+         PON FSM           : Enabled               
+         MEM size          : 128 MBytes            
+         PMEM size         : 256 MBytes            
+         PMEM mode         : A32                   
+   FPGA Status                                     
+      Identifier           : 0x01091101            
+      Bit stream loaded    : 1                     
+   Shared Memory                                   
+      Size                 : 512 MBytes
+   VME Interface
+      System Controller    : Enabled
+         Arbtration mode   : PRI not pipelined
+         Bus Timeout       : 16 usec
       Master               : Enabled
          Request Mode      : Release On Request
          Request Level     : 0
       Slave                : Enabled
          A24 base address  : 0xd00000
-         A32 base address  : 0x10000000
+         A32 base address  : 0x20000000
          A32 window size   : 0x10000000
-         CR/CSR            : Berr- SlvEna+ SysFail- SysFailEna- Reset-
+         CR/CSR            : Berr- SlvEna+ SysFail- SysFailEna- Reset- AutoID-
       Interrupt Generator
          Vector            : 00
          Level             : 0
          Mode              : Register
          Status            : Cleared
    FPGA System Monitor
-      Temperature          : 45.28 [48.23 - 30.02]
+      Temperature          : 41.34 [44.30 - 26.09]
       VCCint               : 1.00 [1.01 - 0.99]
-      VCCaux               : 2.51 [2.52 - 2.51]
-      VCC1.8-INT           : 1.78
-      VCC3.3-INT           : 3.23
-      VCC5.0-VME           : 5.02
-      VCC3.3-VME           : 3.33
-XprsMon#1>
+      VCCaux               : 2.52 [2.52 - 2.52]
+      VCC1.8-INT           : 1.79
+      VCC3.3-INT           : 3.24
+      VCC5.0-VME           : 5.00
+      VCC3.3-VME           : 3.32
+XprsMon#2>
 
 

@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: dmalib.h,v $
- * Revision 1.4  2012/03/15 16:15:36  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.9  2012/04/17 07:47:03  ioxos
+ * support pipe mode on PPC [JFG]
+ *
+ * Revision 1.8  2012/04/12 13:33:37  ioxos
+ * support for dma swapping [JFG]
  *
  * Revision 1.7  2010/01/13 16:49:35  ioxos
  * xenomai support for DMA list [JFG]
@@ -57,7 +63,7 @@
 #ifndef _H_DMALIB
 #define _H_DMALIB
 
-int  dma_init( int, void *, ulong, uint, uint);
+int  dma_init( int, void *, ulong, uint, uint, uint);
 #ifdef XENOMAI
 int  dma_init_xeno( int, rtdm_user_info_t *);
 #endif
@@ -65,9 +71,9 @@ int dma_alloc_kmem( int, void *, ulong);
 void *dma_get_buf_kaddr( int);
 ulong dma_get_buf_baddr( int);
 uint dma_set_ctl( uint, uint, uint, uint);
-int dma_set_wr_desc( int, ulong, ulong,  uint, unsigned char, char);
-int dma_set_rd_desc( int, ulong, ulong,  uint, unsigned char, char);
-int dma_set_pipe_desc( int, ulong, ulong,  uint, char, char);
+int dma_set_wr_desc( int, ulong, ulong,  uint, unsigned char, uint);
+int dma_set_rd_desc( int, ulong, ulong,  uint, unsigned char, uint);
+int dma_set_pipe_desc( int, ulong, ulong,  uint, char, char, uint);
 int dma_get_desc( int, uint *);
 int dma_set_list_desc( int,  struct pev_ioctl_dma_req *);
 int dma_get_list( int,  struct pev_ioctl_dma_req *);

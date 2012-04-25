@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.4  2012/03/15 16:15:37  kalantari
- * added tosca-driver_4.05
+ * Revision 1.5  2012/04/25 13:18:28  kalantari
+ * added i2c epics driver and updated linux driver to v.4.10
+ *
+ * Revision 1.14  2012/04/05 13:43:38  ioxos
+ * dynamic io_remap + I2C & SPI locking + CSR window if supported by fpga [JFG]
+ *
+ * Revision 1.13  2012/03/27 09:17:40  ioxos
+ * add support for FIFOs [JFG]
  *
  * Revision 1.12  2012/01/26 16:17:17  ioxos
  * prepare for IFC1210 support [JFG]
@@ -198,6 +204,7 @@ struct pev_dev
 {
   struct pci_dev *dev; 
   u32 board;
+  u32 fpga;
   u64 pmem_base;
   u32 pmem_len;
   u32 io_base;
@@ -208,9 +215,6 @@ struct pev_dev
   u32 csr_len;
   u32 elb_base;
   u32 elb_len;
-  void *pmem_ptr;
-  void *io_ptr;
-  void *mem_ptr;
   void *csr_ptr;
   void *elb_ptr;
   u32 crate;
@@ -219,7 +223,7 @@ struct pev_dev
   u32 irq_mask;
   u32 irq_cnt;
   struct pev_irq_handler *irq_tbl;
-  struct semaphore sem;
+  struct semaphore sem_remap;
   dma_addr_t dma_baddr;
   void *dma_kaddr;
   u32 dma_status;
@@ -259,6 +263,10 @@ struct pev_dev
     uint vector;
     struct semaphore sem;             /* semaphore to synchronize with VME interrput  */
   } vme_irq_ctl[16];
+  struct semaphore fifo_sem[8];
+  struct semaphore fifo_lock[4];
+  struct semaphore i2c_lock;            /* mutex to lock I2C access                     */
+  struct semaphore spi_lock;            /* mutex to lock SPI access                     */
 };
 
 #define ILOC_STATIC_OFFSET    (pev->io_remap.iloc_base + 0x00)
