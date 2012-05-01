@@ -34,11 +34,12 @@
 #define MAGIC 		1100 		/*  pev1100 */
 #define DMA_Q_SIZE	2000
 #define MAX_PEVS	21		/* taken from VME 21 slot. makes sense ??? */
+#define ELB_I2C_CTL	0x30		/* ELB_I2C_CTL address on ELB bus (4-bytes) */
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.1 2012/04/25 13:20:32 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.2 2012/05/01 10:47:44 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -50,6 +51,8 @@ typedef struct pevI2cReqMsg {
     CALLBACK* pCallBack;			/* record callback structure */
     unsigned int i2cDevice; 
     unsigned int i2cCmd;
+    unsigned int i2cDatSiz;			/* I2C_DATSIZ in ELB_I2C_CTL register */
+    unsigned int nelem;				/* number of elements */
     void *pi2cData;
     epicsBoolean readOperation;			/* is it read or not = write operation */
 } pevI2cReqMsg;
@@ -88,6 +91,8 @@ int pevI2cAsynRead(
     pevI2cRequest.i2cDevice = device->i2cDevice;
     pevI2cRequest.pCallBack = cbStruct;
     pevI2cRequest.pi2cData = pdata;
+    pevI2cRequest.i2cDatSiz = dlen;
+    pevI2cRequest.nelem = nelem; 
     pevI2cRequest.i2cCmd = offset;		/* reg address within an i2c device */
     pevI2cRequest.readOperation = epicsTrue;
     
@@ -266,6 +271,8 @@ void *pev_i2cRequetServer(int *crate)
 {
    pevI2cReqMsg msgptr;           /* -> allocated message space */
    int numByteRecvd = 0;
+   unsigned int i2cCtrl = 0;
+   int ii=0;
         
    while(1)
    {
@@ -276,12 +283,51 @@ void *pev_i2cRequetServer(int *crate)
 	 continue;
        }
 
-        if(msgptr.readOperation)
-          *(unsigned int*)msgptr.pi2cData = pev_i2c_read( msgptr.i2cDevice, msgptr.i2cCmd);
-	else
-	  pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd, *(unsigned int*)msgptr.pi2cData);
-	  
-	callbackRequest((CALLBACK*)msgptr.pCallBack);
+     i2cCtrl = (msgptr.i2cDevice&0xFFF3FFFF) | ((msgptr.i2cDatSiz-1) << 18);
+     msgptr.i2cDevice = i2cCtrl;
+
+     if(msgptr.readOperation)
+     {
+       switch(msgptr.i2cDatSiz)
+       {
+     	 case 1:     /* 1 Byte */
+     	   for (ii=0; ii<msgptr.nelem; ii++)
+     	     ((epicsUInt8*)msgptr.pi2cData)[ii] = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii);
+     	   break;
+     	 
+     	 case 2:     /* 2 Byte */
+     	   for (ii=0; ii<msgptr.nelem; ii++)
+     	     ((epicsUInt16*)msgptr.pi2cData)[ii] = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2); 
+     	   break;
+     	 
+     	 case 4:     /* 4 Byte */
+     	   for (ii=0; ii<msgptr.nelem; ii++)
+     	     ((epicsUInt32*)msgptr.pi2cData)[ii] = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4);
+     	   break;
+       }       
+     }
+     else
+     {
+       switch(msgptr.i2cDatSiz)
+       {
+     	 case 1:     /* 1 Byte */
+     	   for (ii=0; ii<msgptr.nelem; ii++)
+             pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii, ((epicsUInt8*)msgptr.pi2cData)[ii]);
+     	   break;
+     	 
+     	 case 2:     /* 2 Byte */
+     	   for (ii=0; ii<msgptr.nelem; ii++)
+             pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*2, ((epicsUInt16*)msgptr.pi2cData)[ii]);
+     	   break;
+     	 
+     	 case 4:     /* 4 Byte */
+     	   for (ii=0; ii<msgptr.nelem; ii++)
+             pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*4, ((epicsUInt32*)msgptr.pi2cData)[ii]);
+     	   break;
+       }
+     }  
+	
+     callbackRequest((CALLBACK*)msgptr.pCallBack);
    } /* endWhile */
    
    free(&msgptr);
