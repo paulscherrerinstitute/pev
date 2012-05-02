@@ -39,7 +39,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.2 2012/05/01 10:47:44 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.3 2012/05/02 12:00:11 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -235,7 +235,6 @@ int pevAsynI2cConfigure(
 
   if( initHookpevI2cDone == epicsFalse )
   {
-    printf("========= we at registering pevI2cHookFunc()\n");
     initHookRegister((initHookFunction)pevI2cHookFunc);
     initHookpevI2cDone = epicsTrue;
   }
@@ -250,8 +249,7 @@ static void pevI2cHookFunc(initHookState state)
 {
 
   switch(state) {
-    case initHookAtEnd:
-      printf("========= we are at case initHookAtBeginning\n");
+    case initHookAfterFinishDevSup:
       pev_i2cQueue_init(1);
       break;
       
@@ -340,7 +338,6 @@ int pev_i2cQueue_init(int crate)
 {
 epicsThreadId pevDmaThreadId;
 
- printf("========= we are at pev_i2cQueue_init()\n");
  /* 
   * create a message queue to listen to this pev
   * and check for correct creation??????????
@@ -352,10 +349,6 @@ epicsThreadId pevDmaThreadId;
       printf("ERROR; epicsMessageQueueCreate failed\n");
       return -1;
     }
-  else
-    {
-       printf("===== created epicsMessageQueue with id %p \n",  pevI2cMsgQueueId);
-    }
 
   pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityMedium,
                                       epicsThreadGetStackSize(epicsThreadStackMedium),
@@ -365,10 +358,6 @@ epicsThreadId pevDmaThreadId;
     {
       printf("ERROR; epicsThreadCreate failed. Thread id returned %p\n", pevDmaThreadId);
       return -1;
-    }
-  else
-    {
-       printf("===== created epicsThread with id %p for pev_i2cRequetServer()\n",  pevDmaThreadId);
     }
    
 return 0;
