@@ -48,7 +48,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.8 2012/04/25 13:18:28 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.9 2012/05/02 11:59:28 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -455,7 +455,10 @@ int pevAsynWrite(
 #endif
     }
     if( device->pev_rmArea_map.mode & (MAP_SPACE_USR1 || MAP_SPACE_USR1) )
+    {
+      destMode = DMA_SWAP;
       swap = 1;
+    }
     
     if(nelem > 100)
     {
@@ -1203,7 +1206,6 @@ TESTJUMP:
 
   if( initHookregDone == epicsFalse )
   {
-    printf("========= we at registering pevHookFunc()\n");
     initHookRegister((initHookFunction)pevHookFunc);
     initHookregDone = epicsTrue;
   }
@@ -1225,8 +1227,7 @@ static void pevHookFunc(initHookState state)
   */
       
   switch(state) {
-    case initHookAtEnd:
-      printf("========= we are at case initHookAtBeginning\n");
+    case initHookAfterFinishDevSup:
       pev_dmaQueue_init(1);
       break;
       
@@ -1298,7 +1299,6 @@ int pev_dmaQueue_init(int crate)
 {
 epicsThreadId pevDmaThreadId;
 
- printf("========= we are at pev_dmaQueue_init()\n");
  /* 
   * create a message queue to listen to this pev
   * and check for correct creation??????????
@@ -1310,10 +1310,6 @@ epicsThreadId pevDmaThreadId;
       printf("ERROR; epicsMessageQueueCreate failed\n");
       return -1;
     }
-  else
-    {
-       printf("===== created epicsMessageQueue with id %p \n",  pevDmaMsgQueueId);
-    }
 
   pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityMedium,
                                       epicsThreadGetStackSize(epicsThreadStackMedium),
@@ -1323,10 +1319,6 @@ epicsThreadId pevDmaThreadId;
     {
       printf("ERROR; epicsThreadCreate failed. Thread id returned %p\n", pevDmaThreadId);
       return -1;
-    }
-  else
-    {
-       printf("===== created epicsThread with id %p for pev_dmaRequetServer()\n",  pevDmaThreadId);
     }
    
 return 0;
