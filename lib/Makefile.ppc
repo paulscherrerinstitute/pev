@@ -32,7 +32,8 @@ INCDIRS = -I ../include
 
 ARCH=powerpc
 #CROSS = ppc_8xx-
-CROSS_DIR = /opt/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin
+#CROSS_DIR = /opt/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin
+CROSS_DIR = /afs/psi.ch/project/embeddedlinux/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin
 CROSS = $(CROSS_DIR)/powerpc-none-linux-gnuspe-
 CC = $(CROSS)gcc
 CP = $(CROSS)g++
