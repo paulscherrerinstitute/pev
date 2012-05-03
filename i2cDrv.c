@@ -39,7 +39,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.3 2012/05/02 12:00:11 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.4 2012/05/03 14:41:34 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -55,6 +55,7 @@ typedef struct pevI2cReqMsg {
     unsigned int nelem;				/* number of elements */
     void *pi2cData;
     epicsBoolean readOperation;			/* is it read or not = write operation */
+    epicsBoolean cmndOperation;			/* is it a command operation or not */
 } pevI2cReqMsg;
 
 
@@ -64,6 +65,7 @@ struct regDeviceAsyn {
     const char* name;
     struct pev_node* pev;
     unsigned int i2cDevice; 
+    epicsBoolean command; 
 };
 
 int pevI2cDebug = 0;
@@ -95,6 +97,7 @@ int pevI2cAsynRead(
     pevI2cRequest.nelem = nelem; 
     pevI2cRequest.i2cCmd = offset;		/* reg address within an i2c device */
     pevI2cRequest.readOperation = epicsTrue;
+    pevI2cRequest.cmndOperation = device->command;
     
     if( !epicsMessageQueueSend(pevI2cMsgQueueId, (void*)&pevI2cRequest, sizeof(pevI2cReqMsg)) )
        return (1);  /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
@@ -130,14 +133,17 @@ int pevI2cAsynWrite(
     pevI2cRequest.i2cDevice = device->i2cDevice;
     pevI2cRequest.pCallBack = cbStruct;
     pevI2cRequest.pi2cData = pdata;
+    pevI2cRequest.i2cDatSiz = dlen;
+    pevI2cRequest.nelem = nelem; 
     pevI2cRequest.i2cCmd = offset;		/* reg address within an i2c device */
     pevI2cRequest.readOperation = epicsFalse;
-    
+    pevI2cRequest.cmndOperation = device->command;
+        
     if( !epicsMessageQueueSend(pevI2cMsgQueueId, (void*)&pevI2cRequest, sizeof(pevI2cReqMsg)) )
        return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
     else 
       {
-    	 printf("pevI2cAsynWrite(): sending DMA request failed! do normal & synchronous transfer\n");
+    	 printf("pevI2cAsynWrite(): sending I2C request failed! do normal & synchronous transfer\n");
       }
 	
     /* do the i2c write here */
@@ -171,7 +177,7 @@ static ELLLIST pevRegDevAsynList;                    /* Linked list of Async reg
 
 
 /**
-*	pevAsynI2cConfigure(crate, name, i2cControlWord)  
+*	pevAsynI2cConfigure(crate, name, i2cControlWord, command)  
 *
 * 	crate: 		normally only 1; inceremnts if there are more crates in PCIe tree
 *
@@ -185,7 +191,8 @@ static ELLLIST pevRegDevAsynList;                    /* Linked list of Async reg
 int pevAsynI2cConfigure(
     unsigned int crate,
     const char* name,
-    unsigned int i2cControlWord)
+    unsigned int i2cControlWord,
+    unsigned int command)
 {
     
   regDeviceAsyn* device;    
@@ -232,6 +239,15 @@ int pevAsynI2cConfigure(
   device->name = tmpStrCpy;
   device->i2cDevice = i2cControlWord;
   
+  if(command == 1) device->command = epicsTrue;
+  else 
+  if(command == 0) device->command = epicsFalse;
+  else  
+  {
+    printf("pevAsynI2cConfigure: illegal command value (must be 0 or 1)\n");
+    free(device);
+    exit( -1);
+  }
 
   if( initHookpevI2cDone == epicsFalse )
   {
@@ -269,7 +285,7 @@ void *pev_i2cRequetServer(int *crate)
 {
    pevI2cReqMsg msgptr;           /* -> allocated message space */
    int numByteRecvd = 0;
-   unsigned int i2cCtrl = 0;
+  /* unsigned int i2cCtrl = 0;*/
    int ii=0;
         
    while(1)
@@ -281,8 +297,13 @@ void *pev_i2cRequetServer(int *crate)
 	 continue;
        }
 
-     i2cCtrl = (msgptr.i2cDevice&0xFFF3FFFF) | ((msgptr.i2cDatSiz-1) << 18);
-     msgptr.i2cDevice = i2cCtrl;
+     /* we skip this for the moment until ioxox fixes the hang problem 
+     if( msgptr.cmndOperation == epicsFalse )
+     {
+       i2cCtrl = (msgptr.i2cDevice&0xFFF3FFFF) | ((msgptr.i2cDatSiz-1) << 18);
+       msgptr.i2cDevice = i2cCtrl;
+     }
+     */
 
      if(msgptr.readOperation)
      {
@@ -306,6 +327,9 @@ void *pev_i2cRequetServer(int *crate)
      }
      else
      {
+       if( msgptr.cmndOperation == epicsTrue )
+         pev_i2c_cmd( msgptr.i2cDevice, msgptr.i2cCmd);
+       else
        switch(msgptr.i2cDatSiz)
        {
      	 case 1:     /* 1 Byte */
@@ -323,6 +347,7 @@ void *pev_i2cRequetServer(int *crate)
              pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*4, ((epicsUInt32*)msgptr.pi2cData)[ii]);
      	   break;
        }
+       
      }  
 	
      callbackRequest((CALLBACK*)msgptr.pCallBack);
@@ -375,19 +400,21 @@ return 0;
 static const iocshArg pevAsynI2cConfigureArg0 = { "crate", iocshArgInt };
 static const iocshArg pevAsynI2cConfigureArg1 = { "name", iocshArgString };
 static const iocshArg pevAsynI2cConfigureArg2 = { "i2cControlWord", iocshArgInt };
+static const iocshArg pevAsynI2cConfigureArg3 = { "command", iocshArgInt };
 static const iocshArg * const pevAsynI2cConfigureArgs[] = {
     &pevAsynI2cConfigureArg0,
     &pevAsynI2cConfigureArg1,
     &pevAsynI2cConfigureArg2,
+    &pevAsynI2cConfigureArg3,
 };
 
 static const iocshFuncDef pevAsynI2cConfigureDef =
-    { "pevAsynI2cConfigure", 3, pevAsynI2cConfigureArgs };
+    { "pevAsynI2cConfigure", 4, pevAsynI2cConfigureArgs };
     
 static void pevAsynI2cConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevAsynI2cConfigure(
-        args[0].ival, args[1].sval, args[2].ival);
+        args[0].ival, args[1].sval, args[2].ival, args[3].ival);
     if (status != 0) epicsExit(1);
 }
 
