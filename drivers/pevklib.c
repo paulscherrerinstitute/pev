@@ -38,6 +38,9 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
+ * Revision 1.6  2012/05/15 14:35:48  kalt_r
+ * workaround with down_timeout 2
+ *
  * Revision 1.5  2012/04/25 13:18:28  kalantari
  * added i2c epics driver and updated linux driver to v.4.10
  *
@@ -1235,7 +1238,7 @@ pev_idt_eeprom_write(struct pev_dev *pev,
     }
     while( ((data & 0x3000000) != 0x2000000) && --tmo);
     /* add delay because hardware gives command complete too early !!!  */
-    retval = down_timeout( &pev_eeprom_sem, 1);
+    retval = down_timeout( &pev_eeprom_sem, 2);
   }
 
   free_pages( (unsigned long)k_buf, order);
