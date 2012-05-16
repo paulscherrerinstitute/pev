@@ -39,7 +39,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.4 2012/05/03 14:41:34 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.5 2012/05/16 12:02:17 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -285,7 +285,7 @@ void *pev_i2cRequetServer(int *crate)
 {
    pevI2cReqMsg msgptr;           /* -> allocated message space */
    int numByteRecvd = 0;
-  /* unsigned int i2cCtrl = 0;*/
+   unsigned int i2cCtrl = 0;
    int ii=0;
         
    while(1)
@@ -297,13 +297,13 @@ void *pev_i2cRequetServer(int *crate)
 	 continue;
        }
 
-     /* we skip this for the moment until ioxox fixes the hang problem 
+     /* we skip this for the moment until ioxox fixes the hang problem */
      if( msgptr.cmndOperation == epicsFalse )
      {
        i2cCtrl = (msgptr.i2cDevice&0xFFF3FFFF) | ((msgptr.i2cDatSiz-1) << 18);
        msgptr.i2cDevice = i2cCtrl;
      }
-     */
+   
 
      if(msgptr.readOperation)
      {
