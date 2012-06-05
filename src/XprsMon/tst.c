@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: tst.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.9  2012/03/21 11:29:41  ioxos
  * adjust default test file for PEV, IPV, IFC [JFG]
@@ -61,7 +61,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: tst.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static char *rcsid = "$Id: tst.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #define DEBUGno

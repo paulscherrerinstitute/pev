@@ -1,7 +1,7 @@
 /*=========================< begin file & file header >=======================
  *  References
  *  
- *    filename : sflashlib.h
+ *    filename : evtlib.h
  *    author   : JFG
  *    company  : IOxOS
  *    creation : june 30,2008
@@ -11,7 +11,7 @@
  *  Description
  *
  *    This file contain the declarations of all exported functions define in
- *    sflashlib.c
+ *    evtlib.c
  *
  *----------------------------------------------------------------------------
  *  Copyright Notice
@@ -26,37 +26,46 @@
  *----------------------------------------------------------------------------
  *  Change History
  *  
- * $Log: sflashlib.h,v $
- * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * $Log: evtlib.h,v $
+ * Revision 1.1  2012/06/05 13:37:31  kalantari
  * linux driver ver.4.12 with intr Handling
  *
- * Revision 1.4  2012/01/27 13:13:05  ioxos
- * prepare release 4.01 supporting x86 & ppc [JFG]
+ * Revision 1.1  2012/05/23 15:32:50  ioxos
+ * first checkin [JFG]
  *
- * Revision 1.3  2009/09/29 12:43:38  ioxos
- * support to read/write sflash status [JFG]
- *
- * Revision 1.2  2009/04/06 10:27:27  ioxos
- * first arg in function is register base address[JFG]
- *
- * Revision 1.1.1.1  2008/07/01 09:48:07  ioxos
- * Import sources for PEV1100 project [JFG]
+ * Revision 1.1  2012/03/27 09:17:39  ioxos
+ * add support for EVTs [JFG]
  *
  *  
  *=============================< end file header >============================*/
 
+#ifndef _H_EVTLIB
+#define _H_EVTLIB
 
-#ifndef _H_SFLASHLIB
-#define _H_SFLASHLIB
+struct evt_queue
+{
+  int *queue_ptr;
+  int wr_idx;
+  int rd_idx;
+  int cnt;
+  int size;
+  struct task_struct *task_p;
+  int signal;
+  struct semaphore sem;
+  int src_id[4];
+  struct semaphore lock;
+};
 
+void evt_init( void);
+void evt_irq( int, void *);
+struct evt_queue *evt_queue_alloc( int);
+int evt_queue_free( struct evt_queue *);
+int evt_register( struct evt_queue *, int);
+int evt_unregister( struct evt_queue *, int);
+int evt_read( struct evt_queue *, int *, int);
+int *evt_get_src_id( struct evt_queue *);
 
-void sflash_read_ID( uint, unsigned char *);
-unsigned short sflash_read_status( uint);
-void sflash_write_status( uint, unsigned short);
-void sflash_read_data( uint, uint, unsigned char *, uint);
-int sflash_write_sector( uint, uint, unsigned char *, uint, uint);
-void sflash_set_dev( unsigned int);
+#endif /*  _H_FIFOLIB */
 
-#endif /*  _H_SFLASHLIB */
 
 /*================================< end file >================================*/

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.14  2012/04/05 13:43:38  ioxos
  * dynamic io_remap + I2C & SPI locking + CSR window if supported by fpga [JFG]

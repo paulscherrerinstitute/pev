@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.3  2012/04/25 13:18:28  kalantari
- *  added i2c epics driver and updated linux driver to v.4.10
+ *  Revision 1.4  2012/06/05 13:37:31  kalantari
+ *  linux driver ver.4.12 with intr Handling
+ *
+ *  Revision 1.52  2012/05/23 08:14:39  ioxos
+ *  add support for event queues [JFG]
  *
  *  Revision 1.51  2012/04/19 08:40:39  ioxos
  *  tagging rel-4-10 [JFG]
@@ -187,7 +190,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevulib.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static const char *rcsid = "$Id: pevulib.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -733,7 +736,7 @@ pev_pex_read( uint reg)
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
-  /* i2c.data = pev_swap_32( i2c.data); */
+  //i2c.data = pev_swap_32( i2c.data);
 
   return( i2c.data);
 }
@@ -749,7 +752,7 @@ pev_pex_write( uint reg,
   i2c.cmd |= (reg << 3) &0x78000;
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = data;
-  /* i2c.data = pev_swap_32( data); */
+  //i2c.data = pev_swap_32( data);
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
   return( 0);
@@ -954,19 +957,6 @@ pev_vme_irq_armwait( struct pev_ioctl_vme_irq *irq, uint tmo, uint *vector)
   return( 0);
 } 
  
-int
-pev_evt_wait()
-{
-  return( ioctl( pev->fd, PEV_IOCTL_EVT_WAIT, 0));
-} 
-
-int
-pev_evt_set()
-{
-  return( ioctl( pev->fd, PEV_IOCTL_EVT_SET, 0));
-} 
-
-
 int
 pev_vme_conf_read( struct pev_ioctl_vme_conf *conf)
 {
@@ -1216,3 +1206,85 @@ pev_eeprom_wr( uint offset,
   rdwr.len = cnt;
   return( ioctl( pev->fd, PEV_IOCTL_EEPROM_WR, &rdwr));
 }
+
+struct pev_ioctl_evt *
+pev_evt_queue_alloc( int sig)
+{
+  struct pev_ioctl_evt *evt;
+
+  evt = (struct pev_ioctl_evt *)malloc( sizeof(struct pev_ioctl_evt));
+  evt->sig = sig;
+  ioctl( pev->fd, PEV_IOCTL_EVT_ALLOC, evt);
+  return( evt);
+}
+ 
+int
+pev_evt_queue_free( struct pev_ioctl_evt *evt)
+{
+  int retval;
+
+  retval = ioctl( pev->fd, PEV_IOCTL_EVT_FREE, evt);
+  free( evt);
+  return( retval);
+}
+
+int
+pev_evt_register( struct pev_ioctl_evt *evt,
+		  int src_id)
+{
+
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_REGISTER, evt));
+}
+ 
+int
+pev_evt_unregister( struct pev_ioctl_evt *evt,
+		    int src_id)
+{
+
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_UNREGISTER, evt));
+}
+ 
+int
+pev_evt_queue_enable( struct pev_ioctl_evt *evt)
+{
+
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_ENABLE, evt));
+}
+ 
+int
+pev_evt_queue_disable( struct pev_ioctl_evt *evt)
+{
+
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_DISABLE, evt));
+}
+ 
+int
+pev_evt_mask( struct pev_ioctl_evt *evt,
+	      int src_id)
+{
+
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_MASK, evt));
+}
+ 
+int
+pev_evt_unmask( struct pev_ioctl_evt *evt,
+		int src_id)
+{
+
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_UNMASK, evt));
+}
+ 
+int
+pev_evt_read( struct pev_ioctl_evt *evt,
+	      int wait)
+{
+
+  evt->wait = wait;
+  ioctl( pev->fd, PEV_IOCTL_EVT_READ, evt);
+  return( (evt->src_id << 8) | evt->vec_id);
+}
+

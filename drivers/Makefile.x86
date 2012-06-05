@@ -28,7 +28,7 @@
 #  
 #=============================< end file header >============================
 obj-m := pev.o
-pev-objs := pevdrvr.o pevioctl.o pevklib.o rdwrlib.o sflashlib.o maplib.o i2clib.o vmelib.o dmalib.o fifolib.o fpgalib.o histolib.o
+pev-objs := pevdrvr.o pevioctl.o pevklib.o rdwrlib.o sflashlib.o maplib.o i2clib.o vmelib.o dmalib.o fifolib.o fpgalib.o histolib.o evtlib.o
 KERNELDIR ?= /lib/modules/$(shell uname -r)/build
 EXTRA_CFLAGS := -I$(KERNELDIR)/include/xenomai -I$(KERNELDIR)/include/xenomai/posix $(ADD_CFLAGS)
 PWD := $(shell pwd)

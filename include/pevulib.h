@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.21  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
  *
  * Revision 1.20  2012/04/12 13:45:39  ioxos
  * bug in eeprom_.. declaration [JFG]
@@ -175,6 +178,15 @@ int pev_fifo_read( uint,  uint *, uint, uint *);
 int pev_fifo_write( uint,  uint *, uint, uint *);
 int pev_eeprom_rd( uint,  char *, uint);
 int pev_eeprom_wr( uint,  char *, uint);
+struct pev_ioctl_evt *pev_evt_queue_alloc( int);
+int pev_evt_queue_free( struct pev_ioctl_evt *);
+int pev_evt_register( struct pev_ioctl_evt *, int);
+int pev_evt_unregister( struct pev_ioctl_evt *, int);
+int pev_evt_queue_enable( struct pev_ioctl_evt *evt);
+int pev_evt_queue_disable( struct pev_ioctl_evt *evt);
+int pev_evt_mask( struct pev_ioctl_evt *, int);
+int pev_evt_unmask( struct pev_ioctl_evt *,int);
+int pev_evt_read( struct pev_ioctl_evt *, int);
 #ifdef _cplusplus
 }
 #endif

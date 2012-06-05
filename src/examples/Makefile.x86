@@ -46,56 +46,68 @@ xeno : DmaTstRt DmaListRt
 BerrTst:BerrTst.o $(OFILES)  $(OLIB)
 	gcc $(LIB) -o BerrTst BerrTst.o $(OFILES) -lpev -lrt
 
-BerrTst.o: BerrTst.c  Makefile $(HFILES)
+BerrTst.o: BerrTst.c  Makefile.x86 $(HFILES)
 	gcc  $(FLAGS) $(INC) -c BerrTst.c
 
 BerrTst++:BerrTst++.o $(OFILES)  $(OLIB)
 	g++ $(LIB) -o BerrTst++ BerrTst++.o $(OFILES) -lpev++ -lrt -lstdc++
 
-BerrTst++.o: BerrTst.c  Makefile $(HFILES)
+BerrTst++.o: BerrTst.c  Makefile.x86 $(HFILES)
 	g++  $(FLAGS) $(INC) -o BerrTst++.o -c BerrTst.c
 
 VmeTst: VmeTst.o $(OFILES)  $(OLIB)
 	gcc $(LIB) -o VmeTst VmeTst.o $(OFILES) -lpev -lrt
 
-VmeTst.o: VmeTst.c  Makefile $(HFILES)
+VmeTst.o: VmeTst.c  Makefile.x86 $(HFILES)
 	gcc $(FLAGS) $(INC) -c VmeTst.c
 
 VmeTst++: VmeTst++.o $(OFILES)  $(OLIB)
 	g++ $(LIB) -o VmeTst++ VmeTst++.o $(OFILES) -lpev++ -lrt -lstdc++
 
-VmeTst++.o: VmeTst.c  Makefile $(HFILES)
+VmeTst++.o: VmeTst.c  Makefile.x86 $(HFILES)
 	g++ $(FLAGS) $(INC) -o VmeTst++.o -c VmeTst.c
 
 DmaTst: DmaTst.o $(OFILES)  $(OLIB)
 	gcc $(LIB) -o DmaTst DmaTst.o $(OFILES) -lpev -lrt
 
-DmaTst.o: DmaTst.c  Makefile $(HFILES)
+DmaTst.o: DmaTst.c  Makefile.x86 $(HFILES)
 	gcc $(FLAGS) $(INC) -c DmaTst.c
 
 DmaTst++: DmaTst++.o $(OFILES)  $(OLIB)
 	g++ $(LIB) -o DmaTst++ DmaTst++.o $(OFILES) -lpev++ -lrt -lstdc++
 
-DmaTst++.o: DmaTst.c  Makefile $(HFILES)
+DmaTst++.o: DmaTst.c  Makefile.x86 $(HFILES)
 	g++ $(FLAGS) $(INC) -o DmaTst++.o -c DmaTst.c
 
 DmaList: DmaList.o $(OFILES)  $(OLIB)
 	gcc $(LIB) -o DmaList DmaList.o $(OFILES) -lpev -lrt
 
-DmaList.o: DmaList.c  Makefile $(HFILES)
+DmaList.o: DmaList.c  Makefile.x86 $(HFILES)
 	gcc $(FLAGS) $(INC) -c DmaList.c
 
 DmaTstRt: DmaTstRt.o $(OFILES)  $(OLIB)  $(OLIBRT)
 	gcc $(LIB) -o DmaTstRt DmaTstRt.o $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
 
-DmaTstRt.o: DmaTst.c  Makefile $(HFILES)
+DmaTstRt.o: DmaTst.c  Makefile.x86 $(HFILES)
 	gcc $(FLAGS) $(INC) -DXENOMAI -c DmaTst.c -o DmaTstRt.o
 
 DmaListRt: DmaListRt.o $(OFILES)  $(OLIB)  $(OLIBRT)
 	gcc $(LIB) -o DmaListRt DmaListRt.o $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
 
-DmaListRt.o: DmaList.c  Makefile $(HFILES)
+DmaListRt.o: DmaList.c  Makefile.x86 $(HFILES)
 	gcc $(FLAGS) $(INC) -DXENOMAI -c DmaList.c -o DmaListRt.o
+
+EvtTst: EvtTst.o $(OFILES)  $(OLIB)
+	$(CC) $(LIB) -O0 -o EvtTst EvtTst.o $(OFILES) -lpev -lrt
+
+EvtTst.o: EvtTst.c  Makefile.x86 $(HFILES)
+	$(CC) $(FLAGS) $(INC) -O0 -c EvtTst.c
+
+EvtTrig: EvtTrig.o $(OFILES)  $(OLIB)
+	$(CC) $(LIB) -O0 -o EvtTrig EvtTrig.o $(OFILES) -lpev -lrt
+
+EvtTrig.o: EvtTrig.c  Makefile.x86 $(HFILES)
+	$(CC) $(FLAGS) $(INC) -O0 -c EvtTrig.c
 
 clean:
 	$(RM) *.o *~ BerrTst VmeTst DmaTst DmaList DmaTstRt DmaListRt

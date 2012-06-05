@@ -166,7 +166,8 @@ i2c_cmd( uint io_base,
 
 uint
 i2c_read( uint io_base,
-	  uint dev)
+	  uint dev,
+	  uint *sts_p)
 {
   uint data;
 
@@ -180,6 +181,7 @@ i2c_read( uint io_base,
   {
     //data = i2c_swap_32( data);
   }
+  *sts_p = i2c_read_io( io_base + I2C_CTL_OFFSET);
 
   return( data);
 }

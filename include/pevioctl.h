@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.34  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
  *
  * Revision 1.33  2012/04/12 13:31:58  ioxos
  * support for dma swapping [JFG]
@@ -284,8 +287,17 @@ struct pev_reg_remap
 #define PEV_IOCTL_RDWR            0x00030000
 
 #define PEV_IOCTL_EVT             0x00100000
-#define PEV_IOCTL_EVT_WAIT        0x00100001
-#define PEV_IOCTL_EVT_SET         0x00100002
+#define PEV_IOCTL_EVT_ALLOC       0x00100001
+#define PEV_IOCTL_EVT_FREE        0x00100002
+#define PEV_IOCTL_EVT_REGISTER    0x00100003
+#define PEV_IOCTL_EVT_UNREGISTER  0x00100004
+#define PEV_IOCTL_EVT_READ        0x00100005
+#define PEV_IOCTL_EVT_WAIT        0x00100006
+#define PEV_IOCTL_EVT_RESET       0x00100007
+#define PEV_IOCTL_EVT_ENABLE      0x00100008
+#define PEV_IOCTL_EVT_DISABLE     0x00100009
+#define PEV_IOCTL_EVT_UNMASK      0x0010000a
+#define PEV_IOCTL_EVT_MASK        0x0010000b
 
 #define PEV_IOCTL_DMA             0x00040000
 #define PEV_IOCTL_DMA_MOVE        0x00040001
@@ -807,5 +819,21 @@ struct pev_ioctl_histo
   int size;
 };
 
+
+struct pev_ioctl_evt
+{
+  void *evt_queue;
+  int src_id;
+  int vec_id;
+  int evt_cnt;
+  int sig;
+  int wait;
+};
+
+struct pev_ioctl_evt_xx
+{
+  uint offset;
+  uint data;
+};
 
 #endif /*  _H_PEVIOCTL */

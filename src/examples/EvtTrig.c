@@ -23,22 +23,37 @@
  *----------------------------------------------------------------------------
  *  Change History
  *  
- * $Log: template.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * $Log: EvtTrig.c,v $
+ * Revision 1.1  2012/06/05 13:40:26  kalantari
  * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.1  2012/05/23 15:17:10  ioxos
+ * first checkin [JFG]
  *
  * Revision 1.1  2009/01/08 08:19:03  ioxos
  * first checkin [JFG]
  *
  *
  *=============================< end file header >============================*/
+#include <stdlib.h>
+#include <stdio.h>
+#include <signal.h>
+#include <sys/types.h>
+#include <sys/mman.h>
+#include <sys/time.h>
 
+#include <pevioctl.h>
 #include <pevulib.h>
+
+struct pev_node *pev;
 
 main( int argc,
       void *argv[])
 {
-  pev = pev_init();
+  int i;
+  int src_id, vec_id;
+
+  pev = pev_init( 0);
   if( !pev)
   {
     printf("Cannot allocate data structures to control PEV1100\n");
@@ -50,7 +65,21 @@ main( int argc,
     exit( -1);
   }
 
-  /* ---> Enter your code here...
+  vec_id = 0x11;
+  for( i = 0; i < 3; i++)
+  {
+    pev_csr_wr( 0x8000040c, 0x1200 | vec_id++);
+    while( pev_csr_rd( 0x8000040c) & 0x800);
+    pev_csr_wr( 0x8000040c, 0x1300 | vec_id++);
+    while( pev_csr_rd( 0x8000040c) & 0x800);
+    pev_csr_wr( 0x8000040c, 0x1400 | vec_id++);
+    while( pev_csr_rd( 0x8000040c) & 0x800);
+    pev_csr_wr( 0x8000040c, 0x1500 | vec_id++);
+    while( pev_csr_rd( 0x8000040c) & 0x800);
+    pev_csr_wr( 0x8000040c, 0x1600 | vec_id++);
+    while( pev_csr_rd( 0x8000040c) & 0x800);
+  }
+  pev_csr_wr( 0x8000040c, 0x11ff);
 
   pev_exit( pev);
 

@@ -27,8 +27,17 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.14  2012/05/09 09:49:21  ioxos
+ * adaptation for IFC1210 [JFG]
+ *
+ * Revision 1.13  2012/04/30 08:53:58  ioxos
+ * VCC not PEV [JFG]
+ *
+ * Revision 1.12  2012/04/30 08:47:11  ioxos
+ * if VCC force SHM size to 256 MBytes [JFG]
  *
  * Revision 1.11  2012/03/21 11:27:46  ioxos
  * Voltage readout for IFC1210 [JFG]
@@ -67,7 +76,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -191,49 +200,53 @@ conf_show_static( void)
       }
     }
   }
-  printf("      FPGA\n");
-  if( d0 & (1<<16))
+  if(( conf_board == PEV_BOARD_PEV1100) ||
+     ( conf_board == PEV_BOARD_IPV1102)    )
   {
-    printf("         Configuration mode\n");
-  }
-  else
-  {
-    printf("         Bit Stream        : %d\n", ((d0 >> 9)&0x3));
-  }
-  if( d0 & (1<<17))
-  {
-    printf("         PON FSM           : Disabled\n");
-  }
-  else
-  {
-    printf("         PON FSM           : Enabled\n");
-  }
-  c0 = ( d0 >> 20) & 7;
-  switch( c0)
-  {
-    case 0:
+    printf("      FPGA\n");
+    if( d0 & (1<<16))
     {
-      printf("         MEM size          : Disabled\n");
-      printf("         PMEM size         : Disabled\n");
-      break;
+      printf("         Configuration mode\n");
     }
-    case 1:
+    else
     {
-      printf("         MEM size          : %d MBytes\n", 64*(1+((d0>>18)&3)));
-      printf("         PMEM size         : Disabled\n");
-      break;
+      printf("         Bit Stream        : %d\n", ((d0 >> 9)&0x3));
     }
-    default:
+    if( d0 & (1<<17))
     {
-      printf("         MEM size          : %d MBytes\n", 0x40 << ((d0>>18)&3));
-      printf("         PMEM size         : %d MBytes\n", 0x20 << c0);
-      if( d0 & (1<<23))
+      printf("         PON FSM           : Disabled\n");
+    }
+    else
+    {
+      printf("         PON FSM           : Enabled\n");
+    }
+    c0 = ( d0 >> 20) & 7;
+    switch( c0)
+    {
+      case 0:
       {
-        printf("         PMEM mode         : A64\n");
+        printf("         MEM size          : Disabled\n");
+        printf("         PMEM size         : Disabled\n");
+        break;
       }
-      else
+      case 1:
       {
-        printf("         PMEM mode         : A32\n");
+        printf("         MEM size          : %d MBytes\n", 64*(1+((d0>>18)&3)));
+        printf("         PMEM size         : Disabled\n");
+        break;
+      }
+      default:
+      {
+        printf("         MEM size          : %d MBytes\n", 0x40 << ((d0>>18)&3));
+        printf("         PMEM size         : %d MBytes\n", 0x20 << c0);
+        if( d0 & (1<<23))
+        {
+          printf("         PMEM mode         : A64\n");
+        }
+        else
+        {
+          printf("         PMEM mode         : A32\n");
+	}
       }
     }
   }
@@ -268,6 +281,52 @@ conf_show_fpga( void)
   printf("      Identifier           : 0x%08x\n", d0);
   d0 = pev_csr_rd( reg_remap->iloc_ctl);
   printf("      Bit stream loaded    : %d\n", d0&3);
+  d0 = pev_csr_rd( reg_remap->pcie_mmu);
+  return;
+}
+
+void
+conf_show_pci_ep( void)
+{
+  int d0, d1, d2;
+  float f0, f1, f2;
+  char c0, c1, c2, c3;
+  int i;
+
+  d0 = pev_csr_rd( reg_remap->pcie_mmu);
+  printf("   PCI End Point\n");
+  if( d0 & (1<<23))
+  {
+    printf("     MEM size          : %d MBytes\n", 0x20 << ((d0>>18)&3));
+  }
+  else
+  {
+    printf("     MEM size          : disabled\n");
+  }
+  if( d0 & (1<<22))
+  {
+    printf("     MEM mode          : A64\n");
+  }
+  else
+  {
+    printf("     MEM mode          : A32\n");
+  }
+  if( d0 & (1<<31))
+  {
+    printf("     PMEM size         : %d MBytes\n", 0x20 << ((d0>>26)&3));
+  }
+  else
+  {
+    printf("     PMEM size         : disabled\n");
+  }
+  if( d0 & (1<<30))
+  {
+    printf("     PMEM mode         : A64\n");
+  }
+  else
+  {
+    printf("     PMEM mode         : A32\n");
+  }
   return;
 }
 
@@ -281,7 +340,15 @@ conf_show_shm( void)
 
   d0 = pev_csr_rd( reg_remap->iloc_ctl);
   printf("   Shared Memory\n");
-  printf("      Size                 : %d MBytes\n", (((d0>>8)&3)+1)*256);
+  if(( conf_board == PEV_BOARD_VCC1104) ||
+     ( conf_board == PEV_BOARD_VCC1105)    )
+  {
+    printf("      Size                 : %d MBytes\n", 256);
+  }
+  else
+  {
+    printf("      Size                 : %d MBytes\n", (((d0>>8)&3)+1)*256);
+  }
   return;
 }
 
@@ -555,6 +622,7 @@ xprs_conf_show( struct cli_cmd_para *c)
   {
     conf_show_static();
     conf_show_fpga();
+    conf_show_pci_ep();
     conf_show_shm();
     conf_show_vme();
     conf_show_smon();
@@ -610,6 +678,10 @@ xprs_conf_show( struct cli_cmd_para *c)
         {
 	  show_set |= 0x20;
 	}
+        if( !strcmp( "pci", c->para[i]))
+        {
+	  show_set |= 0x40;
+	}
       }
       printf("PEV1100 Configuration\n");
       if( show_set & 0x1) conf_show_static();
@@ -618,6 +690,7 @@ xprs_conf_show( struct cli_cmd_para *c)
       if( show_set & 0x8) conf_show_shm();
       if( show_set & 0x10) conf_show_vme();
       if( show_set & 0x20) conf_show_smon();
+      if( show_set & 0x40) conf_show_pci_ep();
       return(0); 
     }
   }

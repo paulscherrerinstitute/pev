@@ -24,8 +24,8 @@
  *  Change History
  *  
  * $Log: XprsTst.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.5  2012/03/21 10:14:18  ioxos
  * XprsTst .c replaces PevTst.c [JFG]
@@ -52,7 +52,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: XprsTst.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static char *rcsid = "$Id: XprsTst.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #include <debug.h>

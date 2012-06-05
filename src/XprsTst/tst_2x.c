@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: tst_2x.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.6  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
  *
  * Revision 1.5  2012/03/21 10:55:09  ioxos
  * cleanup & cosmetics [JFG]
@@ -98,6 +101,7 @@ dma_shm_vme( struct tst_ctl *tc,
 
   /* move data from vme to shm       */
   err = tstx_dma_move_shm_vme( crate, SHM_DMA_ADDR( xt)+shm_off, shm_vme_base+vme_off, mode, size, TST_DMA_INTR);
+  //err = tstx_dma_move_shm_vme( crate, SHM_DMA_ADDR( xt)+shm_off, 0x20000000+vme_off, mode, size, TST_DMA_INTR);
   if( err < 0)
   {
     TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n"));
@@ -153,6 +157,7 @@ tst_dma_shm_vme32( struct tst_ctl *tc,
   time_t tm;
   char *ct;
   int i, retval;
+  int start, inc;
 
   xt = tc->xt;
   shm_cpu_base = SHM_CPU_ADDR( xt);
@@ -160,16 +165,22 @@ tst_dma_shm_vme32( struct tst_ctl *tc,
 
   tm = time(0);
   ct = ctime(&tm);
+  srandom( ct);
   TST_LOG( tc, (logline, "%s->Entering:%s", tst_id, ct));
   /* allocate two reference buffers   */
   ref_buf_1 = (void *)malloc( 0x100000);
   ref_buf_2 = (void *)malloc( 0x100000);
   /* fill ref_buf with test pattern   */
-  tst_cpu_fill( ref_buf_1, 0x100000, 1, 0x11223344, 0x11111111);
+  //tst_cpu_fill( ref_buf_1, 0x100000, 1, 0x11223344, 0x11111111);
+  start = random();
+  inc = random();
+  //tst_cpu_fill( ref_buf_1, 0x100000, 1, start, inc);
+  tst_cpu_fill( ref_buf_1, 0x100000, 1, 0, 4);
   tst_cpu_fill( ref_buf_2, 0x100000, 1, 0xdeadface, 0);
 
   /* copy ref_buf_1 to shm     */
-  tst_cpu_copy( shm_cpu_base+0x80000, ref_buf_1, 0x80000, 4);
+  //tst_cpu_copy( shm_cpu_base+0x80000, ref_buf_1, 0x80000, 4);
+  tst_cpu_copy( shm_cpu_vme_base+0x80000, ref_buf_1, 0x80000, 4);
 
   for(  i = 0; i < 0x1000; i++)
   {
@@ -205,6 +216,7 @@ tst_dma_shm_vme64( struct tst_ctl *tc,
   time_t tm;
   char *ct;
   int i, retval;
+  int start, inc;
 
   xt = tc->xt;
   shm_cpu_base = SHM_CPU_ADDR( xt);
@@ -212,16 +224,22 @@ tst_dma_shm_vme64( struct tst_ctl *tc,
 
   tm = time(0);
   ct = ctime(&tm);
+  srandom( ct);
   TST_LOG( tc, (logline, "%s->Entering:%s", tst_id, ct));
   /* allocate two reference buffers   */
   ref_buf_1 = (void *)malloc( 0x100000);
   ref_buf_2 = (void *)malloc( 0x100000);
   /* fill ref_buf with test pattern   */
-  tst_cpu_fill( ref_buf_1, 0x100000, 1, 0x11223344, 0x11111111);
+  //tst_cpu_fill( ref_buf_1, 0x100000, 1, 0x11223344, 0x11111111);
+  start = random();
+  inc = random();
+  //tst_cpu_fill( ref_buf_1, 0x100000, 1, start, inc);
+  tst_cpu_fill( ref_buf_1, 0x100000, 1, 0, 4);
   tst_cpu_fill( ref_buf_2, 0x100000, 1, 0xdeadface, 0);
 
   /* copy ref_buf_1 to shm     */
-  tst_cpu_copy( shm_cpu_base+0x80000, ref_buf_1, 0x80000, 4);
+  //tst_cpu_copy( shm_cpu_base+0x80000, ref_buf_1, 0x80000, 4);
+  tst_cpu_copy( shm_cpu_vme_base+0x80000, ref_buf_1, 0x80000, 4);
 
   for(  i = 0; i < 0x1000; i++)
   {

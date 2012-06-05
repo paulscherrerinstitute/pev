@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: i2clib.h,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.3  2012/05/23 15:40:32  ioxos
+ * bug in calling i2c_read [JFG]
  *
  * Revision 1.2  2012/01/27 13:13:04  ioxos
  * prepare release 4.01 supporting x86 & ppc [JFG]
@@ -44,7 +47,7 @@
 
 void i2c_set_elb( uint);
 uint i2c_cmd( uint, uint, uint);
-uint i2c_read( uint, uint);
+uint i2c_read( uint, uint, uint *);
 uint i2c_write( uint, uint, uint, uint);
 uint i2c_wait( uint, uint);
 

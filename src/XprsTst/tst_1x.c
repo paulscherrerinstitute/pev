@@ -24,8 +24,8 @@
  *  Change History
  *  
  * $Log: tst_1x.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.4  2012/03/21 10:55:09  ioxos
  * cleanup & cosmetics [JFG]

@@ -29,8 +29,11 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.17  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
  *
  * Revision 1.16  2012/04/05 13:44:31  ioxos
  * dynamic io_remap [JFG]
@@ -247,13 +250,59 @@ pev_ioctl_evt( struct pev_dev *pev,
 	       unsigned int cmd, 
 	       unsigned long arg)
 {
+  struct pev_ioctl_evt evt;
+
   int retval = 0;  
   if( !pev->dev)
   {
     return( -ENODEV);
   }
+  if( copy_from_user(&evt, (void *)arg, sizeof(evt)))
+  {
+    return( -EFAULT);
+  }
   switch ( cmd)
   {
+    case PEV_IOCTL_EVT_ALLOC:
+    {
+      pev_evt_alloc( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_REGISTER:
+    {
+      pev_evt_register( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_ENABLE:
+    {
+      pev_evt_enable( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_UNMASK:
+    {
+      pev_evt_unmask( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_MASK:
+    {
+      pev_evt_mask( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_DISABLE:
+    {
+      pev_evt_disable( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_UNREGISTER:
+    {
+      pev_evt_unregister( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_FREE:
+    {
+      pev_evt_free( pev, &evt);
+      break;
+    }
     case PEV_IOCTL_EVT_WAIT:
     {
       debugk(( KERN_ALERT "wait for semaphore\n"));
@@ -261,12 +310,25 @@ pev_ioctl_evt( struct pev_dev *pev,
       debugk(( KERN_ALERT "semaphore unlocked\n"));
       break;
     }
-    case PEV_IOCTL_EVT_SET:
+    case PEV_IOCTL_EVT_RESET:
     {
       debugk(( KERN_ALERT "set semaphore\n"));
       //up( &pev->sem);
       break;
     }
+    case PEV_IOCTL_EVT_READ:
+    {
+      pev_evt_read( pev, &evt);
+      break;
+    }
+    default:
+    {
+      return( -EINVAL);
+    }
+  }
+  if( copy_to_user((void *)arg, &evt, sizeof(evt)))
+  {
+    return( -EFAULT);
   }
      
   return( retval);

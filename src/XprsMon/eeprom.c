@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: eeprom.c,v $
- * Revision 1.1  2012/05/02 13:13:07  kalantari
- * update fifo.c and eeprom.c files
+ * Revision 1.2  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.2  2012/04/18 07:45:20  ioxos
  * add load function [JFG]
@@ -39,7 +39,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: eeprom.c,v 1.1 2012/05/02 13:13:07 kalantari Exp $";
+static char *rcsid = "$Id: eeprom.c,v 1.2 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #include <sys/types.h>

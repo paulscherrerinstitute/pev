@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevxulib.c,v $
- *  Revision 1.3  2012/04/25 13:18:28  kalantari
- *  added i2c epics driver and updated linux driver to v.4.10
+ *  Revision 1.4  2012/06/05 13:37:31  kalantari
+ *  linux driver ver.4.12 with intr Handling
+ *
+ *  Revision 1.38  2012/05/23 08:14:39  ioxos
+ *  add support for event queues [JFG]
  *
  *  Revision 1.37  2012/04/19 08:40:39  ioxos
  *  tagging rel-4-10 [JFG]
@@ -143,7 +146,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevxulib.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static const char *rcsid = "$Id: pevxulib.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -920,23 +923,6 @@ pevx_fpga_sign(  uint crate,
 
   return( ioctl( pev->fd, PEV_IOCTL_SFLASH_RD, &rdwr));
 }
-int
-pevx_evt_wait( uint crate)
-{
-  if( !pevx[crate]) return(-1);
-  pev = pevx[crate];
-  if( pev->fd < 0) return(-1);
-  return( ioctl( pev->fd, PEV_IOCTL_EVT_WAIT, 0));
-} 
-
-int
-pevx_evt_set( uint crate)
-{
-  if( !pevx[crate]) return(-1);
-  pev = pevx[crate];
-  if( pev->fd < 0) return(-1);
-  return( ioctl( pev->fd, PEV_IOCTL_EVT_SET, 0));
-} 
 
 int
 pevx_vme_irq_init( uint crate)
@@ -1453,4 +1439,122 @@ pevx_eeprom_wr( uint crate,
   rdwr.offset = offset;
   rdwr.len = cnt;
   return( ioctl( pev->fd, PEV_IOCTL_EEPROM_WR, &rdwr));
+}
+
+
+struct pev_ioctl_evt *
+pevx_evt_queue_alloc( uint crate,
+	              int sig)
+{
+  struct pev_ioctl_evt *evt;
+
+  if( !pevx[crate]) return(NULL);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(NULL);
+  evt = (struct pev_ioctl_evt *)malloc( sizeof(struct pev_ioctl_evt));
+  evt->sig = sig;
+  ioctl( pev->fd, PEV_IOCTL_EVT_ALLOC, evt);
+  return( evt);
+}
+ 
+int
+pevx_evt_queue_free( uint crate,
+	             struct pev_ioctl_evt *evt)
+{
+  int retval;
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  retval = ioctl( pev->fd, PEV_IOCTL_EVT_FREE, evt);
+  free( evt);
+  return( retval);
+}
+
+int
+pevx_evt_register( uint crate,
+	           struct pev_ioctl_evt *evt,
+	           int src_id)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_REGISTER, evt));
+}
+ 
+int
+pevx_evt_unregister( uint crate,
+	             struct pev_ioctl_evt *evt,
+		     int src_id)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_UNREGISTER, evt));
+}
+ 
+int
+pevx_evt_queue_enable( uint crate,
+	               struct pev_ioctl_evt *evt)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_ENABLE, evt));
+}
+ 
+int
+pevx_evt_queue_disable( uint crate,
+	                struct pev_ioctl_evt *evt)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_DISABLE, evt));
+}
+ 
+int
+pevx_evt_mask( uint crate,
+	       struct pev_ioctl_evt *evt,
+	       int src_id)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_MASK, evt));
+}
+ 
+int
+pevx_evt_unmask( uint crate,
+	         struct pev_ioctl_evt *evt,
+		 int src_id)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_UNMASK, evt));
+}
+ 
+int
+pevx_evt_read( uint crate,
+	       struct pev_ioctl_evt *evt,
+	       int wait)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  evt->wait = wait;
+  ioctl( pev->fd, PEV_IOCTL_EVT_READ, evt);
+  return( (evt->src_id << 8) | evt->vec_id);
 }

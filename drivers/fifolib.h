@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fifolib.h,v $
- * Revision 1.1  2012/05/03 09:54:00  kalantari
- * added missing new files
+ * Revision 1.2  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.1  2012/03/27 09:17:39  ioxos
  * add support for FIFOs [JFG]

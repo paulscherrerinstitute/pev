@@ -5,6 +5,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <signal.h>
 #include <devLib.h>
 #include "../regDev/regDev.h"
 
@@ -44,16 +45,28 @@
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
 #define DMA_Q_SIZE	1000
 #define MAX_PEVS	21		/* taken from VME 21 slot. makes sense ??? */
+#define ISRC_PCI	0x00		/* ITC_SRC bits 13:12 of ITC_IACK*/
+#define ISRC_VME	0x10		/* ITC_SRC */
+#define ISRC_SHM	0x20		/* ITC_SRC */
+#define ISRC_USR	0x30		/* ITC_SRC */
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.9 2012/05/02 11:59:28 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.10 2012/06/05 13:37:30 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
+static IOSCANPVT pevGetIoScanPvt(regDevice *device, unsigned int offset);
+static IOSCANPVT pevAsynGetIoScanPvt(regDeviceAsyn *device, unsigned int offset);
+static int pevIntrRegister(int mapMode);
+static void pevIntrHandler(int sig);
+static int pevIntrHanlder_init();
 epicsMessageQueueId pevDmaMsgQueueId = 0;
 epicsBoolean initHookregDone = epicsFalse;
+static epicsBoolean pevIntrHandlerInitialized = epicsFalse;
+static IOSCANPVT* pevIntrTable = 0; 
+static struct pev_ioctl_evt *pevIntrEvent;
 
 
 typedef struct pevDmaReqMsg {
@@ -120,14 +133,12 @@ void pevReport(
     }
 }
 
-IOSCANPVT mmapGetInScanPvt(
-    regDevice *device,
-    unsigned int offset)
+static IOSCANPVT pevGetIoScanPvt(regDevice *device, unsigned int offset)
 {
     if (!device || device->magic != MAGIC)
     { 
         errlogSevPrintf(errlogMajor,
-            "mmapGetInScanPvt: illegal device handle\n");
+            "pevGetIoScanPvt: illegal device handle\n");
         return NULL;
     }
     return device->ioscanpvt;
@@ -310,7 +321,7 @@ int pevWrite(
 
 static regDevSupport pevSupport = {
     pevReport,
-    NULL,
+    pevGetIoScanPvt,
     NULL,
     pevRead,
     pevWrite
@@ -517,6 +528,17 @@ void pevAsynReport(
     }
 }
 
+static IOSCANPVT pevAsynGetIoScanPvt(regDeviceAsyn *device, unsigned int offset)
+{
+    if (!device || device->magic != MAGIC)
+    { 
+        errlogSevPrintf(errlogMajor,
+            "pevAsynGetIoScanPvt: illegal device handle\n");
+        return NULL;
+    }
+    return device->ioscanpvt;
+}
+
 int pevAlloc(
        	void** usrBufPtr, 
        	void** busBufPtr, 
@@ -542,7 +564,7 @@ int pevAlloc(
 
 static regDevAsyncSupport pevAsynSupport = {
     pevAsynReport,
-    NULL,
+    pevAsynGetIoScanPvt,
     NULL,
     pevAsynRead,
     pevAsynWrite,	/* asyn write must be implemented */
@@ -622,6 +644,9 @@ static void pevDrvAtexit(regDevice* device)
   struct pev_node* pev;    
   pev_ctl.sg_id = device->pev_rmArea_map.sg_id; 
   printf("pevDrvAtexit(): we are at ioc exit**********\n");
+  pev_evt_queue_disable(pevIntrEvent);
+  pev_evt_queue_free(pevIntrEvent);
+  free(pevIntrTable);
        
   for(i=0; i<MAX_PEVS; i++) 
   {
@@ -663,7 +688,8 @@ int pevConfigure(
     const char* name,
     const char* resource,
     unsigned int offset,
-    char* vmeProtocol)
+    char* vmeProtocol,
+    int intrVec)
 {
     
   regDevice* device;    
@@ -917,6 +943,25 @@ SKIP_PEV_RESMAP:
     device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
   }
 TESTJUMP: 
+
+  if( intrVec )
+  {
+    if( intrVec<0 || intrVec>259 )
+    {
+      printf("pevConfigure: ERROR, interrupt vector out of range (must be > 0 and < 259)\n");
+      return errno;
+    }	
+    if( !pevIntrHandlerInitialized ) 
+    {
+      pevIntrHanlder_init();
+    }
+    pev_evt_queue_disable(pevIntrEvent);
+    device->ioscanpvt = pevIntrTable[intrVec];
+    pevIntrRegister(device->pev_rmArea_map.mode); 
+    pevIntrEvent->wait = -1;
+    signal(pevIntrEvent->sig, pevIntrHandler);
+    pev_evt_queue_enable(pevIntrEvent);
+  }    
  	
   regDevRegisterDevice(name, &pevSupport, device);
   ellAdd (&pevRegDevList, &device->node);
@@ -939,6 +984,10 @@ TESTJUMP:
 *                       - valid ptions: "BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
 *
 *
+*	intrVec 	for VME 0-255, for 
+*
+*
+*
 *	size 		? this parameter might be added for how much kernel memory to be allocated for DMA
 *
 **/
@@ -948,7 +997,8 @@ int pevAsynConfigure(
     const char* name,
     const char* resource,
     unsigned int offset,
-    char* vmeProtocol)
+    char* vmeProtocol,
+    int intrVec)
 {
     
   regDeviceAsyn* device;    
@@ -1209,6 +1259,25 @@ TESTJUMP:
     initHookRegister((initHookFunction)pevHookFunc);
     initHookregDone = epicsTrue;
   }
+
+  if( intrVec )
+  {
+    if( intrVec<0 || intrVec>259 )
+    {
+      printf("pevAsynConfigure: ERROR, interrupt vector out of range (must be > 0 and < 259)\n");
+      return errno;
+    }	
+    if( !pevIntrHandlerInitialized ) 
+    {
+      pevIntrHanlder_init();
+    }
+    pev_evt_queue_disable(pevIntrEvent);
+    device->ioscanpvt = pevIntrTable[intrVec];
+    pevIntrRegister(device->pev_rmArea_map.mode); 
+    pevIntrEvent->wait = -1;
+    signal(pevIntrEvent->sig, pevIntrHandler);
+    pev_evt_queue_enable(pevIntrEvent);
+  }    
  	
   regDevAsyncRegisterDevice(name, &pevAsynSupport, device);
   ellAdd (&pevRegDevAsynList, &device->node);
@@ -1330,29 +1399,115 @@ return 0;
 *
 **/
 
+/**
+* interrupt handling stuff:
+* we keep a table for 256 VME + 1 SUSER + 1 SHMEM + 1 PCIE = 259
+* VME: 0-255, SUSER: 256, SHMEM: 257, PCIE: 258 
+**/
+int pevIntrHanlder_init() 
+{
+  int iSrcAndVec;
+  
+  if( (pevIntrTable = malloc(259*sizeof(IOSCANPVT)))==NULL )
+    return errno;
+   
+  for(iSrcAndVec=0; iSrcAndVec<259; iSrcAndVec++)
+  {
+    scanIoInit(&pevIntrTable[iSrcAndVec]);
+  }
+  pevIntrEvent = pev_evt_queue_alloc( SIGUSR2);  
+  pevIntrHandlerInitialized = epicsTrue;
+  return 0;
+}
+
+int pevIntrRegister(int mapMode)
+{    
+  int src_id = 0, i;
+   
+  if( mapMode & MAP_SPACE_VME)
+  {
+    src_id = ISRC_VME;
+    for( i = 0; i < 8; i++)     /* all 7 vme intr levels */
+    {
+      src_id += 0x1;
+      pev_evt_register( pevIntrEvent, src_id);
+    }
+  }
+  else
+  {
+    if( mapMode & MAP_SPACE_USR1)
+      src_id = ISRC_USR;
+    else
+    if( mapMode & MAP_SPACE_SHM)
+      src_id = ISRC_SHM;
+    else
+    if( mapMode & MAP_SPACE_PCIE)
+      src_id = ISRC_PCI;
+    
+    pev_evt_register( pevIntrEvent, src_id);
+  }
+  pev_evt_register( pevIntrEvent, src_id);
+  return 0;
+}
+
+void pevIntrHandler(int sig)
+{ 
+  int intrEntry = 0;
+  printf("pevIntrHandler(): in pevIntrHandle...%d\n", sig);
+  do
+  {
+    pev_evt_read( pevIntrEvent, 0);
+    if(pevIntrEvent->src_id)	/* probably wrong since 0 is ISRC_PCI */
+    {
+      printf("%x - %x - %d\n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt);
+      if(pevIntrEvent->src_id == ISRC_VME)
+      	intrEntry = pevIntrEvent->vec_id;
+      else
+      if(pevIntrEvent->src_id == ISRC_USR)
+      	intrEntry = 256;
+      else
+      if(pevIntrEvent->src_id == ISRC_SHM)
+      	intrEntry = 257;
+      else
+      if(pevIntrEvent->src_id == ISRC_PCI)
+      	intrEntry = 258;
+            
+      scanIoRequest(pevIntrTable[pevIntrEvent->vec_id]);
+      pev_evt_unmask( pevIntrEvent, pevIntrEvent->src_id);
+    }
+    else
+    {
+      printf("pevIntrEvent queue empty... count = %d, src_id = 0x%x \n", pevIntrEvent->evt_cnt, pevIntrEvent->src_id);
+    }
+  } while(pevIntrEvent->evt_cnt);
+  return;
+}
+
 #ifdef EPICS_3_14
 
 #include <iocsh.h>
-static const iocshArg mmapConfigureArg0 = { "crate", iocshArgInt };
-static const iocshArg mmapConfigureArg1 = { "name", iocshArgString };
-static const iocshArg mmapConfigureArg2 = { "resource", iocshArgString };
-static const iocshArg mmapConfigureArg3 = { "offset", iocshArgInt };
-static const iocshArg mmapConfigureArg4 = { "dmaSpace", iocshArgString };
+static const iocshArg pevConfigureArg0 = { "crate", iocshArgInt };
+static const iocshArg pevConfigureArg1 = { "name", iocshArgString };
+static const iocshArg pevConfigureArg2 = { "resource", iocshArgString };
+static const iocshArg pevConfigureArg3 = { "offset", iocshArgInt };
+static const iocshArg pevConfigureArg4 = { "dmaSpace", iocshArgString };
+static const iocshArg pevConfigureArg5 = { "intrVec", iocshArgInt };
 static const iocshArg * const pevConfigureArgs[] = {
-    &mmapConfigureArg0,
-    &mmapConfigureArg1,
-    &mmapConfigureArg2,
-    &mmapConfigureArg3,
-    &mmapConfigureArg4,
+    &pevConfigureArg0,
+    &pevConfigureArg1,
+    &pevConfigureArg2,
+    &pevConfigureArg3,
+    &pevConfigureArg4,
+    &pevConfigureArg5,
 };
 
 static const iocshFuncDef pevConfigureDef =
-    { "pevConfigure", 5, pevConfigureArgs };
+    { "pevConfigure", 6, pevConfigureArgs };
     
 static void pevConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevConfigure(
-        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval);
+        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival);
     if (status != 0) epicsExit(1);
 }
 
@@ -1365,12 +1520,12 @@ epicsExportRegistrar(pevRegistrar);
 
 
 static const iocshFuncDef pevAsynConfigureDef =
-    { "pevAsynConfigure", 5, pevConfigureArgs };
+    { "pevAsynConfigure", 6, pevConfigureArgs };
     
 static void pevAsynConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevAsynConfigure(
-        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval);
+        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival);
     if (status != 0) epicsExit(1);
 }
 

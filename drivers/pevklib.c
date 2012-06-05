@@ -38,11 +38,20 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.6  2012/05/15 14:35:48  kalt_r
- * workaround with down_timeout 2
+ * Revision 1.7  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.44  2012/05/23 15:40:32  ioxos
+ * bug in calling i2c_read [JFG]
+ *
+ * Revision 1.43  2012/05/23 15:15:12  ioxos
+ * return status in device field for i2c read [JFG]
+ *
+ * Revision 1.42  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
+ *
+ * Revision 1.41  2012/05/08 09:32:49  ioxos
+ * bug: iounmap missing for rdwr block [JFG]
  *
  * Revision 1.40  2012/04/18 07:42:07  ioxos
  * delay work around for eeprom_wr [JFG]
@@ -191,6 +200,7 @@
 #include "pevdrvr.h"
 #include "pevklib.h"
 #include "histolib.h"
+#include "evtlib.h"
 
 #define DBGno
 
@@ -317,6 +327,10 @@ pev_rdwr(struct pev_dev *pev,
         {
 	  retval = rdwr_loop( rdwr_p->buf, pev_addr, rdwr_p->len, m);
         }
+      }
+      if( pev_remap)
+      {
+        iounmap( pev_addr);
       }
       return( retval);
     }
@@ -1094,6 +1108,7 @@ pev_i2c_dev_read(struct pev_dev *pev,
 {
   ulong reg_p;
   int elbc;
+  uint sts;
 
   elbc = i2c_para_p->device & 0x80;
   i2c_para_p->device &= ~0x80;
@@ -1101,8 +1116,8 @@ pev_i2c_dev_read(struct pev_dev *pev,
   //printk("pev_i2c_dev_read(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_wait( reg_p, 100000);
-  i2c_para_p->data = i2c_read( reg_p,  i2c_para_p->device);
-
+  i2c_para_p->data = i2c_read( reg_p,  i2c_para_p->device, &sts);
+  i2c_para_p->device = sts;
   return;
 }
 
@@ -1127,9 +1142,10 @@ void
 pev_i2c_pex_read(struct pev_dev *pev,
 	         struct pev_ioctl_i2c *i2c_para_p)
 {
+  uint sts;
   i2c_cmd( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, i2c_para_p->cmd);
   i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
-  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069);
+  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, &sts);
 
   return;
 }
@@ -1238,7 +1254,7 @@ pev_idt_eeprom_write(struct pev_dev *pev,
     }
     while( ((data & 0x3000000) != 0x2000000) && --tmo);
     /* add delay because hardware gives command complete too early !!!  */
-    retval = down_timeout( &pev_eeprom_sem, 2);
+    retval = down_timeout( &pev_eeprom_sem, 1);
   }
 
   free_pages( (unsigned long)k_buf, order);
@@ -1252,11 +1268,16 @@ pev_vme_irq( struct pev_dev *pev,
 	     void *arg)
 {
   int idx;
+  int vec;
+
+  vec = src & 0xff;
+  src = src >> 8;
 
   pev->vme_status |= VME_IRQ_RECEIVED | ( 0x10000 << (src&0xf));
   idx = vme_irq_idx[src&0xf];
   /* get interrupt vector */
-  pev->vme_irq_ctl[idx].vector = inl(pev->io_base + pev->io_remap.vme_itc);
+  //pev->vme_irq_ctl[idx].vector = inl(pev->io_base + pev->io_remap.vme_itc);
+  pev->vme_irq_ctl[idx].vector = vec;
   /* mask interrupt belonging to the same set */
   outl( pev->vme_irq_ctl[idx].set, pev->io_base + pev->io_remap.vme_itc + 0x0c);
   /* raise semaphore */
@@ -1715,8 +1736,9 @@ pev_fifo_irq(struct pev_dev *pev, int src, void *arg)
 //  wait after a call to pevx_fifo_wait_XX before any printing
 //  otherwise VxWorks seems to lock. (fg 10-01-2012)
 
-    up( &pev->fifo_sem[src&7]);
-    return;
+  src = src >> 8;
+  up( &pev->fifo_sem[src&7]);
+  return;
 }
 void 
 pev_fifo_init(struct pev_dev *pev)
@@ -2247,4 +2269,194 @@ pev_histo_clear( struct pev_dev *pev,
   histo_clear( hp->idx);
   return(0);
 }
+
+void
+pev_evt_irq( struct pev_dev *pev,
+	     int src,
+	     void *arg)
+{
+  evt_irq( src, arg);
+  return;
+}
+
+void
+pev_evt_init( struct pev_dev *pev)
+{
+  evt_init();
+  return;
+}
+
+void
+pev_evt_alloc( struct pev_dev *pev,
+	       struct pev_ioctl_evt *evt)
+
+{
+  evt->evt_queue = evt_queue_alloc( evt->sig);
+  return;
+}
+
+int
+pev_evt_free( struct pev_dev *pev,
+	       struct pev_ioctl_evt *evt)
+
+{
+  return( evt_queue_free( evt->evt_queue));
+}
+
+int
+pev_evt_register( struct pev_dev *pev,
+	          struct pev_ioctl_evt *evt)
+
+{
+  int src;
+
+  src = evt->src_id & 0x3f;
+  pev_irq_register( pev, src, pev_evt_irq, evt->evt_queue);
+  return( evt_register( evt->evt_queue, evt->src_id));
+}
+
+void
+pev_evt_enable( struct pev_dev *pev,
+	        struct pev_ioctl_evt *evt)
+{
+  int *p;
+
+  p = evt_get_src_id( evt->evt_queue);
+  if( p[0])
+  {
+    outl( p[0]<<16, pev->io_base + pev->io_remap.iloc_itc);
+    outl( p[0], pev->io_base + pev->io_remap.iloc_itc + 0x08);
+  }
+  if( p[1])
+  {
+    outl( p[1]<<16, pev->io_base + pev->io_remap.vme_itc);
+    outl( p[1], pev->io_base + pev->io_remap.vme_itc + 0x08);
+  }
+  if( p[2])
+  {
+    outl( p[2]<<16, pev->io_base + pev->io_remap.dma_itc);
+    outl( p[2], pev->io_base + pev->io_remap.dma_itc + 0x08);
+  }
+  if( p[3])
+  {
+    outl( p[3]<<16, pev->io_base + pev->io_remap.usr_itc);
+    outl( p[3], pev->io_base + pev->io_remap.usr_itc + 0x08);
+  }
+  return;
+}
+
+void
+pev_evt_unmask( struct pev_dev *pev,
+	        struct pev_ioctl_evt *evt)
+{
+  int ip;
+
+  ip = 1 << (evt->src_id & 0xf) ;
+
+  switch( (evt->src_id >> 4) & 3)
+  {
+    case 0:
+    {
+      outl( ip, pev->io_base + pev->io_remap.iloc_itc + 0x08);
+      return;
+    }
+    case 1:
+    {
+      outl( ip, pev->io_base + pev->io_remap.vme_itc + 0x08);
+      return;
+    }
+    case 2:
+    {
+      outl( ip, pev->io_base + pev->io_remap.dma_itc + 0x08);
+      return;
+    }
+    case 3:
+    {
+      outl( ip, pev->io_base + pev->io_remap.usr_itc + 0x08);
+      return;
+    }
+  }
+}
+
+void
+pev_evt_mask( struct pev_dev *pev,
+	      struct pev_ioctl_evt *evt)
+{
+  int ip;
+
+  ip = 1 << (evt->src_id & 0xf) ;
+
+  switch( (evt->src_id >> 4) & 3)
+  {
+    case 0:
+    {
+      outl( ip, pev->io_base + pev->io_remap.iloc_itc + 0x0c);
+      return;
+    }
+    case 1:
+    {
+      outl( ip, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+      return;
+    }
+    case 2:
+    {
+      outl( ip, pev->io_base + pev->io_remap.dma_itc + 0x0c);
+      return;
+    }
+    case 3:
+    {
+      outl( ip, pev->io_base + pev->io_remap.usr_itc + 0x0c);
+      return;
+    }
+  }
+}
+
+
+void
+pev_evt_disable( struct pev_dev *pev,
+	         struct pev_ioctl_evt *evt)
+{
+  int *p;
+
+  p = evt_get_src_id( evt->evt_queue);
+  if( p[0])
+  {
+    outl( p[0], pev->io_base + pev->io_remap.iloc_itc + 0x0c);
+  }
+  if( p[1])
+  {
+    outl( p[0], pev->io_base + pev->io_remap.vme_itc + 0x0c);
+  }
+  if( p[2])
+  {
+    outl( p[0], pev->io_base + pev->io_remap.dma_itc + 0x0c);
+  }
+  if( p[3])
+  {
+    outl( p[0], pev->io_base + pev->io_remap.usr_itc + 0x0c);
+  }
+  return;
+}
+
+int
+pev_evt_unregister( struct pev_dev *pev,
+	            struct pev_ioctl_evt *evt)
+
+{
+  return( evt_unregister( evt->evt_queue, evt->src_id));
+}
+
+int
+pev_evt_read( struct pev_dev *pev,
+	      struct pev_ioctl_evt *evt)
+
+{
+  int evt_id;
+
+  evt->evt_cnt= evt_read( evt->evt_queue, &evt_id, evt->wait);
+  evt->src_id = (evt_id >> 8) & 0x3f;
+  evt->vec_id = evt_id & 0xff;
+  return(0);
+}
+
 

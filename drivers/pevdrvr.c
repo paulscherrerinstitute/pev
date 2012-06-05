@@ -43,8 +43,20 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.54  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
+ *
+ * Revision 1.53  2012/05/14 09:14:20  ioxos
+ * add new type of IDT switches [JFG]
+ *
+ * Revision 1.52  2012/05/04 11:08:04  ioxos
+ * add support for VCC1105 [JFG]
+ *
+ * Revision 1.51  2012/04/30 08:46:22  ioxos
+ * if VCC force SHM size to 256 MBytes [JFG]
  *
  * Revision 1.50  2012/04/19 08:40:39  ioxos
  * tagging rel-4-10 [JFG]
@@ -306,7 +318,7 @@ pev_irq( int irq,
   struct pev_dev *p;
   register uint ip;
   register uint base;
-  register uint src;
+  register uint src, idx;
 
   p = (struct pev_dev *)arg;  
 
@@ -317,7 +329,9 @@ pev_irq( int irq,
   ip = inl(  base);
 
   /* get interrupt source */
-  src = (ip >> 8) & 0x3f;
+  //src = (ip >> 8) & 0x3f;
+  src = ip & 0x3fff;
+  idx = src >> 8;
 
   //base += (( ip >> 2) & 0xc00);
   if( p->io_remap.short_io)
@@ -338,7 +352,7 @@ pev_irq( int irq,
   p->irq_cnt += 1;
 
   /* activates tasket handling interrupts */
-  p->irq_tbl[src].func( p, src, p->irq_tbl[src].arg);
+  p->irq_tbl[idx].func( p, src, p->irq_tbl[idx].arg);
 
   /* clear IP and restart interrupt scanning */
   outl( ip << 16, base);
@@ -946,6 +960,11 @@ pev_probe( struct pev_dev *pev)
   }
 
   pev->shm_len = 0x8000000 << ((inl( pev->io_base + pev->io_remap.iloc_ctl) >> 8) & 3); /* get SHM size             */
+  if( ( pev->board == PEV_BOARD_VCC1104) ||
+      ( pev->board == PEV_BOARD_VCC1105)    )
+  {
+    pev->shm_len = 0x10000000;
+  }
   pev->dma_shm_ptr = NULL;
 
 
@@ -1075,6 +1094,7 @@ pev_probe( struct pev_dev *pev)
   sema_init( &pev->sem_remap, 1);             /* initialize locking semaphore for IO remapping           */
   sema_init( &pev->i2c_lock, 1);              /* initialize locking semaphore for I2C controller         */
   sema_init( &pev->spi_lock, 1);              /* initialize locking semaphore for SPI controller         */
+  pev_evt_init( pev);
  
   return( 0);
 }
@@ -1220,6 +1240,9 @@ static int pev_init( void)
     }
     /* check for IDT32NT24 */
     if( ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8097)) ||
+        ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8092)) ||
+        ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8090)) ||
+        ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808e)) ||
         ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808a)) ||
         ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808c))    )
     {
@@ -1233,12 +1256,15 @@ static int pev_init( void)
         pev->crate = 0;
         pev_drv.pev[0] = pev;
         printk("PCIe SWITCH IDT32NT24 found\n");
+#ifdef PPC
         pev->elb_base    = 0xffb00000;
         pev->elb_len    = 0x10000;
         pev->elb_ptr = ioremap(pev->elb_base, pev->elb_len);
 	pev->fpga_status = 0;
 	pev->board =  PEV_BOARD_IFC1210;
         printk("ELB#0 : %08x - %p -%08lx [%x]\n", pev->elb_base,  pev->elb_ptr, *(long *)pev->elb_ptr, pev->elb_len);
+#else
+#endif
       }
       break;
     }
@@ -1326,6 +1352,9 @@ static int pev_init( void)
       {
         /* check for IDT32NT24 */
         if( ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8097)) ||
+            ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8092)) ||
+            ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x8090)) ||
+            ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808e)) ||
             ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808a)) ||
             ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808c))    )
         {
@@ -1347,6 +1376,31 @@ static int pev_init( void)
 		  pev_probe( pev); 
 		  pev->fpga_status = 1;          
 		  break;
+		}
+              }
+              pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+	    }
+	  }
+          /* check for port #3*/
+          if( ldev->devfn == PCI_DEVFN( 3, 0))
+          {
+	    p_bus = ldev->subordinate->primary;
+	    s_bus = ldev->subordinate->secondary;;
+	    debugk((KERN_NOTICE "idt32nt24 port#2: bus number = %x:%x\n", p_bus, s_bus));
+	    pev->dev = ldev;
+            while( pev->dev)
+            {
+              /* check for PEV1100 FPGA End Point */
+              if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1105))
+              {
+		printk("AROLLA found...\n");
+		if( pev->dev->bus->number == s_bus)
+		{ 
+		  debugk((KERN_NOTICE "FPGA PCIe End Point found on bus 0x%x\n", pev->dev->bus->number));
+		  pev->board =  PEV_BOARD_VCC1105;
+		  pev_probe( pev); 
+		  pev->fpga_status = 1;          
+		  return(0);
 		}
               }
               pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);

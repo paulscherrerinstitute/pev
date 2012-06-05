@@ -75,6 +75,7 @@ char *conf_msg[] =
   "            static",
   "            switch",
   "            vme",
+  "            pci",
 0};
 char *map_msg[] = 
 {

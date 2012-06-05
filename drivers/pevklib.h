@@ -97,6 +97,16 @@ int pev_dma_move( struct pev_dev *,  struct pev_ioctl_dma_req *);
 int pev_dma_status( struct pev_dev *,  struct pev_ioctl_dma_sts *);
 int pev_histo_read( struct pev_dev *,  struct pev_ioctl_histo *);
 int pev_histo_clear( struct pev_dev *,  struct pev_ioctl_histo *);
+void pev_evt_init( struct pev_dev *);
+void pev_evt_alloc( struct pev_dev *, struct pev_ioctl_evt *);
+int pev_evt_free( struct pev_dev *, struct pev_ioctl_evt *);
+int pev_evt_register( struct pev_dev *, struct pev_ioctl_evt *);
+void pev_evt_enable( struct pev_dev *, struct pev_ioctl_evt *);
+void pev_evt_unmask( struct pev_dev *, struct pev_ioctl_evt *);
+void pev_evt_mask( struct pev_dev *, struct pev_ioctl_evt *);
+void pev_evt_disable( struct pev_dev *, struct pev_ioctl_evt *);
+int pev_evt_unregister( struct pev_dev *, struct pev_ioctl_evt *);
+int pev_evt_read( struct pev_dev *, struct pev_ioctl_evt *);
 
 
 #endif /*  _H_PEVLIB */

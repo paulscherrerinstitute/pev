@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: cli.h,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.2  2008/08/08 09:11:43  ioxos
  *  cmdline[256] belong now to struct cli_cmd_para{} [JFG]

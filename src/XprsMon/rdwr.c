@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.25  2012/05/23 15:27:37  ioxos
+ * remove reference to pev_evt_xx() [JFG]
  *
  * Revision 1.24  2012/04/12 13:31:07  ioxos
  * support for dma swapping [JFG]
@@ -106,7 +109,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -2370,14 +2373,14 @@ xprs_rdwr_evt( struct cli_cmd_para *c)
     if( !strcmp( "wait", c->para[0]))
     {
       printf("wait event...");
-      retval = pev_evt_wait();
+      //retval = pev_evt_wait();
       printf("ok\n");
     }
 
     if( !strcmp( "set", c->para[0]))
     {
       printf("set event\n");
-      retval = pev_evt_set();
+      //retval = pev_evt_set();
     }
   }
 

@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevxulib.h,v $
- * Revision 1.5  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.6  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
+ *
+ * Revision 1.13  2012/05/23 08:14:39  ioxos
+ * add support for event queues [JFG]
  *
  * Revision 1.12  2012/04/12 13:45:39  ioxos
  * bug in eeprom_.. declaration [JFG]
@@ -148,6 +151,14 @@ int pevx_fifo_read( uint, uint,  uint *, uint, uint *);
 int pevx_fifo_write( uint, uint,  uint *, uint, uint *);
 int pevx_eeprom_rd( uint,  uint, char *, uint);
 int pevx_eeprom_wr( uint, uint, char *, uint);
+int pevx_evt_queue_free( uint, struct pev_ioctl_evt *);
+int pevx_evt_register( uint, struct pev_ioctl_evt *, int);
+int pevx_evt_unregister( uint, struct pev_ioctl_evt *, int);
+int pevx_evt_queue_enable( uint, struct pev_ioctl_evt *evt);
+int pevx_evt_queue_disable( uint, struct pev_ioctl_evt *evt);
+int pevx_evt_mask( uint, struct pev_ioctl_evt *, int);
+int pevx_evt_unmask( uint, struct pev_ioctl_evt *,int);
+int pevx_evt_read( uint, struct pev_ioctl_evt *, int);
 #ifdef _cplusplus
 }
 #endif

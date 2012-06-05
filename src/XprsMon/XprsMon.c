@@ -24,8 +24,8 @@
  *  Change History
  *  
  * $Log: XprsMon.c,v $
- * Revision 1.3  2012/04/25 13:18:28  kalantari
- * added i2c epics driver and updated linux driver to v.4.10
+ * Revision 1.4  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.34  2012/04/19 08:40:39  ioxos
  * tagging rel-4-10 [JFG]
@@ -133,7 +133,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: XprsMon.c,v 1.3 2012/04/25 13:18:28 kalantari Exp $";
+static char *rcsid = "$Id: XprsMon.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #include <debug.h>

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fifo.c,v $
- * Revision 1.1  2012/05/02 13:13:07  kalantari
- * update fifo.c and eeprom.c files
+ * Revision 1.2  2012/06/05 13:37:31  kalantari
+ * linux driver ver.4.12 with intr Handling
  *
  * Revision 1.2  2012/04/05 13:52:06  ioxos
  * add wait operation [JFG]
@@ -39,7 +39,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: fifo.c,v 1.1 2012/05/02 13:13:07 kalantari Exp $";
+static char *rcsid = "$Id: fifo.c,v 1.2 2012/06/05 13:37:31 kalantari Exp $";
 #endif
 
 #define DEBUGno
