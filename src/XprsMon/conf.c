@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.15  2012/06/01 13:59:43  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.14  2012/05/09 09:49:21  ioxos
  * adaptation for IFC1210 [JFG]
@@ -76,7 +79,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -87,6 +90,7 @@ static char *rcsid = "$Id: conf.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <cli.h>
 #include <pevioctl.h>
 #include <pevulib.h>
@@ -94,13 +98,17 @@ static char *rcsid = "$Id: conf.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 extern struct pev_reg_remap *reg_remap;
 int conf_board = 0;
 
+char *
+conf_rcsid()
+{
+  return( rcsid);
+}
+
 void
 conf_show_static( void)
 {
-  int d0, d1, d2;
-  float f0, f1, f2;
+  int d0;
   char c0, c1, c2, c3;
-  int i;
 
   d0 = pev_csr_rd( 0x00);
   printf("   Static Options [0x%08x]\n", d0);
@@ -257,10 +265,7 @@ conf_show_static( void)
 void
 conf_show_switch( void)
 {
-  int d0, d1, d2;
-  float f0, f1, f2;
-  char c0, c1, c2, c3;
-  int i;
+  int d0;
 
   d0 = pev_pex_read( 0x0);
   printf("   PCIe SWITCH Status\n");
@@ -271,10 +276,7 @@ conf_show_switch( void)
 void
 conf_show_fpga( void)
 {
-  int d0, d1, d2;
-  float f0, f1, f2;
-  char c0, c1, c2, c3;
-  int i;
+  int d0;
 
   d0 = pev_csr_rd( reg_remap->iloc_sign);
   printf("   FPGA Status\n");
@@ -288,10 +290,7 @@ conf_show_fpga( void)
 void
 conf_show_pci_ep( void)
 {
-  int d0, d1, d2;
-  float f0, f1, f2;
-  char c0, c1, c2, c3;
-  int i;
+  int d0;
 
   d0 = pev_csr_rd( reg_remap->pcie_mmu);
   printf("   PCI End Point\n");
@@ -333,10 +332,7 @@ conf_show_pci_ep( void)
 void
 conf_show_shm( void)
 {
-  int d0, d1, d2;
-  float f0, f1, f2;
-  char c0, c1, c2, c3;
-  int i;
+  int d0;
 
   d0 = pev_csr_rd( reg_remap->iloc_ctl);
   printf("   Shared Memory\n");
@@ -357,9 +353,7 @@ void
 conf_show_vme( void)
 {
   int d0, d1, d2;
-  float f0, f1, f2;
   char c0, c1, c2, c3;
-  int i;
   int autoid, x64;
 
   printf("   VME Interface\n");
@@ -376,7 +370,7 @@ conf_show_vme( void)
   {
     x64 = 1;
   }
-  printf("      System Controller    : ", d0);
+  printf("      System Controller    : ");
   if( d0 & 0x8)
   {
     printf("Enabled\n");
@@ -411,7 +405,7 @@ conf_show_vme( void)
     printf("Disabled\n");
   }
   d0 = pev_csr_rd( reg_remap->vme_base + 0x4);
-  printf("      Master               : ", d0);
+  printf("      Master               : ");
   if( d0 & 0x80000000)
   {
     printf("Enabled\n");
@@ -545,8 +539,6 @@ conf_show_smon( void)
 {
   int d0, d1, d2;
   float f0, f1, f2;
-  char c0, c1, c2, c3;
-  int i;
 
   pev_smon_wr( 0x41, 0x3000);
   printf("   FPGA System Monitor\n");
@@ -611,7 +603,6 @@ xprs_conf_show( struct cli_cmd_para *c)
 
   int retval;
   int cnt, i;
-  char *p;
 
   retval = -1;
   cnt = c->cnt;
@@ -631,12 +622,7 @@ xprs_conf_show( struct cli_cmd_para *c)
 
   if( cnt--)
   {
-    uint offset;
-    uint size;
-    char *buf_src, *buf_des;
-    char *filename;
-    FILE *file;
-
+    retval = 0;
     if( !strcmp( "show", c->para[i]))
     {
       int show_set;
@@ -695,6 +681,6 @@ xprs_conf_show( struct cli_cmd_para *c)
     }
   }
 
-  return(0);
+  return(retval);
 }
 

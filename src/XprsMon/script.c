@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: script.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.5  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.4  2009/07/17 14:13:08  ioxos
  * allow for script execution when launching XprsMon [JFG]
@@ -46,7 +49,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: script.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: script.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -57,6 +60,7 @@ static char *rcsid = "$Id: script.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <cli.h>
 #include <pevioctl.h>
 #include <pevulib.h>
@@ -65,6 +69,13 @@ char line[256];
 extern struct cli_cmd_list cmd_list[];
 extern char cli_prompt[];
 extern struct cli_cmd_para cmd_para;
+int xprs_cmd_exec( struct cli_cmd_list *, struct cli_cmd_para *);
+
+char *
+script_rcsid()
+{
+  return( rcsid);
+}
 
 int 
 xprs_script( char *filename,
@@ -147,7 +158,7 @@ xprs_script( char *filename,
       xprs_cmd_exec( &cmd_list[0], &cmd_para);
     }
   }
-  close( file);
+  fclose( file);
   return( retval);
 }
 

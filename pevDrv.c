@@ -49,11 +49,13 @@
 #define ISRC_VME	0x10		/* ITC_SRC */
 #define ISRC_SHM	0x20		/* ITC_SRC */
 #define ISRC_USR	0x30		/* ITC_SRC */
+#define FLAG_BLKMD	1		/* BlockMode flag */
+#define FLAG_OFF	0		/* flag not defined (default) */
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.10 2012/06/05 13:37:30 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.11 2012/06/14 14:00:04 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -177,7 +179,7 @@ int pevRead(
         return -1;
     }
 
-    if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+    if( device->pev_rmArea_map.mode & (MAP_SPACE_VME | MAP_SPACE_USR1) )
     {
 #ifdef powerpc
       srcMode = DMA_SWAP;
@@ -188,7 +190,7 @@ int pevRead(
 #endif
     }
       
-    if( nelem > 100 ) 		/* do DMA */
+    if( (nelem>100 && device->flags!=FLAG_BLKMD ) || (device->flags==FLAG_BLKMD && prio==2) ) 		/* do DMA, prio_2=HIGH */
     {  
     if(device->dmaSpace == NO_DMA_SPACE) 
     	printf("pevRead(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
@@ -197,6 +199,8 @@ int pevRead(
       device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
       device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;       	/* des bus address */
       device->pev_dmaReq.size = nelem*dlen;              				
+      if(device->flags==FLAG_BLKMD)
+        device->pev_dmaReq.size = device->pev_dmaBuf.size;
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.src_mode = srcMode;
@@ -215,15 +219,20 @@ int pevRead(
            printf("pevRead(): DMA transfer failed! do normal transfer\n");
 	 else
 	  {
-             regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, swap);
-	     printf("Dma Done!!!!!! device->pev_dmaBuf.u_addr = 0x%08lx\n", (ulong)device->pev_dmaBuf.u_addr);
+             if( device->flags==FLAG_BLKMD ) 
+	       scanIoRequest(device->ioscanpvt);
+	     else
+	       regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, swap);
              return 0;
-	   }
+	  }
         }
       }
     }
-      
-    regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap); 
+    
+    if( device->flags==FLAG_BLKMD )
+      regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr + offset, pdata, NULL, 0);
+    else
+      regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap); 
     return 0;
 
 }
@@ -681,6 +690,8 @@ static void pevDrvAtexit(regDevice* device)
 *
 *	size 		? this parameter might be added for how much kernel memory to be allocated for DMA
 *
+*	 blockMode	does a bock read from a mapped resource to a kernel buffer using DMA (epics records read from kernel buffer)		
+*
 **/
 
 int pevConfigure(
@@ -689,7 +700,9 @@ int pevConfigure(
     const char* resource,
     unsigned int offset,
     char* vmeProtocol,
-    int intrVec)
+    int intrVec,
+    int mapSize,
+    int blockMode)
 {
     
   regDevice* device;    
@@ -756,6 +769,12 @@ int pevConfigure(
   strcpy(tmpStrCpy, resource);
   device->resource = tmpStrCpy;
   device->dmaSpace = NO_DMA_SPACE;
+  if( blockMode == 1 )
+   {
+    device->flags = FLAG_BLKMD;
+   }
+  else
+    device->flags = FLAG_OFF;
   
   /* get the current VME configuration */
   pev_vme_conf_read( &device->vme_conf);
@@ -778,15 +797,18 @@ int pevConfigure(
       
   epicsAtExit((void*)pevDrvAtexit, device);
   
-  device->pev_dmaBuf.size = DMA_BUF_SIZE;
-  if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED /*|| !device->pev_dmaBuf.b_addr*/ )
-    {
-      printf("pevConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
-      device->dmaAllocFailed = epicsTrue;
-      exit(0);
-    }
-  else
-    device->dmaAllocFailed = epicsFalse;
+  if( device->flags == FLAG_BLKMD )	/* use blockMode */
+  {
+    device->pev_dmaBuf.size = mapSize;	/* TODO: need to double-check size restrication with mapped resource size */
+    if( pev_buf_alloc( &device->pev_dmaBuf) == MAP_FAILED )
+      {
+        printf("pevConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
+        device->dmaAllocFailed = epicsTrue;
+        exit(0);
+      }
+    else
+      device->dmaAllocFailed = epicsFalse;
+   }
   
   
   /* create an address translation window in the VME slave port */
@@ -961,6 +983,12 @@ TESTJUMP:
     pevIntrEvent->wait = -1;
     signal(pevIntrEvent->sig, pevIntrHandler);
     pev_evt_queue_enable(pevIntrEvent);
+  }
+  else 
+  if( device->flags == FLAG_BLKMD )
+  {
+    /*device->ioscanpvt = malloc(sizeof(IOSCANPVT));*/
+    scanIoInit(&device->ioscanpvt);
   }    
  	
   regDevRegisterDevice(name, &pevSupport, device);
@@ -1472,7 +1500,7 @@ void pevIntrHandler(int sig)
       if(pevIntrEvent->src_id == ISRC_PCI)
       	intrEntry = 258;
             
-      scanIoRequest(pevIntrTable[pevIntrEvent->vec_id]);
+      scanIoRequest(pevIntrTable[intrEntry]);
       pev_evt_unmask( pevIntrEvent, pevIntrEvent->src_id);
     }
     else
@@ -1492,6 +1520,8 @@ static const iocshArg pevConfigureArg2 = { "resource", iocshArgString };
 static const iocshArg pevConfigureArg3 = { "offset", iocshArgInt };
 static const iocshArg pevConfigureArg4 = { "dmaSpace", iocshArgString };
 static const iocshArg pevConfigureArg5 = { "intrVec", iocshArgInt };
+static const iocshArg pevConfigureArg6 = { "mapSize", iocshArgInt };
+static const iocshArg pevConfigureArg7 = { "blockMode", iocshArgInt };
 static const iocshArg * const pevConfigureArgs[] = {
     &pevConfigureArg0,
     &pevConfigureArg1,
@@ -1499,15 +1529,17 @@ static const iocshArg * const pevConfigureArgs[] = {
     &pevConfigureArg3,
     &pevConfigureArg4,
     &pevConfigureArg5,
+    &pevConfigureArg6,
+    &pevConfigureArg7,
 };
 
 static const iocshFuncDef pevConfigureDef =
-    { "pevConfigure", 6, pevConfigureArgs };
+    { "pevConfigure", 8, pevConfigureArgs };
     
 static void pevConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevConfigure(
-        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival);
+        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival, args[6].ival, args[7].ival);
     if (status != 0) epicsExit(1);
 }
 

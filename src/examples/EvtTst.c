@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: EvtTst.c,v $
- * Revision 1.1  2012/06/05 13:40:26  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.2  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.2  2012/06/01 14:00:14  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.1  2012/05/23 15:17:10  ioxos
  * first checkin [JFG]
@@ -41,7 +44,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-
+#include <unistd.h>
 #include <pevioctl.h>
 #include <pevulib.h>
 
@@ -50,7 +53,7 @@ typedef void (*sighandler_t)(int);
 int ivec[256];
 int icnt[256];
 
-int evt_sig, evt_cnt, readVal;
+int evt_sig, evt_cnt;
 struct pev_ioctl_evt *evt;
 
 void
@@ -60,16 +63,15 @@ void
   printf("in myhandler...%d\n", sig);
   do
   {
-    readVal = pev_evt_read( evt, 0);
+    pev_evt_read( evt, 0);
     cnt = evt->evt_cnt;
     if( evt->src_id)
     {
-      usleep(1000);
+      //usleep(1000);
       ivec[evt_cnt] = evt->vec_id;
       icnt[evt_cnt] = cnt;
       evt_cnt++;
-      printf("%x - %x - %d - %d - %d\n", evt->src_id, evt->vec_id, evt->evt_cnt, evt_cnt, cnt);
-      printf("======      readVal: 0x%x\n", readVal);
+      //printf("%x - %x - %d - %d - %d\n", evt->src_id, evt->vec_id, evt->evt_cnt, evt_cnt, cnt);
       pev_evt_unmask( evt, evt->src_id);
       if( evt->vec_id == 0xff) evt_sig = 0;
     }
@@ -83,8 +85,9 @@ void
 
 
 
+int
 main( int argc,
-      void *argv[])
+      char **argv)
 {
   int i;
   int src_id;
@@ -121,7 +124,7 @@ main( int argc,
   }
   for( i = 0; i < evt_cnt; i++)
   {
-    printf("%3d - % 02x - %2d\n", i, ivec[i], icnt[i]);
+    printf("%3d - %02x - %2d\n", i, ivec[i], icnt[i]);
   }
   pev_evt_queue_disable( evt);
   pev_evt_queue_free( evt);

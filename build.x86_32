@@ -96,5 +96,4 @@ make install
 
 # build test suite
 cd ../XprsTst
-make -f Makefile.x86 clean
-make -f Makefile.x86 EXTRAFLAG='-DLINUX -DX86_32'
+./build.linux.x86_32

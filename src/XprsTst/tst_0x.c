@@ -24,8 +24,20 @@
  *  Change History
  *  
  * $Log: tst_0x.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.14  2012/06/11 07:57:59  ioxos
+ * use pevx_get_ instead of pev_get_ [JFG]
+ *
+ * Revision 1.13  2012/06/07 08:29:05  ioxos
+ * cast addr range to uint [JFG]
+ *
+ * Revision 1.12  2012/06/07 07:42:50  ioxos
+ * enable compilation warnings [JFG]
+ *
+ * Revision 1.11  2012/06/01 14:00:06  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.10  2012/03/21 10:55:09  ioxos
  * cleanup & cosmetics [JFG]
@@ -76,12 +88,14 @@
 
 typedef unsigned int u32;
 #include <pevioctl.h>
+#include <pevulib.h>
 #include <pevxulib.h>
 
 #include "xprstst.h"
 #include "tstlib.h"
 #include "tstxlib.h"
 
+extern int tst_check_cmd_tstop(void);
 extern struct pev_reg_remap *reg_remap;
 char *ident="        ";
 
@@ -92,7 +106,7 @@ mytst_xxx( struct tst_ctl *tc,
 {
   time_t tm;
   char *ct;
-  int i, cnt;
+  int i;
   char **para_p;
 
   tm = time(0);
@@ -132,6 +146,7 @@ tst_config( struct tst_ctl *tc,
   char *ct;
   int retval;
 
+  retval = 0;
   tm = time(0);
   ct = ctime(&tm);
   TST_LOG( tc, (logline, "\n%s->Entering:%s", tst_id, ct));
@@ -140,7 +155,6 @@ tst_config( struct tst_ctl *tc,
   TST_LOG( tc, (logline, "\n%sDriver         = %s                           -> OK", ident,  pevx_get_driver_version()));
   TST_LOG( tc, (logline, "\n%sLibrary        = %s                           -> OK", ident,  pevx_get_lib_version()));
 
-tst_config_exit:
   tm = time(0);
   ct = ctime(&tm);
   TST_LOG( tc, (logline, "\n%s->Exiting:%s", tst_id, ct));
@@ -211,9 +225,10 @@ tst_shm( struct tst_ctl *tc,
   {
     TST_LOG( tc, (logline, "%s->Executing:%4d %08x:%05x", tst_id, i++, shm_off, size)); 
     tst_cpu_fill( usr_addr, size, 1, shm_off, 4);
-    if( err_addr = tst_cpu_check( usr_addr, size, 1, shm_off, 4))
+    err_addr = tst_cpu_check( usr_addr, size, 1, shm_off, 4);
+    if( err_addr)
     {
-      TST_LOG( tc, (logline, "->Error at offset %p", ( err_addr - usr_addr) + shm_off));
+      TST_LOG( tc, (logline, "->Error at offset %x", (uint)( err_addr - usr_addr) + shm_off));
       retval = TST_STS_ERR;
       break;
     }
@@ -289,9 +304,10 @@ tst_vme( struct tst_ctl *tc,
     xt->vme_map_shm.rem_addr = shm_off;
     pevx_map_modify(  crate, &xt->vme_map_shm);
     tst_cpu_fill( usr_addr, size, 1, shm_off, 4);
-    if( err_addr = tst_cpu_check( usr_addr, size, 1, shm_off, 4))
+    err_addr = tst_cpu_check( usr_addr, size, 1, shm_off, 4);
+    if( err_addr)
     {
-      TST_LOG( tc, (logline, "->Error at offset %p", ( err_addr - usr_addr) + shm_off));
+      TST_LOG( tc, (logline, "->Error at offset %x", (uint)( err_addr - usr_addr) + shm_off));
       retval = TST_STS_ERR;
       break;
     }
@@ -314,7 +330,6 @@ tst_vme( struct tst_ctl *tc,
   xt->vme_map_shm.rem_addr = rem_addr;
   pevx_map_modify(  crate, &xt->vme_map_shm);
 
-tst_shm_exit:
   tm = time(0);
   ct = ctime(&tm);
   TST_LOG( tc, (logline, "\n%s->Exiting:%s", tst_id, ct));

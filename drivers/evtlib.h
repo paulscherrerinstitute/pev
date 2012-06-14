@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: evtlib.h,v $
- * Revision 1.1  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.2  2012/06/14 14:00:04  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
  *
  * Revision 1.1  2012/05/23 15:32:50  ioxos
  * first checkin [JFG]

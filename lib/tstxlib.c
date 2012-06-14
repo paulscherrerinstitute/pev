@@ -24,8 +24,17 @@
  *  Change History
  *  
  * $Log: tstxlib.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.6  2012/06/07 09:07:36  ioxos
+ * bug in mapping kbuf for 32 bit systems [JFG]
+ *
+ * Revision 1.5  2012/06/06 12:17:20  ioxos
+ * add rcsid [JFG]
+ *
+ * Revision 1.4  2012/06/01 13:59:22  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.3  2010/06/11 11:37:10  ioxos
  * use pev mmap() for kernel memory mapping [JFG]
@@ -47,6 +56,10 @@
  *
  *
  *=============================< end file header >============================*/
+#ifndef lint
+static char rcsid[] = "$Id: tstxlib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <pty.h>
@@ -63,7 +76,11 @@ typedef unsigned int u32;
 #include <pevxulib.h>
 #include "xprstst.h"
 
-
+char *
+tstx_rcsid()
+{
+  return( rcsid);
+}
 
 void * 
 tstx_cpu_map_shm( int crate,
@@ -170,12 +187,16 @@ tstx_cpu_map_kbuf( int crate,
   }
   else
   {
+#if defined(PPC) || defined(X86_32)
+    b->u_addr = mmap( NULL, b->size, PROT_READ|PROT_WRITE, MAP_SHARED, b->kmem_fd, (off_t)b->b_addr);
+#else
     b->u_addr = mmap( NULL, b->size, PROT_READ|PROT_WRITE, MAP_SHARED, b->kmem_fd, (off_t)(0x200000000 | (long)b->b_addr));
+#endif
   }
   return( b->u_addr);
 }
 
-void *
+void
 tstx_cpu_unmap_kbuf( int crate,
                      struct pev_ioctl_buf *b)
 {
@@ -192,8 +213,6 @@ tstx_vme_map_shm( int crate,
 		  ulong offset,
 		  uint size)
 {
-  void *usr_addr;
-
   if( size)
   {
     /* create an address translation window in the PCIe End Point */
@@ -229,8 +248,6 @@ tstx_vme_map_pci( int crate,
 		  ulong addr,
 		  uint size)
 {
-  void *usr_addr;
-
   if( size)
   {
     /* create an address translation window in the PCIe End Point */
@@ -340,8 +357,7 @@ tstx_dma_move_pci_shm( int crate,
 		        int size,
 		        int mode)
 {
-  void *d, *s;
-  int i, retval;
+  int retval;
   struct pev_ioctl_dma_req dma_req;
 
   dma_req.src_addr = shm_offset;        /* source is VME address of SHM */
@@ -384,8 +400,7 @@ tstx_dma_move_shm_pci( int crate,
 		       int size,
 		       int mode)
 {
-  void *d, *s;
-  int i, retval;
+  int retval;
   struct pev_ioctl_dma_req dma_req;
 
   dma_req.src_addr = pci_addr;      /* source is kernel buffer */
@@ -430,8 +445,7 @@ tstx_dma_move_vme_shm( int crate,
 		       int size,
 		       int mode)
 {
-  void *d, *s;
-  int i, retval;
+  int retval;
   struct pev_ioctl_dma_req dma_req;
 
   dma_req.src_addr = shm_offset;        /* source is VME address of SHM */
@@ -475,8 +489,7 @@ tstx_dma_move_shm_vme( int crate,
 		       int size,
 		       int mode)
 {
-  void *d, *s;
-  int i, retval;
+  int retval;
   struct pev_ioctl_dma_req dma_req;
 
   dma_req.src_addr = vme_addr;         /* source is VME bus */

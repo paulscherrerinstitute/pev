@@ -43,8 +43,17 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.6  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.7  2012/06/14 14:00:04  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.57  2012/06/06 15:26:39  ioxos
+ * release 4.13 [JFG]
+ *
+ * Revision 1.56  2012/06/06 12:16:13  ioxos
+ * add module info [JFG]
+ *
+ * Revision 1.55  2012/05/31 07:28:56  ioxos
+ * add license type GPL [JFG]
  *
  * Revision 1.54  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]
@@ -237,7 +246,6 @@
 #include "ioctllib.h"
 #include "histolib.h"
 
-
 #ifdef DBG
 #define debugk(x) printk x
 #define MARK( addr, data)  *(int *)(addr) = data
@@ -258,7 +266,9 @@ int rdwr_swap_32( int);
 #endif
 
 struct pev_drv pev_drv;
-char *pev_version="4.10";
+
+#define DRIVER_VERSION "4.13"
+char *pev_version=DRIVER_VERSION;
 
 
 struct pev_drv *
@@ -1534,5 +1544,9 @@ static void pev_exit(void)
 module_init( pev_init);
 module_exit( pev_exit);
 
+MODULE_LICENSE("GPL");
+MODULE_AUTHOR("IOxOS Technologies [JFG]");
+MODULE_VERSION(DRIVER_VERSION);
+MODULE_DESCRIPTION("driver for IOxOS Technologies PCI Express to VME (PEV) interface");
 /*================================< end file >================================*/
 

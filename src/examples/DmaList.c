@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: DmaList.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.6  2012/06/01 14:00:14  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.5  2012/04/18 07:44:15  ioxos
  * cosmetics [JFG]
@@ -110,17 +113,12 @@ struct pev_ioctl_rdwr rdwr;
 
 #define SHM_OFFSET 0x100000
 
+int
 main( int argc,
-      void *argv[])
+      char **argv)
 {
-  int i, j, data, *p;
   ulong vme_addr;
-  long dt, dt1, dt2;
-  float usec;
-  int kmem_fd;
-  int t_10000, t_20000;
   uint crate;
-  int ret;
 
   crate = 0;
   if( argc > 1)
@@ -175,7 +173,7 @@ main( int argc,
 
   /* calculate the VME base address at which the Shared Memory has been mapped */
   vme_addr = vme_conf.a32_base + vme_slv_map.loc_addr; 
-  printf("shared Memory is visible at VME A32 address 0x%08x\n", vme_addr);
+  printf("shared Memory is visible at VME A32 address 0x%08x\n", (int)vme_addr);
 
   /* create an address translation window in the PCIe End Point */
   /* pointing to the VME address at which the Shared Memory has been mapped  */
@@ -186,7 +184,7 @@ main( int argc,
   vme_mas_map.size = 0x100000;
   pev_map_alloc( &vme_mas_map);
 
-  printf("offset in PCI MEM window to access SHM throug VME : %p\n", vme_mas_map.loc_addr);
+  printf("offset in PCI MEM window to access SHM throug VME : %lx\n", vme_mas_map.loc_addr);
 
   printf("perform the mapping in user's space");
   shm_vme_addr = pev_mmap( &vme_mas_map);
@@ -207,8 +205,8 @@ main( int argc,
   shm_mas_map.size = 0x100000;
   pev_map_alloc( &shm_mas_map);
 
-  printf("local address = %p\n", shm_mas_map.loc_addr);
-  printf("offset in PCI MEM window to access SHM locally : %p\n", shm_mas_map.loc_addr);
+  printf("local address = %lx\n", shm_mas_map.loc_addr);
+  printf("offset in PCI MEM window to access SHM locally : %lx\n", shm_mas_map.loc_addr);
 
 
   printf("perform the mapping in user's space : ");
@@ -235,7 +233,6 @@ VmeTst_exit:
   pev_munmap( &vme_mas_map);
   pev_map_free( &vme_mas_map);
   pev_map_free( &vme_slv_map);
-  close( kmem_fd);
 #ifdef XENOMAI
   pev_rt_exit();
 #endif
@@ -248,7 +245,7 @@ VmeTst_exit:
 int 
 tst_dma_read( ulong vme_addr)
 {
-  void *d, *s;
+  void *d;
   int i, j, n, retval;
   struct pev_time tmi, tmo;
   int utmi, utmo;

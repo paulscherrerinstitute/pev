@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: map.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.7  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.6  2012/01/27 15:55:44  ioxos
  * prepare release 4.01 supporting x86 & ppc [JFG]
@@ -52,7 +55,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: map.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: map.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -66,6 +69,12 @@ static char *rcsid = "$Id: map.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <cli.h>
 #include <pevioctl.h>
 #include <pevulib.h>
+
+char *
+map_rcsid()
+{
+  return( rcsid);
+}
 
 int
 map_get_id( char *name,
@@ -92,7 +101,7 @@ map_show( char *name)
 {
   struct pev_ioctl_map_ctl map_ctl;
   struct pev_map_blk *p;
-  int i, j;
+  int j;
 
 
   if( map_get_id( name, &map_ctl) == MAP_INVALID)
@@ -218,11 +227,8 @@ map_show( char *name)
 int 
 xprs_map( struct cli_cmd_para *c)
 {
-  int retval;
-  int cnt, i, j;
-  char *p;
+  int cnt, i;
 
-  retval = -1;
   cnt = c->cnt;
   i = 0;
   if( cnt--)
@@ -230,7 +236,7 @@ xprs_map( struct cli_cmd_para *c)
     if( !strcmp( "clear", c->para[i]))
     {
       struct pev_ioctl_map_ctl map_ctl;
-      struct pev_map_blk *p;
+
       i++;
       if( cnt)
       {
@@ -251,8 +257,6 @@ xprs_map( struct cli_cmd_para *c)
     }
     if( !strcmp( "show", c->para[i]))
     {
-      struct pev_ioctl_map_ctl map_ctl;
-      struct pev_map_blk *p;
       i++;
       if( cnt)
       {
@@ -269,6 +273,6 @@ xprs_map( struct cli_cmd_para *c)
       return( 0); 
     }
   }
-  return(0);
+  return(-1);
 }
 

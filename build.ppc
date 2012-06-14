@@ -66,11 +66,7 @@ fi
 
 # build libraries
 cd ../lib
-make -f Makefile.ppc clean
-make -f Makefile.ppc
-if [  $XENO -eq 1 ]; then 
-make -f Makefile.ppc xeno
-fi
+./build.ppc_32
 
 # build XprsMon
 cd ../src/XprsMon
@@ -92,6 +88,5 @@ fi
 
 # build test suite
 cd ../XprsTst
-make -f Makefile.ppc clean
-make -f Makefile.ppc
+./build.linux.ppc
 

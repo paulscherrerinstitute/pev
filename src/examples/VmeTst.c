@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: VmeTst.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.4  2012/06/01 14:00:14  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.3  2010/08/26 14:29:24  ioxos
  * cleanup void pointers and char * [JFG]
@@ -61,13 +64,12 @@ struct pev_ioctl_vme_conf vme_conf;
 struct timeval ti, to;
 struct timezone tz;
 
+int
 main( int argc,
       char **argv)
 {
   void *shm_loc_addr, *shm_loc64_addr, *shm_vme_addr;
-  int i, data, *p;
   long vme_addr;
-  long dt, dt1, dt2;
   float usec;
   char yn;
   uint crate;
@@ -119,7 +121,7 @@ main( int argc,
 
   /* calculate the VME base address at which the Shared Memory has been mapped */
   vme_addr = vme_conf.a32_base + vme_slv_map.loc_addr; 
-  printf("shared Memory is visible at VME A32 address 0x%08x\n", vme_addr);
+  printf("shared Memory is visible at VME A32 address 0x%08x\n", (int)vme_addr);
 
   /* create an address translation window in the PCIe End Point */
   /* pointing to the VME address at which the Shared Memory has been mapped  */
@@ -130,7 +132,7 @@ main( int argc,
   vme_mas_map.size = 0x100000;
   pev_map_alloc( &vme_mas_map);
 
-  printf("offset in PCI MEM window to access SHM throug VME : %p\n", vme_mas_map.loc_addr);
+  printf("offset in PCI MEM window to access SHM throug VME : %lx\n", vme_mas_map.loc_addr);
 
   printf("perform the mapping in user's space");
   shm_vme_addr = pev_mmap( &vme_mas_map);
@@ -151,8 +153,8 @@ main( int argc,
   shm_mas_map.size = 0x100000;
   pev_map_alloc( &shm_mas_map);
 
-  printf("local address usinf MEM space = %p\n", shm_mas_map.loc_addr);
-  printf("offset in PCI MEM window to access SHM locally : %p\n", shm_mas_map.loc_addr);
+  printf("local address usinf MEM space = %lx\n", shm_mas_map.loc_addr);
+  printf("offset in PCI MEM window to access SHM locally : %lx\n", shm_mas_map.loc_addr);
 
 
   printf("perform the mapping in user's space : ");
@@ -174,8 +176,8 @@ main( int argc,
   shm_mas64_map.size = 0x100000;
   pev_map_alloc( &shm_mas64_map);
 
-  printf("local address using PMEM space = %p\n", shm_mas64_map.loc_addr);
-  printf("offset in PCI PMEM window to access SHM locally : %p\n", shm_mas64_map.loc_addr);
+  printf("local address using PMEM space = %lx\n", shm_mas64_map.loc_addr);
+  printf("offset in PCI PMEM window to access SHM locally : %lx\n", shm_mas64_map.loc_addr);
 
 
   printf("perform the mapping in user's space : ");
@@ -222,15 +224,15 @@ VmeTst_exit:
 float
 tst_read( void *addr)
 {
-  int i, data;
-  int *s, *d;
+  int i;
+  volatile int *s;
   long dt1, dt2;
 
   gettimeofday( &ti, &tz);
   s = (int *)addr;
   for( i = 0; i < 0x10000; i++)
   {
-    data = *s++;
+    *s++;
   }
   gettimeofday( &to, &tz);
   dt1 = ((to.tv_sec -  ti.tv_sec) * 1000000) + ( to.tv_usec - ti.tv_usec);
@@ -238,7 +240,7 @@ tst_read( void *addr)
   s = (int *)addr;
   for( i = 0; i < 0x20000; i++)
   {
-    data = *s++;
+    *s++;
   }
   gettimeofday( &to, &tz);
   dt2 = ((to.tv_sec -  ti.tv_sec) * 1000000) + ( to.tv_usec - ti.tv_usec);
@@ -249,7 +251,7 @@ float
 tst_write( void *addr)
 {
   int i, data;
-  int *s, *d;
+  int *d;
   long dt1, dt2;
 
   data = 0xa5a5a5a5;

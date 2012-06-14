@@ -29,40 +29,11 @@
  *
  *=============================< end file header >============================*/
 
-int xprs_func_xxx( struct cli_cmd_para *);
-int xprs_conf_show( struct cli_cmd_para *);
-int xprs_map( struct cli_cmd_para *);
-#ifdef MPC
-int xprs_mpc( struct cli_cmd_para *);
-#endif
-int xprs_rdwr_dma( struct cli_cmd_para *);
-int xprs_rdwr_evt( struct cli_cmd_para *);
-int xprs_fpga( struct cli_cmd_para *);
-int xprs_func_help( struct cli_cmd_para *);
-int xprs_rdwr_dm( struct cli_cmd_para *);
-int xprs_rdwr_fm( struct cli_cmd_para *);
-int xprs_i2c( struct cli_cmd_para *);
-int xprs_rdwr_lm( struct cli_cmd_para *);
-int xprs_rdwr_pm( struct cli_cmd_para *);
-int xprs_rdwr_rmw( struct cli_cmd_para *);
-int xprs_rdwr_tm( struct cli_cmd_para *);
-int xprs_csr_status( struct cli_cmd_para *);
-int xprs_sflash( struct cli_cmd_para *);
-int xprs_sign( struct cli_cmd_para *);
-int xprs_timer( struct cli_cmd_para *);
-int xprs_tinit( struct cli_cmd_para *);
-int xprs_tkill( struct cli_cmd_para *);
-int xprs_tlist( struct cli_cmd_para *);
-int xprs_tset( struct cli_cmd_para *);
-int xprs_tstart( struct cli_cmd_para *);
-int xprs_tstatus( struct cli_cmd_para *);
-int xprs_tstop( struct cli_cmd_para *);
-int xprs_tty( struct cli_cmd_para *);
-int xprs_vme( struct cli_cmd_para *);
-int xprs_vme_rmw( struct cli_cmd_para *);
-int xprs_fifo( struct cli_cmd_para *);
-int xprs_eeprom( struct cli_cmd_para *);
+#include "XprsMon.h"
 
+int xprs_func_xxx( struct cli_cmd_para *);
+int xprs_func_help( struct cli_cmd_para *);
+int xprs_csr_status( struct cli_cmd_para *);
 
 char *conf_msg[] = 
 {

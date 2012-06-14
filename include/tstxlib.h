@@ -11,3 +11,7 @@ int tstx_vme_unmap_kbuf( int crate, struct pev_ioctl_map_pg *);
 uint tstx_vme_conf_read( int crate, struct pev_ioctl_vme_conf *);
 int tstx_dma_move_kbuf_shm( int crate, ulong, ulong, int, int);
 int tstx_dma_move_shm_kbuf( int crate, ulong, ulong, int, int);
+int tstx_dma_move_shm_pci( int crate, ulong, ulong, int, int);
+int tstx_dma_move_pci_shm( int crate, ulong, ulong, int, int);
+int tstx_dma_move_vme_shm( int crate, ulong, ulong, int, int, int);
+int tstx_dma_move_shm_vme( int crate, ulong, ulong, int, int, int);

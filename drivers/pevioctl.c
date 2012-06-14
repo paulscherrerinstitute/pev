@@ -29,8 +29,8 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.6  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.7  2012/06/14 14:00:04  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
  *
  * Revision 1.17  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]

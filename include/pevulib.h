@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.6  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.7  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.22  2012/06/01 14:20:06  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.21  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]
@@ -99,6 +102,8 @@
 #ifndef _H_PEVULIB
 #define _H_PEVULIB
 
+#include <pevioctl.h>
+
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -119,9 +124,20 @@ struct pev_time
 struct pev_node *pev_init( uint);
 char *pev_id( void);
 uint pev_board( void);
+char *pev_board_name( void);
+int pev_get_crate( void);
+char *pev_get_driver_version(void);
+char *pev_get_lib_version(void);
 struct pev_reg_remap *pev_io_remap( void);
 struct pev_node *pev_set_crate( uint);
 int pev_exit( struct pev_node *);
+#ifdef PPC
+long long pev_swap_64( long long);
+#else
+long pev_swap_64( long);
+#endif
+int pev_swap_32( int);
+short pev_swap_16( short);
 int pev_rdwr( struct pev_ioctl_rdwr *);
 void *pev_mmap( struct pev_ioctl_map_pg *);
 int pev_munmap( struct pev_ioctl_map_pg *);
@@ -152,6 +168,11 @@ int pev_buf_free( struct pev_ioctl_buf *);
 int pev_dma_move( struct pev_ioctl_dma_req *);
 int pev_dma_vme_list_rd( void *, struct pev_ioctl_dma_list *, int);
 int pev_dma_status( struct pev_ioctl_dma_sts *);
+int pev_vme_init( void);
+void pev_vme_irq_init( void);
+void pev_vme_sysreset( int);
+void pev_vme_irq_mask( uint);
+void pev_vme_irq_unmask( uint);
 int pev_vme_conf_read( struct pev_ioctl_vme_conf *);
 int pev_vme_conf_write( struct pev_ioctl_vme_conf *);
 int pev_vme_crcsr( struct pev_ioctl_vme_crcsr *);
@@ -164,6 +185,8 @@ int pev_vme_irq_arm( struct pev_ioctl_vme_irq *);
 int pev_vme_irq_wait( struct pev_ioctl_vme_irq *, uint, uint *);
 int pev_vme_irq_armwait( struct pev_ioctl_vme_irq *, uint, uint *);
 int pev_vme_irq_clear( struct pev_ioctl_vme_irq *);
+int pev_smon_rd( int);
+void pev_smon_wr( int, int);
 int pev_csr_rd( int);
 void pev_csr_wr( int, int);
 void pev_csr_set( int, int);

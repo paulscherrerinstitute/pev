@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: i2c.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.5  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.4  2012/02/14 16:06:43  ioxos
  * add support for FMC [JFG]
@@ -46,7 +49,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: i2c.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: i2c.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -91,13 +94,18 @@ struct pev_i2c_devices i2c_devices_pev[] =
   { NULL,       0x00000000}
 };
 
+char *
+i2c_rcsid()
+{
+  return( rcsid);
+}
+
 int 
 xprs_i2c( struct cli_cmd_para *c)
 {
   struct pev_ioctl_i2c i2c;
   struct pev_i2c_devices *i2d;
-  int i, idx;
-  uint dev, reg, data, addr;
+  uint addr;
   char *i2d_name, *p;
 
   if( c->cnt < 3)

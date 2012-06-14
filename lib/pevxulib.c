@@ -27,8 +27,17 @@
  *  Change History
  *  
  *  $Log: pevxulib.c,v $
- *  Revision 1.4  2012/06/05 13:37:31  kalantari
- *  linux driver ver.4.12 with intr Handling
+ *  Revision 1.5  2012/06/14 14:00:05  kalantari
+ *  added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ *  Revision 1.41  2012/06/06 15:26:25  ioxos
+ *  release 4.13 [JFG]
+ *
+ *  Revision 1.40  2012/06/06 12:17:56  ioxos
+ *  use pevx_node [JFG]
+ *
+ *  Revision 1.39  2012/06/01 13:59:22  ioxos
+ *  -Wall cleanup [JFG]
  *
  *  Revision 1.38  2012/05/23 08:14:39  ioxos
  *  add support for event queues [JFG]
@@ -146,7 +155,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevxulib.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char rcsid[] = "$Id: pevxulib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -163,13 +172,13 @@ typedef unsigned int u32;
 #include <pevioctl.h>
 #include <pevxulib.h>
 
-static struct pev_node *pev = (struct pev_node *)NULL;
-static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+static struct pevx_node *pev = (struct pevx_node *)NULL;
+static struct pevx_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 static char pevx_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pevx_driver_version[16];
-char pevx_lib_version[] = "4.10";
-uint pevx_board_id = 0;
+char pevx_lib_version[] = "4.13";
+int pevx_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
 {
@@ -188,6 +197,12 @@ ioxos_boards[] =
   {-1, 0, NULL}
 };
 
+char *
+pevx_rcsid()
+{
+  return( rcsid);
+}
+
 int
 pevx_swap_32( int data)
 {
@@ -203,18 +218,18 @@ pevx_swap_32( int data)
   return( *(int *)co);
 }
 
-struct pev_node
+struct pevx_node
 *pevx_init( uint crate)
 {
   struct ioxos_boards *ib;
   char dev_name[16];
   if( (crate < 0) || (crate > 15))
   {
-    return( (struct pev_node *)0);
+    return( (struct pevx_node *)0);
   }
   if( !pevx[crate])
   {
-    pev = (struct pev_node *)malloc( sizeof( struct pev_node));
+    pev = (struct pevx_node *)malloc( sizeof( struct pevx_node));
     if( !pev)
     {
       return( pev);
@@ -285,7 +300,7 @@ struct pev_reg_remap
   return( &io_remap);
 }
 
-struct pev_node
+struct pevx_node
 *pevx_set_crate( uint crate)
 {
   if( pevx[crate])
@@ -293,7 +308,7 @@ struct pev_node
     pev = pevx[crate];
     return( pev);
   }
-  return( (struct pev_node *)0);
+  return( (struct pevx_node *)0);
 }
 
 int
@@ -1237,7 +1252,7 @@ pevx_timer_stop(  uint crate)
 
 uint
 pevx_timer_read( uint crate,
-                 struct pev_time *tm)
+                 struct pevx_time *tm)
 {
   struct pev_ioctl_timer tmr;
 

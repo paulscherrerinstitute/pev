@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: BerrTst.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.4  2012/06/01 14:00:14  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.3  2010/08/26 14:29:24  ioxos
  * cleanup void pointers and char * [JFG]
@@ -58,11 +61,10 @@ struct pev_node *pev;
 struct pev_ioctl_map_pg vme_mas_map;
 struct pev_reg *pev_reg = 0;
 
-
+int
 main( int argc,
       char **argv)
 {
-  char yn;
   volatile void *my_addr;
   int data;
   volatile uint sts, addr, addr_err;
@@ -94,7 +96,7 @@ main( int argc,
   vme_mas_map.size = 0x1000000;
   pev_map_alloc( &vme_mas_map);
 
-  printf("local address = %p\n", vme_mas_map.loc_addr);
+  printf("local address = %lx\n", vme_mas_map.loc_addr);
 
   printf("perform memory mapping...");
   my_addr = mmap( NULL, 0x1000000, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, vme_mas_map.loc_addr);

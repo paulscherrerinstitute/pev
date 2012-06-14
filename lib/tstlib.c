@@ -24,8 +24,17 @@
  *  Change History
  *  
  * $Log: tstlib.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.8  2012/06/07 09:07:36  ioxos
+ * bug in mapping kbuf for 32 bit systems [JFG]
+ *
+ * Revision 1.7  2012/06/06 12:17:14  ioxos
+ * add rcsid [JFG]
+ *
+ * Revision 1.6  2012/06/01 13:59:22  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.5  2010/06/11 11:37:10  ioxos
  * use pev mmap() for kernel memory mapping [JFG]
@@ -47,6 +56,10 @@
  *
  *
  *=============================< end file header >============================*/
+#ifndef lint
+static char rcsid[] = "$Id: tstlib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
+#endif
+
 #include <stdlib.h>
 #include <stdio.h>
 #include <pty.h>
@@ -62,6 +75,12 @@ typedef unsigned int u32;
 #include <pevioctl.h>
 #include <pevulib.h>
 #include "xprstst.h"
+
+char *
+tst_rcsid()
+{
+  return( rcsid);
+}
 
 
 int
@@ -182,11 +201,15 @@ tst_cpu_map_kbuf( struct pev_ioctl_buf *b,
   }
   else
   {
+#if defined(PPC) || defined(X86_32)
+    b->u_addr = mmap( NULL, b->size, PROT_READ|PROT_WRITE, MAP_SHARED, b->kmem_fd, (off_t)b->b_addr);
+#else
     b->u_addr = mmap( NULL, b->size, PROT_READ|PROT_WRITE, MAP_SHARED, b->kmem_fd, (off_t)(0x200000000 | (long)b->b_addr));
+#endif
   }
   return( b->u_addr);
 }
-void *
+void
 tst_cpu_unmap_kbuf( struct pev_ioctl_buf *b)
 {
   if( b->u_addr != MAP_FAILED)
@@ -194,6 +217,7 @@ tst_cpu_unmap_kbuf( struct pev_ioctl_buf *b)
     munmap( b->u_addr, b->size);
     pev_buf_free( b);
   }
+  return;
 }
 
 ulong
@@ -201,8 +225,6 @@ tst_vme_map_shm( struct pev_ioctl_map_pg *m,
 		 ulong offset,
 		 uint size)
 {
-  void *usr_addr;
-
   if( size)
   {
     /* create an address translation window in the PCIe End Point */
@@ -234,8 +256,6 @@ tst_vme_map_kbuf( struct pev_ioctl_map_pg *m,
 		  ulong addr,
 		  uint size)
 {
-  void *usr_addr;
-
   if( size)
   {
     /* create an address translation window in the PCIe End Point */
@@ -308,7 +328,7 @@ tst_dma_rd_wait( int tmo)
   struct pev_reg_remap *r;
 
   r = pev_io_remap();
-  while( ( !(pevx_csr_rd( r->dma_rd + 0x0c) & 0x80000000)) && --tmo);
+  while( ( !(pev_csr_rd( r->dma_rd + 0x0c) & 0x80000000)) && --tmo);
   if( !tmo)
   {
     return(-1);
@@ -322,7 +342,7 @@ tst_dma_wr_wait( int tmo)
   struct pev_reg_remap *r;
 
   r = pev_io_remap();
-  while( ( !(pevx_csr_wr( r->dma_rd + 0x0c) & 0x80000000)) && --tmo);
+  while( ( !(pev_csr_rd( r->dma_wr + 0x0c) & 0x80000000)) && --tmo);
   if( !tmo)
   {
     return(-1);
@@ -336,8 +356,7 @@ tst_dma_move_kbuf_shm( ulong kbuf_b_addr,
 		       int size,
 		       int mode)
 {
-  void *d, *s;
-  int i, retval;
+  int retval;
   struct pev_ioctl_dma_req dma_req;
 
   dma_req.src_addr = shm_offset;        /* source is VME address of SHM */
@@ -379,8 +398,7 @@ tst_dma_move_shm_kbuf( ulong shm_offset,
 		       int size,
 		       int mode)
 {
-  void *d, *s;
-  int i, retval;
+  int retval;
   struct pev_ioctl_dma_req dma_req;
 
   dma_req.src_addr = kbuf_b_addr;      /* source is kernel buffer */
@@ -598,8 +616,6 @@ tst_get_cmp_err( void *a1,
 	         void *a2,
 	         int ds)
 {
-  int i;
-
   if( ds == 1)
   {
     *(char *)a1 = cmp_err_db1;

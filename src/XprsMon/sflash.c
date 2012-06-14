@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: sflash.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.12  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.11  2012/03/15 15:10:07  ioxos
  * add board signature [JFG]
@@ -66,7 +69,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: sflash.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: sflash.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -77,6 +80,8 @@ static char *rcsid = "$Id: sflash.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <ctype.h>
 #include <cli.h>
 #include <pevioctl.h>
 #include <pevulib.h>
@@ -101,11 +106,17 @@ struct sflash_fpga_para
   uint board;
 };
 
+char *
+sflash_rcsid()
+{
+  return( rcsid);
+}
+
 struct xilinx_device
 *fpga_identify( void *buf,
 	  int size)
 {
-  int *p, i, j;
+  int *p, i;
   struct xilinx_device *xd;
 
   p = (int *)buf;
@@ -426,9 +437,7 @@ int
 sflash_scan_arg(struct cli_cmd_para *c,
                 struct sflash_cmd_arg *a)
 {
-  int retval;
   int cnt, i;
-  char *p;
 
   i = 0;
   cnt = c->cnt;
@@ -562,8 +571,8 @@ sflash_write(  uint offset,
 	       uint size)
 {
   char *p, *buf_des;
-  long i, n, nblk, blk_size;
-  long start, first, last;
+  int i, n, nblk, blk_size;
+  int start, first, last;
   int retval;
 
   if( !(offset & 0xf0000000))
@@ -594,7 +603,7 @@ sflash_write(  uint offset,
   }
   printf("\n");
   printf("!! Programming the SFLASH device is done one bit at a time\n");
-  printf("!! It requires millions of physical accesses loading the CPU at 100%\n");
+  //printf("!! It requires millions of physical accesses loading the CPU at 100%\n");
   printf("!! During that process the system will be hanging for periods of 10 seconds\n");
   printf("!! This is the time needed to program one SFLASH sector\n");
   printf("-> Just relax and sit back...\n\n");
@@ -691,13 +700,13 @@ xprs_sflash( struct cli_cmd_para *c)
       {
 	for( i = 1; i < 4; i++)
 	{
-          pev_sflash_id( id, i);
+          pev_sflash_id( (char *)id, i);
           printf("SFLASH %d identifier %02x:%02x:%02x\n", i, id[0], id[1], id[2]);
 	}
       }
       else
       {
-        pev_sflash_id( id, 0);
+        pev_sflash_id( (char *)id, 0);
         printf("SFLASH identifier %02x:%02x:%02x\n", id[0], id[1], id[2]);
       }
       return( 0); 
@@ -832,10 +841,6 @@ xprs_sflash( struct cli_cmd_para *c)
     }
     if( cmd.operation == SFLASH_OP_READ)
     {
-      char yn, *p;
-      long n, nblk, blk_size;
-      long start, first, last;
-
       i++;
       if( cnt > 2)
       {
@@ -878,7 +883,7 @@ xprs_sflash( struct cli_cmd_para *c)
     if( cmd.operation == SFLASH_OP_DUMP)
     {
       char *p;
-      long j;
+      int j;
 
 
       i++;
@@ -905,7 +910,7 @@ xprs_sflash( struct cli_cmd_para *c)
 	p = (char *)buf_des;
 	for( j = 0; j < size; j += 16)
         {
-          unsigned char *pp;
+          char *pp;
 
           printf("%08x ", offset + j);
           pp = p;
@@ -938,9 +943,7 @@ xprs_sflash( struct cli_cmd_para *c)
     }
     if( cmd.operation == SFLASH_OP_LOAD)
     {
-      char yn, *p, *buf_check;
-      long n, nblk, blk_size;
-      long start, first, last;
+      char yn, *buf_check;
       int split;
 
       i++;
@@ -1027,7 +1030,7 @@ xprs_sflash( struct cli_cmd_para *c)
 	}
 	if(  (cmd.fpga.id & 0xf0) == 0x20)
 	{
-	  unsigned char *buf_d, *d, *s;
+	  char *buf_d, *d, *s;
 
 	  buf_d = (char *)malloc( size/2);
           d = buf_d;
@@ -1068,7 +1071,6 @@ xprs_sflash( struct cli_cmd_para *c)
   return( retval);
 }
 
-static char sign_passwd[16];
 static char sign_para[16][16];
 struct cli_cmd_history sign_history;
 

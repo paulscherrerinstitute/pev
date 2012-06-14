@@ -38,7 +38,7 @@ else
 XENO=0
 fi
 make -f Makefile.x86 clean
-make -f Makefile.x86 EXTRAFLAGS=-DX86_32
+make -f Makefile.x86 EXTRAFLAGS="-DX86_32 -Wall"
 if [  $XENO -eq 1 ]; then 
-make -f Makefile.x86 xeno EXTRAFLAGS=-DX86_32
+make -f Makefile.x86 xeno EXTRAFLAGS="-DX86_32 -Wall"
 fi

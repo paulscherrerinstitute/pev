@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: vme.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.7  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.6  2012/04/05 13:52:43  ioxos
  * tmo in decimal [JFG]
@@ -52,7 +55,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: vme.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: vme.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -70,12 +73,20 @@ static char *rcsid = "$Id: vme.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 struct  pev_ioctl_vme_conf vme_conf;
 struct cli_cmd_history vme_history;
 struct pev_ioctl_vme_irq *vme_irq = NULL;
-int 
+
+char *
+vme_rcsid()
+{
+  return( rcsid);
+}
+
+
+int
 vme_init( void)
 {
   cli_history_init( &vme_history);
   pev_vme_conf_read( &vme_conf);
-  return;
+  return( 0);
 }
 
 int
@@ -98,6 +109,7 @@ set_para_hex( char *prompt,
   return( 0);
 }
 
+int
 set_para_dec( char *prompt,
 	      uint *data)
 {
@@ -121,11 +133,8 @@ int
 xprs_vme( struct cli_cmd_para *c)
 {
 
-  int retval;
   int cnt, i;
-  char *p;
 
-  retval = -1;
   cnt = c->cnt;
   i = 0;
 
@@ -140,7 +149,7 @@ xprs_vme( struct cli_cmd_para *c)
     if( !strcmp( "conf", c->para[i]))
     {
       struct pev_ioctl_vme_conf *vc;
-      char prompt[32], *para, *p;
+      char prompt[32];
       uint size;
 
       vc = &vme_conf;

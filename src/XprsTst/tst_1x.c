@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: tst_1x.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.5  2012/06/01 14:00:06  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.4  2012/03/21 10:55:09  ioxos
  * cleanup & cosmetics [JFG]
@@ -64,11 +67,14 @@
 
 typedef unsigned int u32;
 #include <pevioctl.h>
+#include <pevulib.h>
 #include <pevxulib.h>
 
 #include "xprstst.h"
 #include "tstlib.h"
 #include "tstxlib.h"
+
+extern int tst_check_cmd_tstop(void);
 
 static struct xprstst *xt;
 static void *shm_cpu_base;
@@ -97,7 +103,7 @@ dma_shm_kbuf( struct tst_ctl *tc,
   err = tstx_dma_move_shm_pci( crate, SHM_DMA_ADDR( xt)+shm_off, KBUF_DMA_ADDR( xt)+kbuf_off, size, mode);
   if( err < 0)
   {
-    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n"));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n", tst_id));
     retval = TST_STS_ERR;
     goto dma_shm_kbuf_end;
   }
@@ -142,7 +148,7 @@ dma_shm_kbuf( struct tst_ctl *tc,
   }
   if( tst_check_cmd_tstop())
   {
-    TST_LOG( tc, (logline, "                ->Stopped", tst_id));
+    TST_LOG( tc, (logline, "                ->Stopped"));
     retval = TST_STS_STOPPED;
   }
 dma_shm_kbuf_end:

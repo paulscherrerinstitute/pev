@@ -30,8 +30,17 @@
  *  Change History
  *  
  *  $Log: clilib.c,v $
- *  Revision 1.4  2012/06/05 13:37:31  kalantari
- *  linux driver ver.4.12 with intr Handling
+ *  Revision 1.5  2012/06/14 14:00:05  kalantari
+ *  added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ *  Revision 1.8  2012/06/07 08:44:47  ioxos
+ *  cast strlen to int [JFG]
+ *
+ *  Revision 1.7  2012/06/06 12:25:59  ioxos
+ *  printout [JFG]
+ *
+ *  Revision 1.6  2012/06/01 13:59:22  ioxos
+ *  -Wall cleanup [JFG]
  *
  *  Revision 1.5  2011/10/19 14:01:05  ioxos
  *  add 0x8 for backspace [JFG]
@@ -52,13 +61,19 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: clilib.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char rcsid[] = "$Id: clilib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #include <debug.h>
 #include <stdio.h>
 #include <string.h>
 #include <cli.h>
+
+char *
+cli_rcsid()
+{
+  return( rcsid);
+}
 
 struct cli_cmd_history *
 cli_history_init( struct cli_cmd_history *h)
@@ -76,8 +91,8 @@ cli_history_init( struct cli_cmd_history *h)
 }
 
 long
-cli_insert_char( unsigned char c,
-                 unsigned char *cmdline,
+cli_insert_char( char c,
+                 char *cmdline,
 	         long insert_idx)
 {
   long last_idx;
@@ -103,7 +118,7 @@ cli_insert_char( unsigned char c,
 }
 
 long
-cli_remove_char( unsigned char *cmdline,
+cli_remove_char( char *cmdline,
 		 long insert_idx)
 {
   long last_idx;
@@ -126,10 +141,10 @@ cli_remove_char( unsigned char *cmdline,
   return( insert_idx - 1);
 }
 
-
-cli_erase_line( unsigned char *prompt)
+void
+cli_erase_line( char *prompt)
 {
-  printf("%c%c%d%c%c%c%c", 0x1b, '[',  strlen( prompt) + 1,'G',0x1b,'[','K');
+  printf("%c%c%d%c%c%c%c", 0x1b, '[',  (int)strlen( prompt) + 1,'G',0x1b,'[','K');
 }
 
 void
@@ -141,7 +156,7 @@ cli_erase_end()
 }
 
 long
-cli_print_line( unsigned char *cmdline,
+cli_print_line( char *cmdline,
 		long insert_idx)
 {
   long last_idx;
@@ -165,9 +180,9 @@ cli_print_line( unsigned char *cmdline,
 
 char *
 cli_get_cmd( struct cli_cmd_history *h,
-	     unsigned char *prompt)
+	     char *prompt)
 {
-  unsigned char *cmdline, c;
+  char *cmdline, c;
   long iex;
   long i;
 
@@ -213,7 +228,7 @@ cli_get_cmd( struct cli_cmd_history *h,
       }
       case 0x1b: /* escape sequence */
       {
-        char c1,c2,c3;
+        char c1,c2;
 
 	c1 = getchar();
 	switch( c1)
@@ -295,7 +310,7 @@ cli_get_cmd( struct cli_cmd_history *h,
       }
       default:
       {
-	if( ( c > 0x1f) && ( c < 0x80))
+	if( ( c > 0x1f) && ( c < 0x80U))
 	{
 	  h->insert_idx = cli_insert_char( c, cmdline, h->insert_idx);
 	  cli_print_line( cmdline, h->insert_idx - 1);

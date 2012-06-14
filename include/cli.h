@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: cli.h,v $
- * Revision 1.6  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.7  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.3  2012/06/01 14:20:06  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.2  2008/08/08 09:11:43  ioxos
  *  cmdline[256] belong now to struct cli_cmd_para{} [JFG]
@@ -46,7 +49,8 @@
 #define CLI_COMMAND_SIZE 0x100
 
 struct cli_cmd_history *cli_history_init( struct cli_cmd_history *);
-char *cli_get_cmd( struct cli_cmd_history *, unsigned char*);
+char *cli_get_cmd( struct cli_cmd_history *, char*);
+struct cli_cmd_para *cli_cmd_parse( char *, struct cli_cmd_para *);
 
 struct cli_cmd_list
 {

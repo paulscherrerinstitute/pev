@@ -39,7 +39,7 @@ XENO=0
 fi
 cp Makefile.ppc Makefile
 make -f Makefile.ppc clean
-make -f Makefile.ppc EXTRAFLAGS=-DPPC
+make -f Makefile.ppc EXTRAFLAGS="-DPPC -Wall"
 if [  $XENO -eq 1 ]; then 
-make -f Makefile.ppc xeno EXTRAFLAGS=-DPPC
+make -f Makefile.ppc xeno EXTRAFLAGS="-DPPC -Wall"
 fi

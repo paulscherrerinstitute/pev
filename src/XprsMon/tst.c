@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: tst.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.11  2012/06/06 12:33:20  ioxos
+ * change rcsid [JFG]
+ *
+ * Revision 1.10  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.9  2012/03/21 11:29:41  ioxos
  * adjust default test file for PEV, IPV, IFC [JFG]
@@ -61,7 +67,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: tst.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: tst.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -88,6 +94,8 @@ static char *rcsid = "$Id: tst.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <xprstst.h>
 #include <tstlib.h>
 
+#include "tst.h"
+
 int debug;
 #define TST_SHM_BASE 0x100000
 #define TST_SHM_SIZE 0x100000
@@ -101,11 +109,15 @@ char *cfg_filename = "XprsTst.cfg";
 
 extern char *cmdline;
 
+char *
+Xtst_rcsid()
+{
+  return( rcsid);
+}
+
 void
 tst_init( void)
 {
-  int i;
-
   xt = (struct xprstst *)malloc( sizeof( struct xprstst));
   xt->pev_para.crate = pev_get_crate();
   T_pid = 0;
@@ -127,7 +139,6 @@ tst_exit( void)
 int
 launch_test( char *tst_file, char *tty)
 {
-  int sts;
   char tmp[64];
 
   if( pipe( fd_p[0]) < 0)
@@ -232,7 +243,7 @@ xprs_tinit( struct cli_cmd_para *c)
     return(-1);
   }
   vme_base_addr = (ulong)tst_vme_conf_read( &xt->vme_conf);
-  if( debug) printf("VME base address = %x\n", vme_base_addr);
+  if( debug) printf("VME base address = %lx\n", vme_base_addr);
 
   if( tst_cpu_map_shm( &xt->cpu_map_shm, TST_SHM_BASE, TST_SHM_SIZE) == MAP_FAILED)
   {
@@ -248,7 +259,7 @@ xprs_tinit( struct cli_cmd_para *c)
   }
 
   vme_shm_addr += vme_base_addr;
-  if( debug) printf("VME SHM address = %x\n", vme_shm_addr);
+  if( debug) printf("VME SHM address = %lx\n", vme_shm_addr);
   if( tst_cpu_map_vme( &xt->cpu_map_vme_shm, vme_shm_addr , 0x100000, MAP_VME_A32) == MAP_FAILED)
   {
     printf("cannot map VME_SHM in user space\n");
@@ -270,7 +281,7 @@ xprs_tinit( struct cli_cmd_para *c)
   }
 
   vme_kbuf_addr += vme_base_addr;
-  if( debug) printf("VME KBUF address = %x\n", vme_kbuf_addr);
+  if( debug) printf("VME KBUF address = %lx\n", vme_kbuf_addr);
   if( tst_cpu_map_vme( &xt->cpu_map_vme_kbuf, vme_kbuf_addr , 0x100000, MAP_VME_A32) == MAP_FAILED)
   {
     printf("cannot map VME_KBUF in user space\n");

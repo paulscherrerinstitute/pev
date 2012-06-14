@@ -24,8 +24,14 @@
  *  Change History
  *  
  * $Log: XprsMon.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.36  2012/06/06 15:26:01  ioxos
+ * release 4.13 [JFG]
+ *
+ * Revision 1.35  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.34  2012/04/19 08:40:39  ioxos
  * tagging rel-4-10 [JFG]
@@ -133,7 +139,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: XprsMon.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char rcsid[] = "$Id: XprsMon.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #include <debug.h>
@@ -169,7 +175,7 @@ typedef unsigned int u32;
 #include "cmdlist.h"
 
 
-char XprsMon_version[] = "4.10";
+char XprsMon_version[] = "4.13";
 
 int xprs_cmd_exec( struct cli_cmd_list *, struct cli_cmd_para *);
 
@@ -185,11 +191,17 @@ char *cmdline;
 struct pev_reg_remap *reg_remap;
 uint pev_board_id;
 
+char *
+XprsMon_rcsid()
+{
+  return( rcsid);
+}
+
+int
 main( int argc,
       char *argv[])
 {
   struct cli_cmd_history *h;
-  long i;
   struct winsize winsize;
   int iex, ret;
   uint crate;
@@ -406,7 +418,8 @@ xprs_func_help( struct cli_cmd_para *c)
   {
     while(1)
     {
-      if( cmd = cmd_list[i].cmd)
+      cmd = cmd_list[i].cmd;
+      if( cmd)
       {
         if( !strcmp( c->para[0], cmd))
         {
@@ -433,7 +446,8 @@ xprs_func_help( struct cli_cmd_para *c)
 
   while(1)
   {
-    if( cmd = cmd_list[i++].cmd)
+    cmd = cmd_list[i++].cmd;
+    if( cmd)
     {
       printf("%s", cmd);
       if( i&3)

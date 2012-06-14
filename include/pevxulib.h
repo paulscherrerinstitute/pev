@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevxulib.h,v $
- * Revision 1.6  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.7  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.14  2012/06/01 14:20:06  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.13  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]
@@ -78,7 +81,7 @@
 #ifdef _cplusplus
 extern "C" {
 #endif
-struct pev_node
+struct pevx_node
 {
   int fd;
   int crate;
@@ -86,17 +89,18 @@ struct pev_node
   int tmp2;
 };
 
-struct pev_time
+struct pevx_time
 {
   uint time;
   uint utime;
 };
 
-struct pev_node *pevx_init( uint);
+struct pevx_node *pevx_init( uint);
 char *pevx_id( void);
 uint pevx_board( void);
+char *pevx_board_name(void);
 struct pev_reg_remap *pevx_io_remap( void);
-struct pev_node *pevx_set_crate( uint);
+struct pevx_node *pevx_set_crate( uint);
 int pevx_exit( uint);
 int pevx_rdwr( uint, struct pev_ioctl_rdwr *);
 int pevx_smon_wr( uint, int, int);
@@ -112,6 +116,9 @@ int pevx_map_free( uint, struct pev_ioctl_map_pg *);
 int pevx_map_modify( uint, struct pev_ioctl_map_pg *);
 int pevx_map_read( uint, struct pev_ioctl_map_ctl *);
 int pevx_map_clear( uint, struct pev_ioctl_map_ctl *);
+int pevx_i2c_cmd( uint, uint, uint);
+int pevx_i2c_read( uint, uint, uint);
+int pevx_i2c_write( uint, uint, uint, uint);
 int pevx_pex_read( uint, uint);
 int pevx_pex_write( uint, uint, uint);
 int pevx_sflash_id( uint, char *, uint);
@@ -124,22 +131,27 @@ int pevx_fpga_sign( uint, uint, void *, uint);
 int pevx_timer_start( uint, uint, uint);
 int pevx_timer_restart( uint);
 int pevx_timer_stop( uint);
-uint pevx_timer_read( uint, struct pev_time *);
+uint pevx_timer_read( uint, struct pevx_time *);
 void *pevx_buf_alloc( uint, struct pev_ioctl_buf *);
 int pevx_buf_free( uint, struct pev_ioctl_buf *);
 int pevx_dma_move( uint, struct pev_ioctl_dma_req *);
 int pevx_dma_vme_list_rd( uint, void *, struct pev_ioctl_dma_list *, int);
 int pevx_dma_status( uint, struct pev_ioctl_dma_sts *);
+int pevx_vme_init( uint);
+int pevx_vme_irq_init( uint);
+int pevx_vme_sysreset( uint, uint);
+int pevx_vme_irq_mask( uint, uint);
+int pevx_vme_irq_unmask( uint, uint);
 int pevx_vme_conf_read( uint, struct pev_ioctl_vme_conf *);
 int pevx_vme_conf_write( uint, struct pev_ioctl_vme_conf *);
 int pevx_vme_lock( uint, struct pev_ioctl_vme_lock *);
 int pevx_vme_unlock( uint);
-struct pev_ioctl_vme_irq *pev_vme_irq_alloc( uint, uint);
-int pev_vme_irq_free( uint, struct pev_ioctl_vme_irq *);
-int pev_vme_irq_arm( uint, struct pev_ioctl_vme_irq *);
-int pev_vme_irq_wait( uint, struct pev_ioctl_vme_irq *, uint, uint *);
-int pev_vme_irq_armwait( uint, struct pev_ioctl_vme_irq *, uint, uint *);
-int pev_vme_irq_clear( uint, struct pev_ioctl_vme_irq *);
+struct pev_ioctl_vme_irq *pevx_vme_irq_alloc( uint, uint);
+int pevx_vme_irq_free( uint, struct pev_ioctl_vme_irq *);
+int pevx_vme_irq_arm( uint, struct pev_ioctl_vme_irq *);
+int pevx_vme_irq_wait( uint, struct pev_ioctl_vme_irq *, uint, uint *);
+int pevx_vme_irq_armwait( uint, struct pev_ioctl_vme_irq *, uint, uint *);
+int pevx_vme_irq_clear( uint, struct pev_ioctl_vme_irq *);
 int pevx_elb_rd( uint, int);
 int pevx_elb_wr( uint, int, int);
 int pevx_fifo_init( uint);

@@ -27,8 +27,14 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.4  2012/06/05 13:37:31  kalantari
- *  linux driver ver.4.12 with intr Handling
+ *  Revision 1.5  2012/06/14 14:00:05  kalantari
+ *  added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ *  Revision 1.54  2012/06/06 15:26:25  ioxos
+ *  release 4.13 [JFG]
+ *
+ *  Revision 1.53  2012/06/01 13:59:22  ioxos
+ *  -Wall cleanup [JFG]
  *
  *  Revision 1.52  2012/05/23 08:14:39  ioxos
  *  add support for event queues [JFG]
@@ -190,7 +196,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static const char *rcsid = "$Id: pevulib.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -212,13 +218,13 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.10";
+char pev_lib_version[] = "4.13";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
 {
   int idx;
-  int id;
+  uint id;
   const char *name;
 }
 ioxos_boards[] =
@@ -232,15 +238,20 @@ ioxos_boards[] =
   {-1, 0, NULL}
 };
 
+char *
+pev_rcsid()
+{
+  return( rcsid);
+}
+
 
 struct pev_node
 *pev_init( uint crate)
 {
   char dev_name[16];
   struct ioxos_boards *ib;
-  int i;
 
-  if( (crate < 0) || (crate > 15))
+  if( crate > 15)
   {
     return( (struct pev_node *)0);
   }
@@ -352,6 +363,26 @@ pev_exit( struct pev_node *pev)
   return(ret);
 }
 
+#ifdef PPC
+long long
+pev_swap_64( long long data)
+{
+  char ci[8];
+  char co[8];
+
+  *(long long *)ci = data;
+  co[0] = ci[7];
+  co[1] = ci[6];
+  co[2] = ci[5];
+  co[3] = ci[4];
+  co[4] = ci[3];
+  co[5] = ci[2];
+  co[6] = ci[1];
+  co[7] = ci[0];
+
+  return( *(long long *)co);
+}
+#else
 long
 pev_swap_64( long data)
 {
@@ -370,6 +401,7 @@ pev_swap_64( long data)
 
   return( *(long *)co);
 }
+#endif
 
 int
 pev_swap_32( int data)
@@ -736,7 +768,7 @@ pev_pex_read( uint reg)
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
-  //i2c.data = pev_swap_32( i2c.data);
+  /*i2c.data = pev_swap_32( i2c.data);*/
 
   return( i2c.data);
 }
@@ -752,7 +784,7 @@ pev_pex_write( uint reg,
   i2c.cmd |= (reg << 3) &0x78000;
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = data;
-  //i2c.data = pev_swap_32( data);
+  /*i2c.data = pev_swap_32( data);*/
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
   return( 0);
@@ -841,7 +873,7 @@ pev_fpga_sign( uint fpga,
 {
   struct pev_ioctl_rdwr rdwr;
 
-  if( (fpga < 0) || (fpga > 3))
+  if( fpga > 3)
   {
     return( -1);
   }

@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: tst_2x.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.7  2012/06/01 14:00:06  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.6  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]
@@ -76,6 +79,8 @@ typedef unsigned int u32;
 #include "tstlib.h"
 #include "tstxlib.h"
 
+extern int tst_check_cmd_tstop(void);
+
 static struct xprstst *xt;
 static void *shm_cpu_base;
 static void *shm_cpu_vme_base;
@@ -104,7 +109,7 @@ dma_shm_vme( struct tst_ctl *tc,
   //err = tstx_dma_move_shm_vme( crate, SHM_DMA_ADDR( xt)+shm_off, 0x20000000+vme_off, mode, size, TST_DMA_INTR);
   if( err < 0)
   {
-    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n"));
+    TST_LOG( tc, (logline, "                ->NOK\n%s->ERROR:DMA\n", tst_id));
     retval = TST_STS_ERR;
     goto dma_shm_vme_end;
   }
@@ -141,7 +146,7 @@ dma_shm_vme( struct tst_ctl *tc,
   }
   if( tst_check_cmd_tstop())
   {
-    TST_LOG( tc, (logline, "                ->Stopped", tst_id));
+    TST_LOG( tc, (logline, "                ->Stopped"));
     retval = TST_STS_STOPPED;
   }
 
@@ -157,7 +162,7 @@ tst_dma_shm_vme32( struct tst_ctl *tc,
   time_t tm;
   char *ct;
   int i, retval;
-  int start, inc;
+  //int start, inc;
 
   xt = tc->xt;
   shm_cpu_base = SHM_CPU_ADDR( xt);
@@ -165,15 +170,15 @@ tst_dma_shm_vme32( struct tst_ctl *tc,
 
   tm = time(0);
   ct = ctime(&tm);
-  srandom( ct);
+  srandom( (int)tm);
   TST_LOG( tc, (logline, "%s->Entering:%s", tst_id, ct));
   /* allocate two reference buffers   */
   ref_buf_1 = (void *)malloc( 0x100000);
   ref_buf_2 = (void *)malloc( 0x100000);
   /* fill ref_buf with test pattern   */
   //tst_cpu_fill( ref_buf_1, 0x100000, 1, 0x11223344, 0x11111111);
-  start = random();
-  inc = random();
+  //start = random();
+  //inc = random();
   //tst_cpu_fill( ref_buf_1, 0x100000, 1, start, inc);
   tst_cpu_fill( ref_buf_1, 0x100000, 1, 0, 4);
   tst_cpu_fill( ref_buf_2, 0x100000, 1, 0xdeadface, 0);
@@ -216,7 +221,7 @@ tst_dma_shm_vme64( struct tst_ctl *tc,
   time_t tm;
   char *ct;
   int i, retval;
-  int start, inc;
+  //int start, inc;
 
   xt = tc->xt;
   shm_cpu_base = SHM_CPU_ADDR( xt);
@@ -224,15 +229,15 @@ tst_dma_shm_vme64( struct tst_ctl *tc,
 
   tm = time(0);
   ct = ctime(&tm);
-  srandom( ct);
+  srandom( (int)tm);
   TST_LOG( tc, (logline, "%s->Entering:%s", tst_id, ct));
   /* allocate two reference buffers   */
   ref_buf_1 = (void *)malloc( 0x100000);
   ref_buf_2 = (void *)malloc( 0x100000);
   /* fill ref_buf with test pattern   */
   //tst_cpu_fill( ref_buf_1, 0x100000, 1, 0x11223344, 0x11111111);
-  start = random();
-  inc = random();
+  //start = random();
+  //inc = random();
   //tst_cpu_fill( ref_buf_1, 0x100000, 1, start, inc);
   tst_cpu_fill( ref_buf_1, 0x100000, 1, 0, 4);
   tst_cpu_fill( ref_buf_2, 0x100000, 1, 0xdeadface, 0);
@@ -271,50 +276,50 @@ int
 tst_20( struct tst_ctl *tc)
 {
   //tst_dma_shm_vme32( tc, 0x30, "Tst:20");
-  tst_dma_shm_vme64( tc, 0x30, "Tst:20");
+  return( tst_dma_shm_vme64( tc, 0x30, "Tst:20"));
 }
 
 int  
 tst_21( struct tst_ctl *tc)
 {
   //tst_dma_shm_vme32( tc, 0x40, "Tst:21");
-  tst_dma_shm_vme64( tc, 0x40, "Tst:21");
+  return( tst_dma_shm_vme64( tc, 0x40, "Tst:21"));
 }
 
 int  
 tst_22( struct tst_ctl *tc)
 {
-  tst_dma_shm_vme64( tc, 0x50, "Tst:22");
+  return( tst_dma_shm_vme64( tc, 0x50, "Tst:22"));
 }
 
 int  
 tst_23( struct tst_ctl *tc)
 {
-  tst_dma_shm_vme64( tc, 0x60, "Tst:23");
+  return( tst_dma_shm_vme64( tc, 0x60, "Tst:23"));
 }
 
 int  
 tst_24( struct tst_ctl *tc)
 {
-  tst_dma_shm_vme64( tc, 0x70, "Tst:24");
+  return( tst_dma_shm_vme64( tc, 0x70, "Tst:24"));
 }
 
 int  
 tst_25( struct tst_ctl *tc)
 {
-  tst_dma_shm_vme64( tc, 0x80, "Tst:25");
+  return( tst_dma_shm_vme64( tc, 0x80, "Tst:25"));
 }
 
 int  
 tst_26( struct tst_ctl *tc)
 {
-  tst_dma_shm_vme64( tc, 0x90, "Tst:26");
+  return( tst_dma_shm_vme64( tc, 0x90, "Tst:26"));
 }
 
 int  
 tst_27( struct tst_ctl *tc)
 {
-  tst_dma_shm_vme64( tc, 0xa0, "Tst:27");
+  return( tst_dma_shm_vme64( tc, 0xa0, "Tst:27"));
 }
 
 

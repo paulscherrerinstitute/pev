@@ -44,16 +44,16 @@ all : XprsMon
 
 EXTRAFLAG = 
 ifeq ($(EXTRAFLAG),-DXENOMAI)
-FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -Wall
 INC = -I $(INCDIR) -I /usr/xenomai/include
 LIB = -L $(LIBDIR)
 XprsMon:$(OFILES)  $(OLIB)
 	gcc $(LIB) -o XprsMon $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
 else
 ifeq ($(EXTRAFLAG),-DMPC)
-FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DMPC
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DMPC -Wall
 else
-FLAGS = -g -DLITTLE_ENDIAN -DDEBUG
+FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -Wall
 endif
 INC = -I $(INCDIR)
 LIB = -L $(LIBDIR)

@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: EvtTrig.c,v $
- * Revision 1.1  2012/06/05 13:40:26  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.2  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.2  2012/06/01 14:00:14  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.1  2012/05/23 15:17:10  ioxos
  * first checkin [JFG]
@@ -47,13 +50,14 @@
 
 struct pev_node *pev;
 
+int
 main( int argc,
-      void *argv[])
+      char **argv)
 {
   int i;
-  int src_id, vec_id;
+  int vec_id;
 
-  pev = pev_init( 0);
+  pev = pev_init( 1);
   if( !pev)
   {
     printf("Cannot allocate data structures to control PEV1100\n");

@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/05/16 12:02:17 $*/
-/*$Revision: 1.1 $*/
+/*$Date: 2012/06/14 14:00:04 $*/
+/*$Revision: 1.2 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -32,7 +32,7 @@ struct {
 };
 
 
-typedef enum { IFC_ELB, IFC_SMON } IfcDevType;
+typedef enum { IFC_ELB, IFC_SMON, PCI_IO } IfcDevType;
 
 typedef struct ifcPrivate{
     unsigned short address;
@@ -62,6 +62,9 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
     else 
     if(strcmp(link->value.vmeio.parm, "SMON") == 0) 
     	p->devType = IFC_SMON;
+    else 
+    if(strcmp(link->value.vmeio.parm, "PIO") == 0) 
+    	p->devType = PCI_IO;
     else 
         {
         recGblRecordError(S_db_badField, record,
@@ -107,6 +110,8 @@ long devIfc1210AiRead(aiRecord* record)
     else
     if(p->devType == IFC_SMON)
     	rval = pev_smon_rd( p->address );
+    if(p->devType == PCI_IO)
+    	rval = pev_csr_rd( p->address );
     
     record->val = rval;
     return 2; 	/* no conversion */
@@ -164,6 +169,9 @@ long devIfc1210AoWrite(aoRecord* record)
     else
     if(p->devType == IFC_SMON)
     	pev_smon_wr( p->address, (int)record->val );
+    else
+    if(p->devType == PCI_IO)
+    	pev_csr_wr( p->address, (int)record->val );
 	
     return 0; 
 }

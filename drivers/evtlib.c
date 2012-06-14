@@ -40,6 +40,7 @@
 #include <linux/pci.h>
 #include <linux/mm.h>
 #include <linux/interrupt.h>
+#include <linux/sched.h>
 #include <asm/dma.h>
 
 #include "../include/pevioctl.h"

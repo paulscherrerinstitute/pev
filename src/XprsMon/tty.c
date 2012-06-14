@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: tty.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.2  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.1  2008/09/17 13:05:21  ioxos
  * file creation [JFG]
@@ -37,7 +40,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: tty.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: tty.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -60,6 +63,12 @@ static char *rcsid = "$Id: tty.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 
 int fd_tty = -1;
 char tty_cmd[256];
+
+char *
+tty_rcsid()
+{
+  return( rcsid);
+}
 
 int
 tty_open( void)
@@ -92,8 +101,6 @@ tty_close( void)
 int 
 xprs_tty( struct cli_cmd_para *c)
 {
-  int i;
-
   if( !strcmp( "open", c->para[0]))
   {
     tty_open();

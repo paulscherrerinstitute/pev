@@ -27,8 +27,8 @@
  *  Change History
  *  
  *  $Log: pevrtlib.c,v $
- *  Revision 1.4  2012/06/05 13:37:31  kalantari
- *  linux driver ver.4.12 with intr Handling
+ *  Revision 1.5  2012/06/14 14:00:05  kalantari
+ *  added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
  *
  *  Revision 1.3  2010/01/13 16:51:24  ioxos
  *  add real time support for DMA list [JFG]
@@ -42,7 +42,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: pevrtlib.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: pevrtlib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #include <stdlib.h>

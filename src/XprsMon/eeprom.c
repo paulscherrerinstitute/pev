@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: eeprom.c,v $
- * Revision 1.2  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.3  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.3  2012/06/01 13:59:43  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.2  2012/04/18 07:45:20  ioxos
  * add load function [JFG]
@@ -39,7 +42,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: eeprom.c,v 1.2 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: eeprom.c,v 1.3 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #include <sys/types.h>
@@ -47,16 +50,22 @@ static char *rcsid = "$Id: eeprom.c,v 1.2 2012/06/05 13:37:31 kalantari Exp $";
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 #include <cli.h>
 #include <pevioctl.h>
 #include <pevulib.h>
 
+char *
+eeprom_rcsid()
+{
+  return( rcsid);
+}
 
 int 
 xprs_eeprom( struct cli_cmd_para *c)
 {
   uint i, j;
-  uint data, offset, cnt;
+  uint offset, cnt;
   char *buf, *p;
   FILE *file;
 
@@ -87,7 +96,7 @@ xprs_eeprom( struct cli_cmd_para *c)
     p = (char *)buf;
     for( j = 0; j < cnt; j += 16)
     {
-      unsigned char *pp;
+      char *pp;
 
       printf("%08x ", offset + j);
       pp = p;
@@ -99,7 +108,7 @@ xprs_eeprom( struct cli_cmd_para *c)
       {
         char c;
 	c = *pp++;
-	if(isalpha(c))
+	if( isalpha(c))
 	{ 
           printf("%c", c);
 	}

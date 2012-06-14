@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: fpga.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.2  2012/06/01 13:59:43  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.1  2012/01/27 13:39:15  ioxos
  * first checkin [JFG]
@@ -37,7 +40,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: fpga.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: fpga.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -52,6 +55,12 @@ static char *rcsid = "$Id: fpga.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <pevioctl.h>
 #include <pevulib.h>
 
+
+char *
+fpga_rcsid()
+{
+  return( rcsid);
+}
 
 int 
 fpga_prun( struct cli_cmd_para *c)

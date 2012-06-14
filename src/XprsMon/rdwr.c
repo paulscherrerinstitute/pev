@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.4  2012/06/05 13:37:31  kalantari
- * linux driver ver.4.12 with intr Handling
+ * Revision 1.5  2012/06/14 14:00:05  kalantari
+ * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *
+ * Revision 1.26  2012/06/01 13:59:44  ioxos
+ * -Wall cleanup [JFG]
  *
  * Revision 1.25  2012/05/23 15:27:37  ioxos
  * remove reference to pev_evt_xx() [JFG]
@@ -109,7 +112,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -127,6 +130,7 @@ static char *rcsid = "$Id: rdwr.c,v 1.4 2012/06/05 13:37:31 kalantari Exp $";
 #include <pevulib.h>
 #include <aio.h>
 #include <errno.h>
+#include <ctype.h>
 
 #ifdef XENOMAI
 #include <pevrtlib.h>
@@ -347,6 +351,12 @@ struct pev_ioctl_dma_req dma_req;
 char rdwr_filename[256];
 int rdwr_board = 0;
 
+char *
+rdwr_rcsid()
+{
+  return( rcsid);
+}
+
 int 
 rdwr_init( void)
 {
@@ -443,7 +453,6 @@ rdwr_get_cycle_addr( char *addr_p,
 { 
   char *p;
   unsigned long end;
-  unsigned char mode;
 
   cp->addr = strtoul( addr_p, &p, 16);
   if( p == addr_p)
@@ -496,8 +505,6 @@ rdwr_get_cycle_data( char *data_p,
 		     struct rdwr_cycle_para *cp)
 {
   char *p;
-  unsigned long end;
-
 
   cp->op = 0;
   if( data_p[0] == '?')
@@ -580,7 +587,6 @@ rdwr_get_cycle_arg( char *arg_p,
 		    struct rdwr_cycle_para *cp)
 {
   char *p;
-  unsigned long end;
   char *arg;
   long err;
   int ds;
@@ -672,7 +678,6 @@ rdwr_get_cycle_para( struct cli_cmd_para *c,
 		     struct rdwr_cycle_para *cp)
 {
   long i, i0;
-  char *p;
 
   cp->error = 0;
   cp->op = c->cmd[0];
@@ -791,8 +796,6 @@ rdwr_save_buf( char *buf,
 	       struct rdwr_cycle_para *cp,
 	       int mode)
 {
-  int i, j, ds;
-  int swap;
   FILE *file;
 
   if( cp->op == 'f')
@@ -830,8 +833,7 @@ int
 rdwr_fill_buf( void *buf,
 	       struct rdwr_cycle_para *cp)
 {
-  int i, j, ds;
-  int swap;
+  int i, ds;
   FILE *file;
 
   ds = cp->mode & 0xf;
@@ -850,7 +852,7 @@ rdwr_fill_buf( void *buf,
     size = ftell( file);
     if( size < cp->len)
     {
-      printf("\nFile %s too short [%x]\n", (char *)cp->para);
+      printf("\nFile %s too short [%x]\n", (char *)cp->para, size);
       fclose( file);
        return( -1);
     }
@@ -984,12 +986,12 @@ rdwr_show_addr( ulong addr,
   {
     case 16: /* A16 */
     {
-      printf("0x%04x : ", addr);
+      printf("0x%04x : ", (ushort)addr);
       break;
     }
     case 24: /* A24 */
     {
-      printf("0x%06x : ", addr);
+      printf("0x%06x : ", (uint)addr);
       break;
     }
     case 64: /* A64 */
@@ -999,7 +1001,7 @@ rdwr_show_addr( ulong addr,
     }
     default: /* A32 */
     {
-      printf("0x%08x : ", addr);
+      printf("0x%08x : ", (uint)addr);
       break;
     }
   }
@@ -1014,11 +1016,10 @@ rdwr_show_buf( ulong addr,
 {
   unsigned char *p;
   long i, j;
-  long ds, as, swap;
+  long ds;
 
-  p = (char *)buf;
+  p = (unsigned char *)buf;
   ds = mode & 0xf;
-  swap = mode & 0x10;
   for( i = 0; i < len; i += 16)
   {
     rdwr_show_addr( addr, mode);
@@ -1483,7 +1484,7 @@ rdwr_tm_error( void *buf_in,
 	       uint idx,
 	       int ds)
 {
-  printf("data error at address %lx \n", idx);
+  printf("data error at address %x \n", idx);
   idx &= 0xffff8;
   switch( ds)
   {
@@ -1546,8 +1547,8 @@ xprs_rdwr_tm( struct cli_cmd_para *c)
   void *buf_in, *buf_out;
   int i;
   int ret;
-  uint size;
-  ulong addr, data, cnt;
+  uint size, cnt;
+  ulong addr, data;
   int first, last, n;
   time_t tm, tm_start, tm_end;
 
@@ -1676,7 +1677,7 @@ xprs_rdwr_tm( struct cli_cmd_para *c)
       if( time(0) != tm)
       {
         tm = time(0);
-        printf("loop: %d - %08x\r", cnt, cp->addr);
+        printf("loop: %d - %08x\r", cnt, (uint)cp->addr);
         fflush(stdout);
       }
     }
@@ -1723,7 +1724,7 @@ xprs_rdwr_tm( struct cli_cmd_para *c)
       if( time(0) != tm)
       {
         tm = time(0);
-        printf("loop: %d - %08x\r", cnt, cp->addr);
+        printf("loop: %d - %08x\r", cnt, (uint)cp->addr);
         fflush(stdout);
       }
     }
@@ -1770,7 +1771,7 @@ xprs_rdwr_tm( struct cli_cmd_para *c)
       if( time(0) != tm)
       {
         tm = time(0);
-        printf("loop: %d - %08x\r", cnt, cp->addr);
+        printf("loop: %d - %08x\r", cnt, (uint)cp->addr);
         fflush(stdout);
       }
     }
@@ -1785,7 +1786,7 @@ xprs_rdwr_tm( struct cli_cmd_para *c)
 
 xprs_rdwr_tm_exit:
   tm_end = time(0);
-  printf("loop: %d - %08x    elapsed time = %d sec\n", cnt, cp->addr, tm_end - tm_start);
+  printf("loop: %d - %08x    elapsed time = %ld sec\n", cnt, (uint)cp->addr, tm_end - tm_start);
   free( buf_in);
   free( buf_out);
 
@@ -1805,12 +1806,12 @@ char
   {
     case 16: /* A16 */
     {
-      sprintf( prompt, "0x%04x : ", addr);
+      sprintf( prompt, "0x%04x : ", (ushort)addr);
       break;
     }
     case 24: /* A24 */
     {
-      sprintf( prompt, "0x%06x : ", addr);
+      sprintf( prompt, "0x%06x : ", (uint)addr);
       break;
     }
     case 64: /* A64 */
@@ -1820,7 +1821,7 @@ char
     }
     default: /* A32 */
     {
-      sprintf( prompt, "0x%08x : ", addr);
+      sprintf( prompt, "0x%08x : ", (uint)addr);
       break;
     }
   }
@@ -1835,14 +1836,11 @@ rdwr_patch_addr( ulong addr,
 {
   unsigned char *p;
   int ds;
-  int swap;
-  char *next;
   char pm_prompt[32];
   int idx;
 
-  p = (char *)data_p;
+  p = (unsigned char *)data_p;
   ds = mode & 0xf;
-  swap = mode & 0x10;
   rdwr_set_prompt( pm_prompt, addr, mode);
   idx = strlen( pm_prompt);
   switch( ds)
@@ -1927,7 +1925,6 @@ xprs_rdwr_pm( struct cli_cmd_para *c)
   ulong addr;
   ulong data;
   int ds;
-  int swap;
   int iex;
   int ret;
 
@@ -1986,7 +1983,6 @@ xprs_rdwr_pm( struct cli_cmd_para *c)
   data = cp->data;
   rdwr_set_cycle_mode( cp);
   ds = cp->mode & 0xf;
-  swap = cp->mode & 0x10;
 
   rdwr.buf = (void *)&data;
   rdwr.len = 0;
@@ -2071,8 +2067,8 @@ xprs_rdwr_lm( struct cli_cmd_para *c)
   struct rdwr_cycle_para *cp;
   struct pev_ioctl_rdwr rdwr;
   struct pev_ioctl_map_pg *mp;
-  ulong data, cnt;
-  int ret;
+  ulong data;
+  int ret, cnt;
   time_t tm;
 
   mp = (struct pev_ioctl_map_pg *)0;
@@ -2159,7 +2155,7 @@ xprs_rdwr_lm( struct cli_cmd_para *c)
     {
       if( cp->op == 'x')
       {
-	printf("data error : read = %08x - expected = %08x\n", *(ulong *)rdwr.buf, data);
+	printf("data error : read = %08x - expected = %08x\n", *(uint *)rdwr.buf, (uint)data);
       }
       else
       {
@@ -2195,117 +2191,11 @@ xprs_rdwr_lm_exit:
 }
 
 int 
-xprs_rdwr_pd( struct cli_cmd_para *c)
-{
-  struct rdwr_cycle_para *cp;
-  struct pev_ioctl_rdwr rdwr;
-  char *next, *p;
-  ulong addr;
-  ulong data;
-  int ds;
-  int swap;
-  int iex;
-  int ret;
-
-  rdwr_get_cycle_para( c, cp);
-  cp->dir = 'r';
-  if( cp->crate == -1)
-  {
-    printf("crate number not defined !!! \n");
-    return(-1);
-  }
-  addr = cp->addr;
-  data = cp->data;
-  rdwr_set_cycle_mode( cp);
-  ds = cp->mode & 0xf;
-  swap = cp->mode & 0x10;
-
-  rdwr.buf = (void *)&data;
-  rdwr.len = 0;
-  rdwr_set_ioctl_arg( &rdwr, cp);
-
-  if( cp->dir == 'w')
-  {
-    /* -> shall write data */
-    rdwr.offset = addr;
-    rdwr.mode.dir = RDWR_WRITE;
-    ret = pev_rdwr( &rdwr);
-    if( ret < 0)
-    {
-      printf("cannot access data\n");
-      return(-1);
-    }
-    return( 0);
-  }
-  iex = 1;
-  while( iex)
-  {
-    /* -> shall read data */
-    rdwr.offset = addr;
-    rdwr.mode.dir = RDWR_READ;
-    ret = pev_rdwr( &rdwr);
-    if( ret < 0)
-    {
-      printf("cannot read data\n");
-      return( -1);
-    }
-    if( cp->op == '.')
-    {
-      rdwr_patch_addr( addr, (void *)&data, cp->mode, 1);
-      return( 0);;
-    }
-    next = rdwr_patch_addr( addr, (void *)&data, cp->mode, 0);
-    switch( next[0])
-    {
-      case 0:
-      {
-	addr += ds;
-        break;
-      }
-      case '.':
-      {
-	iex = 0;
-        break;
-      }
-      case '-':
-      {
-	addr -= ds;
-        break;
-      }
-      case '=':
-      {
-        break;
-      }
-      default:
-      {
-	data = strtoul( next, &p, 16);
-	if( p == next)
-        {
-	  printf("format error\n");
-	}
-	else
-	{
-	  rdwr.mode.dir = RDWR_WRITE;
-	  ret = pev_rdwr( &rdwr);
-	  addr += ds;
-	}
-        break;
-      }
-    }
-  }
-  return(0);
-}
-
-
-
-int 
 xprs_rdwr_i2c( struct cli_cmd_para *c)
 {
   int retval;
   int cnt, i;
   char *p;
-
-  printf("in function i2c [%d]\n", c->idx);
 
   retval = -1;
   cnt = c->cnt;
@@ -2366,8 +2256,8 @@ int
 xprs_rdwr_evt( struct cli_cmd_para *c)
 {
   int retval;
-  printf("in function evt [%d]\n", c->idx);
 
+  retval = 0;
   if( c->cnt > 0)
   {
     if( !strcmp( "wait", c->para[0]))
@@ -2397,6 +2287,7 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
   int usec;
   int utmi, utmo;
 
+  retval = 0;
   if( c->cnt > 0)
   {
     if( !strncmp( "start", c->para[0], 5))
