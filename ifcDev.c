@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/06/14 14:00:04 $*/
-/*$Revision: 1.2 $*/
+/*$Date: 2012/06/18 14:32:56 $*/
+/*$Revision: 1.3 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -19,6 +19,8 @@
 #include <alarm.h>
 #include <dbScan.h>
 #include <dbAccess.h>
+
+#define BIT_31_SET  0x80000000
 
 long  ifc1210Init(){ return 0; }
 struct {
@@ -111,7 +113,7 @@ long devIfc1210AiRead(aiRecord* record)
     if(p->devType == IFC_SMON)
     	rval = pev_smon_rd( p->address );
     if(p->devType == PCI_IO)
-    	rval = pev_csr_rd( p->address );
+    	rval = pev_csr_rd( p->address | 0x80000000 );
     
     record->val = rval;
     return 2; 	/* no conversion */
@@ -171,7 +173,7 @@ long devIfc1210AoWrite(aoRecord* record)
     	pev_smon_wr( p->address, (int)record->val );
     else
     if(p->devType == PCI_IO)
-    	pev_csr_wr( p->address, (int)record->val );
+    	pev_csr_wr( p->address, (int)record->val | 0x80000000 );
 	
     return 0; 
 }
