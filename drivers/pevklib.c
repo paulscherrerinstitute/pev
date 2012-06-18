@@ -38,6 +38,9 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
+ * Revision 1.9  2012/06/18 13:21:40  kalt_r
+ * correct IDT eeprom delay to 2
+ *
  * Revision 1.8  2012/06/14 14:00:04  kalantari
  * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
  *
@@ -1254,7 +1257,7 @@ pev_idt_eeprom_write(struct pev_dev *pev,
     }
     while( ((data & 0x3000000) != 0x2000000) && --tmo);
     /* add delay because hardware gives command complete too early !!!  */
-    retval = down_timeout( &pev_eeprom_sem, 1);
+    retval = down_timeout( &pev_eeprom_sem, 2);
   }
 
   free_pages( (unsigned long)k_buf, order);
