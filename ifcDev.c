@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/06/18 14:32:56 $*/
-/*$Revision: 1.3 $*/
+/*$Date: 2012/06/26 15:12:32 $*/
+/*$Revision: 1.4 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -173,7 +173,7 @@ long devIfc1210AoWrite(aoRecord* record)
     	pev_smon_wr( p->address, (int)record->val );
     else
     if(p->devType == PCI_IO)
-    	pev_csr_wr( p->address, (int)record->val | 0x80000000 );
+    	pev_csr_wr( p->address | 0x80000000, (int)record->val);
 	
     return 0; 
 }
