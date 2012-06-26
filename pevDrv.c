@@ -55,7 +55,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.11 2012/06/14 14:00:04 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.12 2012/06/26 10:46:14 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -179,7 +179,7 @@ int pevRead(
         return -1;
     }
 
-    if( device->pev_rmArea_map.mode & (MAP_SPACE_VME | MAP_SPACE_USR1) )
+    if( device->pev_rmArea_map.mode & MAP_SPACE_VME )
     {
 #ifdef powerpc
       srcMode = DMA_SWAP;
@@ -201,7 +201,10 @@ int pevRead(
       device->pev_dmaReq.size = nelem*dlen;              				
       if(device->flags==FLAG_BLKMD)
         device->pev_dmaReq.size = device->pev_dmaBuf.size;
-      device->pev_dmaReq.src_space = device->dmaSpace;		
+      if(device->pev_rmArea_map.mode & MAP_SPACE_USR1) 
+        device->pev_dmaReq.src_space = device->dmaSpace | DMA_SPACE_DS;		
+      else 
+        device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.src_mode = srcMode;
       device->pev_dmaReq.des_mode = 0;
@@ -222,7 +225,7 @@ int pevRead(
              if( device->flags==FLAG_BLKMD ) 
 	       scanIoRequest(device->ioscanpvt);
 	     else
-	       regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, swap);
+	       regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, 0);
              return 0;
 	  }
         }
@@ -298,7 +301,10 @@ int pevWrite(
       device->pev_dmaReq.des_addr = device->baseOffset + offset;       /* (ulong)pdata destination is DMA buffer    */
       device->pev_dmaReq.size = nelem*dlen;                  
       device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
-      device->pev_dmaReq.des_space = device->dmaSpace;
+      if(device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+        device->pev_dmaReq.des_space = device->dmaSpace | DMA_SPACE_DS;
+      else  
+	device->pev_dmaReq.des_space = device->dmaSpace;
       device->pev_dmaReq.src_mode = 0;
       device->pev_dmaReq.des_mode = destMode;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
@@ -382,11 +388,6 @@ int pevAsynRead(
       swap = 0;
 #endif
     }
-    if( device->pev_rmArea_map.mode & (MAP_SPACE_USR1 || MAP_SPACE_USR1) ) 
-    {  
-      srcMode = DMA_SWAP;
-      swap = 1;
-    }
       
     if( nelem > 100 ) 		/* do DMA */
     {  
@@ -398,7 +399,10 @@ int pevAsynRead(
      /*  device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;      	des bus address */
       device->pev_dmaReq.des_addr = (ulong)pdata;       			 /*  des bus address */
       device->pev_dmaReq.size = nelem*dlen;              				
-      device->pev_dmaReq.src_space = device->dmaSpace;		
+      if(device->pev_rmArea_map.mode & MAP_SPACE_USR1) 
+        device->pev_dmaReq.src_space = device->dmaSpace | DMA_SPACE_DS;		
+      else 
+        device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.src_mode = srcMode;
       device->pev_dmaReq.des_mode = 0;
@@ -474,11 +478,6 @@ int pevAsynWrite(
       swap = 0;
 #endif
     }
-    if( device->pev_rmArea_map.mode & (MAP_SPACE_USR1 || MAP_SPACE_USR1) )
-    {
-      destMode = DMA_SWAP;
-      swap = 1;
-    }
     
     if(nelem > 100)
     {
@@ -496,7 +495,10 @@ int pevAsynWrite(
       device->pev_dmaReq.des_addr = device->baseOffset + offset;       /* (ulong)pdata destination is DMA buffer    */
       device->pev_dmaReq.size = nelem*dlen;                  
       device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
-      device->pev_dmaReq.des_space = device->dmaSpace;
+      if(device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+        device->pev_dmaReq.des_space = device->dmaSpace | DMA_SPACE_DS;
+      else 
+        device->pev_dmaReq.des_space = device->dmaSpace;
       device->pev_dmaReq.src_mode = 0;
       device->pev_dmaReq.des_mode = destMode;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
