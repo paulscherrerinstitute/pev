@@ -55,7 +55,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.12 2012/06/26 10:46:14 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.13 2012/06/26 15:13:10 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -478,6 +478,9 @@ int pevAsynWrite(
       swap = 0;
 #endif
     }
+    if( device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+      swap = 1;
+    
     
     if(nelem > 100)
     {
