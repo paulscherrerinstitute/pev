@@ -28,8 +28,8 @@
  *  Change History
  *  
  * $Log: mcs2bin.c,v $
- * Revision 1.5  2012/06/14 14:00:06  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.6  2012/06/29 08:47:01  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
  *
  * Revision 1.4  2012/03/15 09:30:15  ioxos
  * bug if bitstream > 0x800000 (unsigned charpwd) [JFG]
@@ -47,7 +47,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: mcs2bin.c,v 1.5 2012/06/14 14:00:06 kalantari Exp $";
+static char *rcsid = "$Id: mcs2bin.c,v 1.6 2012/06/29 08:47:01 kalantari Exp $";
 #endif
 
 #include <stdlib.h>

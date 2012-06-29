@@ -24,8 +24,8 @@
  *  Change History
  *  
  * $Log: tst_2x.c,v $
- * Revision 1.5  2012/06/14 14:00:05  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.6  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
  *
  * Revision 1.7  2012/06/01 14:00:06  ioxos
  * -Wall cleanup [JFG]

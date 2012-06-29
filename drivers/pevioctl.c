@@ -29,8 +29,11 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.7  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.18  2012/06/28 12:22:57  ioxos
+ * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
  *
  * Revision 1.17  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]
@@ -185,6 +188,10 @@ pev_ioctl_buf( struct pev_dev *pev,
       free_pages( (unsigned long)buf.k_addr, order);
       break;
     }
+    default:
+    {
+      return( -EINVAL);
+    }
   }
      
   return( retval);
@@ -240,6 +247,10 @@ pev_ioctl_dma( struct pev_dev *pev,
     case PEV_IOCTL_DMA_KILL:
     {
       break;
+    }
+    default:
+    {
+      return( -EINVAL);
     }
   }
   return( retval);
@@ -361,6 +372,10 @@ pev_ioctl_histo( struct pev_dev *pev,
     {
       retval = pev_histo_clear( pev, &hst);
       break;
+    }
+    default:
+    {
+      return( -EINVAL);
     }
   }
      
@@ -485,6 +500,10 @@ pev_ioctl_i2c( struct pev_dev *pev,
       pev_i2c_pex_write( pev, &i2c);
       break;
     }
+    default:
+    {
+      return( -EINVAL);
+    }
   }
      
   return( retval);
@@ -549,6 +568,10 @@ pev_ioctl_map( struct pev_dev *pev,
     {
       pev_map_clear( pev, &ctl);
       break;
+    }
+    default:
+    {
+      return( -EINVAL);
     }
   }
   if(( cmd & PEV_IOCTL_MAP_MASK) == PEV_IOCTL_MAP_PG)

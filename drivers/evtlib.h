@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: evtlib.h,v $
- * Revision 1.2  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.3  2012/06/29 08:46:59  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.2  2012/06/28 12:06:16  ioxos
+ * support up to 8 ITC [JFG]
  *
  * Revision 1.1  2012/05/23 15:32:50  ioxos
  * first checkin [JFG]
@@ -52,7 +55,7 @@ struct evt_queue
   struct task_struct *task_p;
   int signal;
   struct semaphore sem;
-  int src_id[4];
+  int src_id[8];
   struct semaphore lock;
 };
 

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: i2clib.h,v $
- * Revision 1.7  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:46:59  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
  *
  * Revision 1.3  2012/05/23 15:40:32  ioxos
  * bug in calling i2c_read [JFG]

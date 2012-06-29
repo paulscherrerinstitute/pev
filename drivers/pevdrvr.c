@@ -43,8 +43,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.7  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.58  2012/06/28 12:22:57  ioxos
+ * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
  *
  * Revision 1.57  2012/06/06 15:26:39  ioxos
  * release 4.13 [JFG]
@@ -267,7 +270,7 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.13"
+#define DRIVER_VERSION "4.14"
 char *pev_version=DRIVER_VERSION;
 
 
@@ -302,6 +305,54 @@ pev_irq_spurious( struct pev_dev *p,
   return;
 }
 
+#if defined(PPC)
+int 
+pev_inl( struct pev_dev *pev, uint addr)
+{
+  if( pev->csr_remap)
+  {
+    int data;
+    data = *(int *)(pev->csr_ptr + addr);
+    data = SWAP32( data);
+    return( data);
+  }
+  else
+  {
+    return( inl( pev->io_base + addr));
+  }
+}
+void 
+pev_outl( struct pev_dev *pev, uint data, uint addr)
+{
+  //volatile uint tmp;
+
+  if( pev->csr_remap)
+  {
+    data = SWAP32( data);
+    *(uint *)(pev->csr_ptr + addr) = data;
+    //tmp = *(uint *)(pev->csr_ptr + addr);
+  }
+  else
+  {
+    outl( data, pev->io_base + addr);
+    //tmp = inl( pev->io_base + addr);
+  }
+  return;
+}
+#else
+int 
+pev_inl( struct pev_dev *pev, uint addr)
+{
+  return( inl( pev->io_base + addr));
+}
+void 
+pev_outl( struct pev_dev *pev, uint data, uint addr)
+{
+  outl( data, pev->io_base + addr);
+  return;
+}
+#endif
+
 
 
 /*
@@ -334,17 +385,21 @@ pev_irq( int irq,
 
 #endif
 
+
   /* generate IACK cycle */
-  base =  p->io_base  + p->io_remap.iloc_itc;
-  ip = inl(  base);
+  //base =  p->io_base  + p->io_remap[0].iloc_itc;
+  base =  p->io_remap[p->csr_remap].iloc_itc;
+  ip = inl( p->io_base + 0x80); /* IACK by hand -> work around */
+  //ip = pev_inl( p, PEV_CSR_ITC_ILOC);
+  //ip = pev_inl( p,  base);
 
   /* get interrupt source */
   //src = (ip >> 8) & 0x3f;
-  src = ip & 0x3fff;
+  src = ip & 0x7fff;
   idx = src >> 8;
 
   //base += (( ip >> 2) & 0xc00);
-  if( p->io_remap.short_io)
+  if(( p->io_remap[0].short_io) && !(p->csr_remap))
   {
     base += (( ip >> PEV_SCSR_ITC_SHIFT) & PEV_SCSR_ITC_MASK);
   }
@@ -356,7 +411,8 @@ pev_irq( int irq,
   p->irq_pending = ip;
 
   /* mask interrupt source */
-  outl( ip, base + 0xc);
+  //outl( ip, base + 0xc);
+  pev_outl( p, ip, base + 0xc);
 
   /* increment interrupt count */
   p->irq_cnt += 1;
@@ -365,7 +421,8 @@ pev_irq( int irq,
   p->irq_tbl[idx].func( p, src, p->irq_tbl[idx].arg);
 
   /* clear IP and restart interrupt scanning */
-  outl( ip << 16, base);
+  //outl( ip << 16, base);
+  pev_outl( p, ip << 16, base);
 
 #ifdef XENOMAI
   return RTDM_IRQ_HANDLED;
@@ -592,7 +649,7 @@ pev_ioctl( struct file *filp,
     {
       if( arg)
       {
-	retval = copy_to_user( (void *)arg, &pev->io_remap, sizeof( struct pev_reg_remap));
+	retval = copy_to_user( (void *)arg, &pev->io_remap[0], sizeof( struct pev_reg_remap));
       }
       break;
     }
@@ -612,7 +669,7 @@ pev_ioctl( struct file *filp,
     }
     case PEV_IOCTL_I2C:
     {
-      if( pev->io_remap.short_io)
+      if( pev->io_remap[0].short_io && !pev->csr_remap)
       {
 	if( down_interruptible( &pev->sem_remap))
 	{
@@ -629,7 +686,7 @@ pev_ioctl( struct file *filp,
       {
 	retval = -EFAULT;
       }
-      if( pev->io_remap.short_io)
+      if( pev->io_remap[0].short_io && !pev->csr_remap)
       {
 	up( &pev->sem_remap);
       }
@@ -642,7 +699,7 @@ pev_ioctl( struct file *filp,
     }
     case PEV_IOCTL_SFLASH:
     {
-      if( pev->io_remap.short_io)
+      if( pev->io_remap[0].short_io && !pev->csr_remap)
       {
 	if( down_interruptible( &pev->sem_remap))
 	{
@@ -659,7 +716,7 @@ pev_ioctl( struct file *filp,
       {
 	retval = -EFAULT;
       }
-      if( pev->io_remap.short_io)
+      if( pev->io_remap[0].short_io && !pev->csr_remap)
       {
 	up( &pev->sem_remap);
       }
@@ -894,8 +951,8 @@ pev_probe( struct pev_dev *pev)
   }
 
   /* install default interrupt handlers */
-  pev->irq_tbl = (struct pev_irq_handler *)kmalloc( 64 * sizeof(struct pev_irq_handler), GFP_KERNEL);
-  for( i = 0; i < 64; i++)
+  pev->irq_tbl = (struct pev_irq_handler *)kmalloc( 128 * sizeof(struct pev_irq_handler), GFP_KERNEL);
+  for( i = 0; i < 128; i++)
   {
     pev_irq_register( pev, i, pev_irq_spurious, NULL);
   }
@@ -913,63 +970,68 @@ pev_probe( struct pev_dev *pev)
     pev->csr_base    = pci_resource_start( dev, 3);
     pev->csr_len    = pci_resource_len( dev, 3);
     pev->csr_ptr = ioremap(pev->csr_base, pev->csr_len);
-    //printk("CSR#0 : %08x - %08x -%08x [%x]\n", pev->csr_base,  pev->csr_ptr, *(long *)pev->csr_ptr, pev->csr_len);
+    debugk(("CSR#0 : %08x - %p -%08lx [%x]\n", pev->csr_base,  pev->csr_ptr, *(long *)pev->csr_ptr, pev->csr_len));
   }
 
 
   /* check for compressed IO window... */
+  pev->csr_remap = 0;
   if( inl( pev->io_base) & 0x80000000)
   {
-    pev->io_remap.short_io  = 1;
-    pev->io_remap.iloc_base = PEV_SCSR_ILOC_BASE;
-    pev->io_remap.iloc_spi  = PEV_SCSR_ILOC_SPI;
-    pev->io_remap.iloc_sign = PEV_SCSR_ILOC_SIGN;
-    pev->io_remap.iloc_ctl  = PEV_SCSR_ILOC_CTL;
-    pev->io_remap.pcie_mmu  = PEV_SCSR_PCIE_MMU;
-    pev->io_remap.iloc_smon = PEV_SCSR_ILOC_SMON;
-    pev->io_remap.iloc_i2c  = PEV_SCSR_ILOC_I2C;
-    pev->io_remap.vme_base  = PEV_SCSR_VME_BASE;
-    pev->io_remap.vme_timer = PEV_SCSR_VME_TIMER;
-    pev->io_remap.vme_ader  = PEV_SCSR_VME_ADER;
-    pev->io_remap.vme_csr   = PEV_SCSR_VME_CSR;
-    pev->io_remap.shm_base  = PEV_SCSR_SHM_BASE;
-    pev->io_remap.dma_rd    = PEV_SCSR_DMA_RD;
-    pev->io_remap.dma_wr    = PEV_SCSR_DMA_WR;
-    pev->io_remap.iloc_itc  = PEV_SCSR_ITC_ILOC;
-    pev->io_remap.vme_itc   = PEV_SCSR_ITC_VME;
-    pev->io_remap.dma_itc   = PEV_SCSR_ITC_DMA;
-    pev->io_remap.usr_itc   = PEV_SCSR_ITC_USR;
-    pev->io_remap.usr_fifo  = PEV_SCSR_USR_FIFO;
+    pev->io_remap[0].short_io  = 1;
+    pev->io_remap[0].iloc_base = PEV_SCSR_ILOC_BASE;
+    pev->io_remap[0].iloc_spi  = PEV_SCSR_ILOC_SPI;
+    pev->io_remap[0].iloc_sign = PEV_SCSR_ILOC_SIGN;
+    pev->io_remap[0].iloc_ctl  = PEV_SCSR_ILOC_CTL;
+    pev->io_remap[0].pcie_mmu  = PEV_SCSR_PCIE_MMU;
+    pev->io_remap[0].iloc_smon = PEV_SCSR_ILOC_SMON;
+    pev->io_remap[0].iloc_i2c  = PEV_SCSR_ILOC_I2C;
+    pev->io_remap[0].vme_base  = PEV_SCSR_VME_BASE;
+    pev->io_remap[0].vme_timer = PEV_SCSR_VME_TIMER;
+    pev->io_remap[0].vme_ader  = PEV_SCSR_VME_ADER;
+    pev->io_remap[0].vme_csr   = PEV_SCSR_VME_CSR;
+    pev->io_remap[0].shm_base  = PEV_SCSR_SHM_BASE;
+    pev->io_remap[0].dma_rd    = PEV_SCSR_DMA_RD;
+    pev->io_remap[0].dma_wr    = PEV_SCSR_DMA_WR;
+    pev->io_remap[0].iloc_itc  = PEV_SCSR_ITC_ILOC;
+    pev->io_remap[0].vme_itc   = PEV_SCSR_ITC_VME;
+    pev->io_remap[0].dma_itc   = PEV_SCSR_ITC_DMA;
+    pev->io_remap[0].usr_itc   = PEV_SCSR_ITC_USR;
+    pev->io_remap[0].usr_fifo  = PEV_SCSR_USR_FIFO;
+    pev->io_remap[0].usr1_itc   = PEV_SCSR_ITC_USR;
+    pev->io_remap[0].usr2_itc   = PEV_SCSR_ITC_USR;
     pev->fpga =  inl( pev->io_base + 4);
     pev->fpga =  (pev->fpga&0x00ff00ff) | ((pev->fpga&0xff000000) >> 16) | ((pev->fpga&0xff00) << 16) ;
   }
   else
   {
-    pev->io_remap.short_io = 0;
-    pev->io_remap.iloc_base = PEV_CSR_ILOC_BASE;
-    pev->io_remap.iloc_spi  = PEV_CSR_ILOC_SPI;
-    pev->io_remap.iloc_sign = PEV_CSR_ILOC_SIGN;
-    pev->io_remap.iloc_ctl  = PEV_CSR_ILOC_CTL;
-    pev->io_remap.pcie_mmu  = PEV_CSR_PCIE_MMU;
-    pev->io_remap.iloc_smon = PEV_CSR_ILOC_SMON;
-    pev->io_remap.iloc_i2c  = PEV_CSR_ILOC_I2C;
-    pev->io_remap.vme_base  = PEV_CSR_VME_BASE;
-    pev->io_remap.vme_timer = PEV_CSR_VME_TIMER;
-    pev->io_remap.vme_ader  = PEV_CSR_VME_ADER;
-    pev->io_remap.vme_csr   = PEV_CSR_VME_CSR;
-    pev->io_remap.shm_base  = PEV_CSR_SHM_BASE;
-    pev->io_remap.dma_rd    = PEV_CSR_DMA_RD;
-    pev->io_remap.dma_wr    = PEV_CSR_DMA_WR;
-    pev->io_remap.iloc_itc  = PEV_CSR_ITC_ILOC;
-    pev->io_remap.vme_itc   = PEV_CSR_ITC_VME;
-    pev->io_remap.dma_itc   = PEV_CSR_ITC_DMA;
-    pev->io_remap.usr_itc   = PEV_CSR_ITC_USR;
-    pev->io_remap.usr_fifo  = PEV_CSR_USR_FIFO;
+    pev->io_remap[0].short_io = 0;
+    pev->io_remap[0].iloc_base = PEV_CSR_ILOC_BASE;
+    pev->io_remap[0].iloc_spi  = PEV_CSR_ILOC_SPI;
+    pev->io_remap[0].iloc_sign = PEV_CSR_ILOC_SIGN;
+    pev->io_remap[0].iloc_ctl  = PEV_CSR_ILOC_CTL;
+    pev->io_remap[0].pcie_mmu  = PEV_CSR_PCIE_MMU;
+    pev->io_remap[0].iloc_smon = PEV_CSR_ILOC_SMON;
+    pev->io_remap[0].iloc_i2c  = PEV_CSR_ILOC_I2C;
+    pev->io_remap[0].vme_base  = PEV_CSR_VME_BASE;
+    pev->io_remap[0].vme_timer = PEV_CSR_VME_TIMER;
+    pev->io_remap[0].vme_ader  = PEV_CSR_VME_ADER;
+    pev->io_remap[0].vme_csr   = PEV_CSR_VME_CSR;
+    pev->io_remap[0].shm_base  = PEV_CSR_SHM_BASE;
+    pev->io_remap[0].dma_rd    = PEV_CSR_DMA_RD;
+    pev->io_remap[0].dma_wr    = PEV_CSR_DMA_WR;
+    pev->io_remap[0].iloc_itc  = PEV_CSR_ITC_ILOC;
+    pev->io_remap[0].vme_itc   = PEV_CSR_ITC_VME;
+    pev->io_remap[0].dma_itc   = PEV_CSR_ITC_DMA;
+    pev->io_remap[0].usr_itc   = PEV_CSR_ITC_USR;
+    pev->io_remap[0].usr_fifo  = PEV_CSR_USR_FIFO;
+    pev->io_remap[0].usr1_itc   = PEV_CSR_ITC_USR;
+    pev->io_remap[0].usr2_itc   = PEV_CSR_ITC_USR;
     pev->fpga =  inl( pev->io_base + 0x18);
     pev->fpga =  (pev->fpga&0x00ff00ff) | ((pev->fpga&0xff000000) >> 16) | ((pev->fpga&0xff00) << 16) ;
   }
 
-  pev->shm_len = 0x8000000 << ((inl( pev->io_base + pev->io_remap.iloc_ctl) >> 8) & 3); /* get SHM size             */
+  pev->shm_len = 0x8000000 << ((inl( pev->io_base + pev->io_remap[0].iloc_ctl) >> 8) & 3); /* get SHM size             */
   if( ( pev->board == PEV_BOARD_VCC1104) ||
       ( pev->board == PEV_BOARD_VCC1105)    )
   {
@@ -985,7 +1047,7 @@ pev_probe( struct pev_dev *pev)
     debugk(("pev pmem space mapping = %px - %x\n", pev->pmem_base, pev->pmem_len));
 
     /* prepare scatter/gather for PCI PMEM space */
-    //pev->map_mas64.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 28) & 0x7);
+    //pev->map_mas64.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap[0].pcie_mmu) >> 28) & 0x7);
     pev->map_mas64.pg_size = 0x400000;
     pev->map_mas64.pg_num = pev->pmem_len/pev->map_mas64.pg_size;
     pev->map_mas64.loc_base = (u64)pev->pmem_base;
@@ -1009,7 +1071,7 @@ pev_probe( struct pev_dev *pev)
     debugk(("pev mem space mapping = %px - %x\n", pev->mem_base, pev->mem_len));
 
     /* prepare scatter/gather for PCI MEM space */
-    //pev->map_mas32.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap.pcie_mmu) >> 24) & 0x7);
+    //pev->map_mas32.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap[0].pcie_mmu) >> 24) & 0x7);
     pev->map_mas32.pg_size = 0x100000;
     pev->map_mas32.pg_num = pev->mem_len/pev->map_mas32.pg_size;
     /* check for 4*1 MBytes window with IO register mapping in last page */
@@ -1049,33 +1111,68 @@ pev_probe( struct pev_dev *pev)
                                  pev->dma_shm_len, 
                                  pev->dma_shm_ptr, 
                                  pev->dma_shm_base));
-    pev_dma_init( pev);
-    if( pev->csr_ptr)
+    if( ( pev->board == PEV_BOARD_PEV1100) ||
+        ( pev->board == PEV_BOARD_IPV1102)    )
     {
-      pev_sg_master_32_set( pev, i+1, 0, 0x3003); /* point to CSR space */
+      if( pev->csr_ptr)
+      {
+        pev_sg_master_32_set( pev, i+1, 0, 0x3003); /* point to CSR space */
+      }
     }
+    pev_dma_init( pev);
   }
   else
   {
     debugk(("Didn't find PEV non prefetchable memory space [BAR2]\n"));
   }
 
-  /* initialize VME CSR */
-  if( pev->io_remap.short_io)
+  if( pev->csr_ptr)
   {
-    outl( PEV_SCSR_SEL_VME, pev->io_base);
+    printk("remap CSR space \n");
+    pev->csr_remap = 1;
+    pev->io_remap[1].short_io = 2;
+    pev->io_remap[1].iloc_base = PEV_CSR_ILOC_BASE;
+    pev->io_remap[1].iloc_spi  = PEV_CSR_ILOC_SPI;
+    pev->io_remap[1].iloc_sign = PEV_CSR_ILOC_SIGN;
+    pev->io_remap[1].iloc_ctl  = PEV_CSR_ILOC_CTL;
+    pev->io_remap[1].pcie_mmu  = PEV_CSR_PCIE_MMU;
+    pev->io_remap[1].iloc_smon = PEV_CSR_ILOC_SMON;
+    pev->io_remap[1].iloc_i2c  = PEV_CSR_ILOC_I2C;
+    pev->io_remap[1].vme_base  = PEV_CSR_VME_BASE;
+    pev->io_remap[1].vme_timer = PEV_CSR_VME_TIMER;
+    pev->io_remap[1].vme_ader  = PEV_CSR_VME_ADER;
+    pev->io_remap[1].vme_csr   = PEV_CSR_VME_CSR;
+    pev->io_remap[1].shm_base  = PEV_CSR_SHM_BASE;
+    pev->io_remap[1].dma_rd    = PEV_CSR_DMA_RD;
+    pev->io_remap[1].dma_wr    = PEV_CSR_DMA_WR;
+    pev->io_remap[1].iloc_itc  = PEV_CSR_ITC_ILOC;
+    pev->io_remap[1].vme_itc   = PEV_CSR_ITC_VME;
+    pev->io_remap[1].dma_itc   = PEV_CSR_ITC_DMA;
+    pev->io_remap[1].usr_itc   = PEV_CSR_ITC_USR;
+    pev->io_remap[1].usr_fifo  = PEV_CSR_USR_FIFO;
+    pev->io_remap[1].usr1_itc   = PEV_CSR_ITC_USR1;
+    pev->io_remap[1].usr2_itc   = PEV_CSR_ITC_USR2;
   }
-  outl( 0x404, pev->io_base + pev->io_remap.vme_base);               /* clear error flags              */
-  outl( 0x80000081, pev->io_base + pev->io_remap.vme_base + 0x4);    /* enable VME master + ROR        */
-  outl( 0x80000004, pev->io_base + pev->io_remap.vme_base + 0x8);    /* enable VME slave + 256*1MBytes */
-  outl( pev->crate<<4, pev->io_base + pev->io_remap.vme_ader);       /* set base address according to crate number */
-  outl( 0, pev->io_base + pev->io_remap.vme_ader+ 4);                /* set base address according to crate number */
-  pev_vme_slv_init( pev);
-  outl( 0x08, pev->io_base + pev->io_remap.vme_csr + 0x4);           /* clear bus error                */
-  outl( 0x10, pev->io_base + pev->io_remap.vme_csr + 0x8);           /* enable slave                   */
-  outl( 0xffff, pev->io_base + pev->io_remap.vme_itc + 0xc);         /* mask all VME interrupt sources */
-  outl( 0x7, pev->io_base + pev->io_remap.vme_itc + 0x4);            /* enable VME global interupt     */
+  else
+  {
+    pev->csr_remap = 0;
+    pev->io_remap[1].short_io = 0;
+  }
 
+  printk("initialize VME slave...");
+  /* initialize VME CSR */
+  pev_outl( pev, 0x404, pev->io_remap[pev->csr_remap].vme_base);               /* clear error flags              */
+  pev_outl( pev, 0x80000081, pev->io_remap[pev->csr_remap].vme_base + 0x4);    /* enable VME master + ROR        */
+  pev_outl( pev, 0x80000004, pev->io_remap[pev->csr_remap].vme_base + 0x8);    /* enable VME slave + 256*1MBytes */
+  pev_outl( pev, pev->crate<<4, pev->io_remap[pev->csr_remap].vme_ader);       /* set base address according to crate number */
+  pev_outl( pev, 0, pev->io_remap[pev->csr_remap].vme_ader+ 4);                /* set base address according to crate number */
+  pev_vme_slv_init( pev);
+  pev_outl( pev, 0x08, pev->io_remap[pev->csr_remap].vme_csr + 0x4);           /* clear bus error                */
+  pev_outl( pev, 0x10, pev->io_remap[pev->csr_remap].vme_csr + 0x8);           /* enable slave                   */
+  pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].vme_itc + 0xc);         /* mask all VME interrupt sources */
+  pev_outl( pev, 0x7, pev->io_remap[pev->csr_remap].vme_itc + 0x4);            /* enable VME global interupt     */
+  printk("done\n");
+ 
   /* enable PCIe master access from FPGA */
   pci_read_config_word( pev->dev, 4, &tmp);
   tmp |= 4;
@@ -1104,6 +1201,11 @@ pev_probe( struct pev_dev *pev)
   sema_init( &pev->sem_remap, 1);             /* initialize locking semaphore for IO remapping           */
   sema_init( &pev->i2c_lock, 1);              /* initialize locking semaphore for I2C controller         */
   sema_init( &pev->spi_lock, 1);              /* initialize locking semaphore for SPI controller         */
+  if( pev->board == PEV_BOARD_IFC1210)
+  {
+    pev_usr1_irq_init( pev);
+    pev_usr2_irq_init( pev);
+  }
   pev_evt_init( pev);
  
   return( 0);
@@ -1116,14 +1218,14 @@ pev_remove(struct pev_dev *pev)
   {
     debugk(("pev_remove\n"));
     /* disable all PEV1100 interrupts */
-    outl( 0xffff, pev->io_base + pev->io_remap.iloc_itc + 0xc);         /* mask all local interrupt sources */
-    outl( 0x0, pev->io_base + pev->io_remap.iloc_itc + 0x04);            /* disable local interrupts          */
-    outl( 0xffff, pev->io_base + pev->io_remap.vme_itc + 0xc);         /* mask all VME interrupt sources */
-    outl( 0x0, pev->io_base + pev->io_remap.vme_itc + 0x4);            /* disable VME interrupts     */
-    outl( 0xffff, pev->io_base + pev->io_remap.dma_itc + 0xc);         /* mask all DMA/SMEM interrupt sources */
-    outl( 0x0, pev->io_base + pev->io_remap.dma_itc + 0x4);            /* disable DMA/SMEM interrupts     */
-    outl( 0xffff, pev->io_base + pev->io_remap.usr_itc + 0xc);         /* mask all user interrupt sources */
-    outl( 0x0, pev->io_base + pev->io_remap.usr_itc + 0x4);            /* disable user interrupts     */
+    pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].iloc_itc + 0xc);         /* mask all local interrupt sources */
+    pev_outl( pev, 0x0, pev->io_remap[pev->csr_remap].iloc_itc + 0x04);            /* disable local interrupts          */
+    pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].vme_itc + 0xc);         /* mask all VME interrupt sources */
+    pev_outl( pev, 0x0, pev->io_remap[pev->csr_remap].vme_itc + 0x4);            /* disable VME interrupts     */
+    pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].dma_itc + 0xc);         /* mask all DMA/SMEM interrupt sources */
+    pev_outl( pev, 0x0, pev->io_remap[pev->csr_remap].dma_itc + 0x4);            /* disable DMA/SMEM interrupts     */
+    pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].usr_itc + 0xc);         /* mask all user interrupt sources */
+    pev_outl( pev, 0x0, pev->io_remap[pev->csr_remap].usr_itc + 0x4);            /* disable user interrupts     */
     /* return resources to OS */
     pev_dma_exit( pev);
 

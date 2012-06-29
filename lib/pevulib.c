@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.5  2012/06/14 14:00:05  kalantari
- *  added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *  Revision 1.6  2012/06/29 08:47:00  kalantari
+ *  checked in the PEV_4_14 got from JF ioxos
+ *
+ *  Revision 1.55  2012/06/28 14:01:11  ioxos
+ *  set release 4.14 [JFG]
  *
  *  Revision 1.54  2012/06/06 15:26:25  ioxos
  *  release 4.13 [JFG]
@@ -196,7 +199,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.6 2012/06/29 08:47:00 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -218,7 +221,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.13";
+char pev_lib_version[] = "4.14";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -768,7 +771,7 @@ pev_pex_read( uint reg)
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
-  /*i2c.data = pev_swap_32( i2c.data);*/
+  //i2c.data = pev_swap_32( i2c.data);
 
   return( i2c.data);
 }
@@ -784,7 +787,7 @@ pev_pex_write( uint reg,
   i2c.cmd |= (reg << 3) &0x78000;
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = data;
-  /*i2c.data = pev_swap_32( data);*/
+  //i2c.data = pev_swap_32( data);
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
   return( 0);

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: pevrtlib.h,v $
- * Revision 1.7  2012/06/14 14:00:05  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
  *
  * Revision 1.3  2010/01/13 16:50:55  ioxos
  * add real time support for DMA list [JFG]

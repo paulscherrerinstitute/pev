@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: dmalib.h,v $
- * Revision 1.7  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:46:59  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
  *
  * Revision 1.9  2012/04/17 07:47:03  ioxos
  * support pipe mode on PPC [JFG]

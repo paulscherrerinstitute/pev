@@ -51,7 +51,7 @@ struct evt_queue evt_queue[16];
 struct evt_tbl
 {
   struct evt_queue *queue;
-} evt_tbl[64];
+} evt_tbl[128];
 
 void
 evt_init()
@@ -94,6 +94,10 @@ evt_queue_alloc( int sig)
       evt_queue[i].src_id[1] = 0;
       evt_queue[i].src_id[2] = 0;
       evt_queue[i].src_id[3] = 0;
+      evt_queue[i].src_id[4] = 0;
+      evt_queue[i].src_id[5] = 0;
+      evt_queue[i].src_id[6] = 0;
+      evt_queue[i].src_id[7] = 0;
       sema_init( &evt_queue[i].sem, 0);
       sema_init( &evt_queue[i].lock, 1);
       return( &evt_queue[i]);
@@ -111,7 +115,7 @@ evt_queue_free( struct evt_queue *q)
   {
     if( &evt_queue[i] == q)
     {
-      for( j = 0; j < 64; j++)
+      for( j = 0; j < 128; j++)
       {
         if( evt_tbl[j].queue == q)
         {
@@ -129,6 +133,10 @@ evt_queue_free( struct evt_queue *q)
       q->src_id[1] = 0;
       q->src_id[2] = 0;
       q->src_id[3] = 0;
+      q->src_id[4] = 0;
+      q->src_id[5] = 0;
+      q->src_id[6] = 0;
+      q->src_id[7] = 0;
       return( 0);
     }
   }
@@ -139,11 +147,11 @@ int
 evt_register(  struct evt_queue *q,
 	       int src_id)
 {
-  src_id &= 0x3f;
+  src_id &= 0x7f;
   if( !evt_tbl[src_id].queue)
   {
     evt_tbl[src_id].queue = q;
-    q->src_id[(src_id >> 4)&3] |= 1 << ( src_id & 0xf);
+    q->src_id[(src_id >> 4)&7] |= 1 << ( src_id & 0xf);
     return(0);
   }
   else
@@ -229,11 +237,11 @@ int
 evt_unregister(  struct evt_queue *q,
 		 int src_id)
 {
-  src_id &= 0x3f;
+  src_id &= 0x7f;
   if( evt_tbl[src_id].queue == q)
   {
     evt_tbl[src_id].queue = NULL;
-    q->src_id[(src_id >> 4)&3] &= ~(1 << ( src_id & 0xf));
+    q->src_id[(src_id >> 4)&7] &= ~(1 << ( src_id & 0xf));
     return(0);
   }
   else
@@ -251,7 +259,7 @@ evt_irq( int src,
   int *p;
   int retval;
 
-  src_id = ( src >> 8) & 0x3f;
+  src_id = ( src >> 8) & 0x7f;
   q = evt_tbl[src_id].queue;
   if( q)
   {

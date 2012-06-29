@@ -107,6 +107,10 @@ void pev_evt_mask( struct pev_dev *, struct pev_ioctl_evt *);
 void pev_evt_disable( struct pev_dev *, struct pev_ioctl_evt *);
 int pev_evt_unregister( struct pev_dev *, struct pev_ioctl_evt *);
 int pev_evt_read( struct pev_dev *, struct pev_ioctl_evt *);
+void pev_usr1_irq( struct pev_dev *, int, void *);
+void pev_usr1_irq_init( struct pev_dev *);
+void pev_usr2_irq( struct pev_dev *, int, void *);
+void pev_usr2_irq_init( struct pev_dev *);
 
 
 #endif /*  _H_PEVLIB */

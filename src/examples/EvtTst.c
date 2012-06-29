@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: EvtTst.c,v $
- * Revision 1.2  2012/06/14 14:00:05  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.3  2012/06/29 08:47:01  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.3  2012/06/28 13:41:45  ioxos
+ * use USR1 as interrupt sources [JFG]
  *
  * Revision 1.2  2012/06/01 14:00:14  ioxos
  * -Wall cleanup [JFG]
@@ -73,7 +76,8 @@ void
       evt_cnt++;
       //printf("%x - %x - %d - %d - %d\n", evt->src_id, evt->vec_id, evt->evt_cnt, evt_cnt, cnt);
       pev_evt_unmask( evt, evt->src_id);
-      if( evt->vec_id == 0xff) evt_sig = 0;
+      //if( evt->vec_id == 0xff) evt_sig = 0;
+      if( evt->src_id == 0x47) evt_sig = 0;
     }
     else
     {
@@ -105,11 +109,11 @@ main( int argc,
   }
 
   evt = pev_evt_queue_alloc( SIGUSR2);
-  src_id = 0x10;
+  //src_id = 0x10;
+  src_id = 0x40;
   for( i = 0; i < 8; i++)
   {
-    src_id += 0x1;
-    pev_evt_register( evt, src_id);
+    pev_evt_register( evt, src_id++);
   }
   evt->wait = -1;
   evt_sig = 1;

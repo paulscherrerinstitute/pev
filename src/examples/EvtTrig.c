@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: EvtTrig.c,v $
- * Revision 1.2  2012/06/14 14:00:05  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.3  2012/06/29 08:47:01  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.3  2012/06/28 14:00:43  ioxos
+ * set USR1 interrupt [JFG]
  *
  * Revision 1.2  2012/06/01 14:00:14  ioxos
  * -Wall cleanup [JFG]
@@ -44,7 +47,7 @@
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-
+#include <unistd.h>
 #include <pevioctl.h>
 #include <pevulib.h>
 
@@ -55,9 +58,8 @@ main( int argc,
       char **argv)
 {
   int i;
-  int vec_id;
 
-  pev = pev_init( 1);
+  pev = pev_init( 0);
   if( !pev)
   {
     printf("Cannot allocate data structures to control PEV1100\n");
@@ -69,21 +71,12 @@ main( int argc,
     exit( -1);
   }
 
-  vec_id = 0x11;
-  for( i = 0; i < 3; i++)
+  pev_csr_wr( 0x80001008, 0xffff);
+  for( i = 0; i < 8; i++)
   {
-    pev_csr_wr( 0x8000040c, 0x1200 | vec_id++);
-    while( pev_csr_rd( 0x8000040c) & 0x800);
-    pev_csr_wr( 0x8000040c, 0x1300 | vec_id++);
-    while( pev_csr_rd( 0x8000040c) & 0x800);
-    pev_csr_wr( 0x8000040c, 0x1400 | vec_id++);
-    while( pev_csr_rd( 0x8000040c) & 0x800);
-    pev_csr_wr( 0x8000040c, 0x1500 | vec_id++);
-    while( pev_csr_rd( 0x8000040c) & 0x800);
-    pev_csr_wr( 0x8000040c, 0x1600 | vec_id++);
-    while( pev_csr_rd( 0x8000040c) & 0x800);
+    pev_csr_wr( 0x8000100c, 1<<i);
+    usleep(1000);
   }
-  pev_csr_wr( 0x8000040c, 0x11ff);
 
   pev_exit( pev);
 

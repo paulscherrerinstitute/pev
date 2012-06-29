@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.7  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.15  2012/06/28 12:22:57  ioxos
+ * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
  *
  * Revision 1.14  2012/04/05 13:43:38  ioxos
  * dynamic io_remap + I2C & SPI locking + CSR window if supported by fpga [JFG]
@@ -252,7 +255,9 @@ struct pev_dev
   struct semaphore dma_sem;             /* semaphore to synchronize with DMA interrput  */
   struct semaphore dma_lock;            /* mutex to lock DMA access                     */
 #endif
-  struct pev_reg_remap io_remap;
+  //struct pev_reg_remap io_remap;
+  struct pev_reg_remap io_remap[2];
+  int csr_remap;
   struct semaphore vme_sem;             /* semaphore to synchronize with VME interrput  */
   u32 vme_status;
   u32 fpga_status;

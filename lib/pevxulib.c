@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevxulib.c,v $
- *  Revision 1.5  2012/06/14 14:00:05  kalantari
- *  added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ *  Revision 1.6  2012/06/29 08:47:00  kalantari
+ *  checked in the PEV_4_14 got from JF ioxos
+ *
+ *  Revision 1.42  2012/06/28 14:01:11  ioxos
+ *  set release 4.14 [JFG]
  *
  *  Revision 1.41  2012/06/06 15:26:25  ioxos
  *  release 4.13 [JFG]
@@ -155,7 +158,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevxulib.c,v 1.5 2012/06/14 14:00:05 kalantari Exp $";
+static char rcsid[] = "$Id: pevxulib.c,v 1.6 2012/06/29 08:47:00 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -177,7 +180,7 @@ static struct pevx_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static char pevx_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pevx_driver_version[16];
-char pevx_lib_version[] = "4.13";
+char pevx_lib_version[] = "4.14";
 int pevx_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards

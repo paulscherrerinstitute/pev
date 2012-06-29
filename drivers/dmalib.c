@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.7  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:46:59  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.22  2012/06/28 12:05:00  ioxos
+ * cleanup [JFG]
  *
  * Revision 1.21  2012/04/17 11:57:44  ioxos
  * bug correction for VME list mode on PPC [JFG]
@@ -266,24 +269,27 @@ dma_set_ctl( uint space,
   uint ctl;
 
   ctl = 0x2000 | (trig << 10) | (intr << 14);
-  ctl |= 0x80000 | ((mode&0x3ff) << 20);
+  ctl |= (mode&0x3ff) << 20;
+  if( (space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
+  { 
+
+
+    ctl |= 0x80000;
+  }
   if( (space & DMA_SPACE_MASK) == DMA_SPACE_VME)
   { 
-    if( space < 0x30)
+    ctl |= (mode & 0xc000) << 4;
+    if (( space > 0x30) || (space < 0x50))
     {
-    ctl |= 0x80000;
-    }
-    else if (space < 0x50)
-    {
-      ctl |= 0xb0000;
+      ctl |= 0x30000;
     }
     else if (space < 0x60)
     {
-      ctl |= 0xa0000;
+      ctl |= 0x20000;
     }
     else
     {
-      ctl |= 0x90000;
+      ctl |= 0x10000;
     }
   }
   return( ctl);

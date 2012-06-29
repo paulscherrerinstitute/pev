@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.7  2012/06/14 14:00:05  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.8  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
+ *
+ * Revision 1.35  2012/06/28 12:36:13  ioxos
+ * support for IRQ from usr1 and usr2 [JFG]
  *
  * Revision 1.34  2012/05/23 08:14:39  ioxos
  * add support for event queues [JFG]
@@ -155,6 +158,8 @@ typedef unsigned char uchar;
 #define PEV_SCSR_ITC_VME    0x90
 #define PEV_SCSR_ITC_DMA    0xa0
 #define PEV_SCSR_ITC_USR    0xb0
+#define PEV_SCSR_ITC_USR1   0xb0
+#define PEV_SCSR_ITC_USR2   0xb0
 #define PEV_SCSR_VME_ADER   0xc0
 #define PEV_SCSR_VME_CSR    0xd0
 #define PEV_SCSR_ILOC_SPI   0xd0
@@ -186,10 +191,12 @@ typedef unsigned char uchar;
 #define PEV_CSR_ITC_VME   0x480
 #define PEV_CSR_ITC_DMA   0x880
 #define PEV_CSR_ITC_USR   0xc80
+#define PEV_CSR_ITC_USR1  0x1080
+#define PEV_CSR_ITC_USR2  0x1480
 #define PEV_CSR_VME_ADER  0x560
 #define PEV_CSR_VME_CSR   0x5f0
 #define PEV_CSR_ITC_SHIFT 2
-#define PEV_CSR_ITC_MASK  0xc00
+#define PEV_CSR_ITC_MASK  0x1c00
 
 struct pev_reg_remap
 {
@@ -214,6 +221,8 @@ struct pev_reg_remap
   uint dma_itc;
   uint usr_itc;
   uint usr_fifo;
+  uint usr1_itc;
+  uint usr2_itc;
 };
 
 #define PEV_BOARD_PEV1100 0x73571100
@@ -819,6 +828,13 @@ struct pev_ioctl_histo
   int size;
 };
 
+
+#define EVT_SRC_LOC     0x00  /* interrupt controler for local events          */
+#define EVT_SRC_VME     0x10  /* interrupt controler for VME events          */
+#define EVT_SRC_DMA     0x20  /* interrupt controler for DMA events          */
+#define EVT_SRC_USR     0x30  /* interrupt controler for USR events          */
+#define EVT_SRC_USR1    0x40  /* interrupt controler for USR1 events          */
+#define EVT_SRC_USR2    0x50  /* interrupt controler for USR2 events          */
 
 struct pev_ioctl_evt
 {

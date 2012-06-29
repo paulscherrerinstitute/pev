@@ -38,11 +38,14 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.9  2012/06/18 13:21:40  kalt_r
- * correct IDT eeprom delay to 2
+ * Revision 1.10  2012/06/29 08:47:00  kalantari
+ * checked in the PEV_4_14 got from JF ioxos
  *
- * Revision 1.8  2012/06/14 14:00:04  kalantari
- * added support for r/w PCI_IO bus registers, also added read USR1 generic area per DMA and distribute the readout into individual records
+ * Revision 1.46  2012/06/28 12:22:57  ioxos
+ * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
+ *
+ * Revision 1.45  2012/06/15 13:13:35  ioxos
+ * set delay to 2 msec in pev_idt_eeprom_write [JFG]
  *
  * Revision 1.44  2012/05/23 15:40:32  ioxos
  * bug in calling i2c_read [JFG]
@@ -212,6 +215,8 @@
 #else
 #define debugk(x) 
 #endif
+int pev_inl( struct pev_dev *, uint);
+void  pev_outl( struct pev_dev *, uint, uint);
 
 uint vme_irq_vector[16];
 uint vme_irq_idx[16];
@@ -432,18 +437,22 @@ pev_rdwr(struct pev_dev *pev,
 
   if( pev_addr)
   {
+    int retval;
+
+    retval = 0;
     if( m->dir) /* write cycle */
     {
-      return( rdwr_wr_sgl( rdwr_p->buf, pev_addr, m));
+      retval = rdwr_wr_sgl( rdwr_p->buf, pev_addr, m);
     }
     else /* read cycle */
     {
-      return( rdwr_rd_sgl( rdwr_p->buf, pev_addr, m));
+      retval = rdwr_rd_sgl( rdwr_p->buf, pev_addr, m);
     }
     if( pev_remap)
     {
       iounmap( pev_addr);
     }
+    return(retval);
   }
   return( -EINVAL);
 }
@@ -462,11 +471,18 @@ pev_sflash_set_reg( struct pev_dev *pev,
   else
   {
     if( dev) return(-1);
-    if( pev->io_remap.short_io)
+    if( pev->csr_remap)
     {
-      outl( PEV_SCSR_SEL_ILOC, pev->io_base);
+      reg_p =(unsigned long)pev->csr_ptr + pev->io_remap[1].iloc_spi;
     }
-    reg_p =(unsigned long)pev->io_base + pev->io_remap.iloc_spi;
+    else
+    {
+      if( pev->io_remap[0].short_io)
+      {
+        pev_outl( pev, PEV_SCSR_SEL_ILOC, 0);
+      }
+      reg_p =(unsigned long)pev->io_base + pev->io_remap[0].iloc_spi;
+    }
   }
   sflash_set_dev(dev);
 
@@ -633,6 +649,10 @@ pev_fpga_load(struct pev_dev *pev,
   int nblk, res, first, bsize;
   unsigned char *s;
 
+ if( pev->board != PEV_BOARD_IFC1210)
+  {
+    return(-ENODEV);
+  }
   retval = 0;
   bsize = 0x100000;
   order = get_order( bsize); 
@@ -692,10 +712,10 @@ pev_sg_master_32_set( struct pev_dev *pev,
 		      ulong rem_addr,
 		      uint mode)
 {
-  outl( 0x10000 + (4*off), pev->io_base + pev->io_remap.pcie_mmu);
-  outl( mode, pev->io_base + pev->io_remap.pcie_mmu + 0x4);
-  outl( 0x10002 + (4*off), pev->io_base + pev->io_remap.pcie_mmu);
-  outl( (uint)(rem_addr >> 18), pev->io_base + pev->io_remap.pcie_mmu + 0x4);
+  pev_outl( pev, 0x10000 + (4*off), pev->io_remap[pev->csr_remap].pcie_mmu);
+  pev_outl( pev, mode, pev->io_remap[pev->csr_remap].pcie_mmu + 0x4);
+  pev_outl( pev, 0x10002 + (4*off), pev->io_remap[pev->csr_remap].pcie_mmu);
+  pev_outl( pev, (uint)(rem_addr >> 18), pev->io_remap[pev->csr_remap].pcie_mmu + 0x4);
 
   return;
 }
@@ -706,10 +726,10 @@ pev_sg_master_64_set( struct pev_dev *pev,
 		      ulong rem_addr,
 		      uint mode)
 {
-  outl( 4*off, pev->io_base + pev->io_remap.pcie_mmu);
-  outl( mode, pev->io_base + pev->io_remap.pcie_mmu + 0x4);
-  outl( 2 + (4*off), pev->io_base + pev->io_remap.pcie_mmu);
-  outl( (uint)(rem_addr >> 18), pev->io_base + pev->io_remap.pcie_mmu + 0x4);
+  pev_outl( pev, 4*off, pev->io_remap[pev->csr_remap].pcie_mmu);
+  pev_outl( pev, mode, pev->io_remap[pev->csr_remap].pcie_mmu + 0x4);
+  pev_outl( pev, 2 + (4*off), pev->io_remap[pev->csr_remap].pcie_mmu);
+  pev_outl( pev, (uint)(rem_addr >> 18), pev->io_remap[pev->csr_remap].pcie_mmu + 0x4);
 
   return;
 }
@@ -720,20 +740,20 @@ pev_sg_slave_vme_set( struct pev_dev *pev,
 		      ulong rem_addr,
 		      uint mode)
 {
-  outl( 8*off, pev->io_base + pev->io_remap.vme_base + 0x10);
-  outl( mode, pev->io_base + pev->io_remap.vme_base + 0x14);
-  outl( 2 + (8*off), pev->io_base + pev->io_remap.vme_base + 0x10);
-  outl( (uint)(rem_addr >> 16), pev->io_base + pev->io_remap.vme_base + 0x14);
+  pev_outl( pev, 8*off, pev->io_remap[pev->csr_remap].vme_base + 0x10);
+  pev_outl( pev, mode, pev->io_remap[pev->csr_remap].vme_base + 0x14);
+  pev_outl( pev, 2 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
+  pev_outl( pev, (uint)(rem_addr >> 16), pev->io_remap[pev->csr_remap].vme_base + 0x14);
 #ifdef PPC
-  outl( 4 + (8*off), pev->io_base + pev->io_remap.vme_base + 0x10);
-  outl( 0, pev->io_base + pev->io_remap.vme_base + 0x14);
-  outl( 6 + (8*off), pev->io_base + pev->io_remap.vme_base + 0x10);
-  outl( 0, pev->io_base + pev->io_remap.vme_base + 0x14);
+  pev_outl( pev, 4 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
+  pev_outl( pev, 0, pev->io_remap[pev->csr_remap].vme_base + 0x14);
+  pev_outl( pev, 6 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
+  pev_outl( pev, 0, pev->io_remap[pev->csr_remap].vme_base + 0x14);
 #else
-  outl( 4 + (8*off), pev->io_base + pev->io_remap.vme_base + 0x10);
-  outl( (uint)(rem_addr >> 32), pev->io_base + pev->io_remap.vme_base + 0x14);
-  outl( 6 + (8*off), pev->io_base + pev->io_remap.vme_base + 0x10);
-  outl( (uint)(rem_addr >> 48), pev->io_base + pev->io_remap.vme_base + 0x14);
+  pev_outl( pev, 4 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
+  pev_outl( pev, (uint)(rem_addr >> 32), pev->io_remap[pev->csr_remap].vme_base + 0x14);
+  pev_outl( pev, 6 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
+  pev_outl( pev, (uint)(rem_addr >> 48), pev->io_remap[pev->csr_remap].vme_base + 0x14);
 #endif
   return;
 }
@@ -780,14 +800,14 @@ pev_map_set_sg( struct pev_dev *pev,
     {
       uint tmp;
 
-      tmp = inl( pev->io_base + pev->io_remap.vme_base + 0x8) & 0xf;
+      tmp = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_base + 0x8) & 0xf;
       if( tmp & VME_SLV_1MB)
       {
         uint base, delta, size, pg;
 
         size = 0x100000 << (tmp&7);
-        base = inl( pev->io_base + pev->io_remap.vme_ader) << 24;
-        base += inl( pev->io_base + pev->io_remap.vme_ader + 4) << 16;
+        base = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_ader) << 24;
+        base += pev_inl( pev, pev->io_remap[pev->csr_remap].vme_ader + 4) << 16;
 	delta = (base % size)>>20;
         for( i = off; i < off + mp[off].npg; i++)
         {
@@ -850,14 +870,14 @@ pev_map_clear_sg( struct pev_dev *pev,
     {
       uint tmp;
 
-      tmp = inl( pev->io_base + pev->io_remap.vme_base + 0x8) & 0xf;
+      tmp = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_base + 0x8) & 0xf;
       if( tmp & VME_SLV_1MB)
       {
         uint base, delta, size, pg;
 
         size = 0x100000 << (tmp&7);
-        base = inl( pev->io_base + pev->io_remap.vme_ader) << 24;
-        base += inl( pev->io_base + pev->io_remap.vme_ader + 4) << 16;
+        base = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_ader) << 24;
+        base += pev_inl( pev, pev->io_remap[pev->csr_remap].vme_ader + 4) << 16;
 	delta = (base % size)>>20;
         for( i = off; i < off + mp[off].npg; i++)
         {
@@ -1080,11 +1100,18 @@ pev_i2c_set_reg( struct pev_dev *pev,
   else
   {
     i2c_set_elb(0);
-    if( pev->io_remap.short_io)
+    if( pev->csr_remap)
     {
-      outl( PEV_SCSR_SEL_ILOC, pev->io_base);
+      reg_p = (ulong)pev->csr_ptr + pev->io_remap[1].iloc_i2c;
     }
-    reg_p = (ulong)pev->io_base + pev->io_remap.iloc_i2c;
+    else
+    {
+      if( pev->io_remap[0].short_io)
+      {
+        pev_outl( pev, PEV_SCSR_SEL_ILOC, 0);
+      }
+    }
+    reg_p = (ulong)pev->io_base + pev->io_remap[0].iloc_i2c;
   }
   return( reg_p);
 }
@@ -1146,9 +1173,10 @@ pev_i2c_pex_read(struct pev_dev *pev,
 	         struct pev_ioctl_i2c *i2c_para_p)
 {
   uint sts;
-  i2c_cmd( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, i2c_para_p->cmd);
-  i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
-  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, &sts);
+
+  i2c_cmd( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, i2c_para_p->cmd);
+  i2c_wait( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 100000);
+  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, &sts);
 
   return;
 }
@@ -1157,8 +1185,8 @@ void
 pev_i2c_pex_write(struct pev_dev *pev,
 	          struct pev_ioctl_i2c *i2c_para_p)
 {
-  i2c_write( pev->io_base + pev->io_remap.iloc_i2c, 0x010f0069, i2c_para_p->cmd, i2c_para_p->data);
-  i2c_wait( pev->io_base + pev->io_remap.iloc_i2c, 100000);
+  i2c_write( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, i2c_para_p->cmd, i2c_para_p->data);
+  i2c_wait( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 100000);
 
   return;
 }
@@ -1171,6 +1199,10 @@ pev_idt_eeprom_read(struct pev_dev *pev,
   int order, data, tmo, i;
   int retval;
 
+  if( pev->board != PEV_BOARD_IFC1210)
+  {
+    return(-ENODEV);
+  }
   if( (rdwr_p->offset + rdwr_p->len) > 0x10000)
   {
     return( -EIO);
@@ -1222,6 +1254,10 @@ pev_idt_eeprom_write(struct pev_dev *pev,
   volatile int tmo;
   int retval;
 
+  if( pev->board != PEV_BOARD_IFC1210)
+  {
+    return(-ENODEV);
+  }
   if( (rdwr_p->offset + rdwr_p->len) > 0x10000)
   {
     return( -EIO);
@@ -1279,10 +1315,10 @@ pev_vme_irq( struct pev_dev *pev,
   pev->vme_status |= VME_IRQ_RECEIVED | ( 0x10000 << (src&0xf));
   idx = vme_irq_idx[src&0xf];
   /* get interrupt vector */
-  //pev->vme_irq_ctl[idx].vector = inl(pev->io_base + pev->io_remap.vme_itc);
+  //pev->vme_irq_ctl[idx].vector = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_itc);
   pev->vme_irq_ctl[idx].vector = vec;
   /* mask interrupt belonging to the same set */
-  outl( pev->vme_irq_ctl[idx].set, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+  pev_outl( pev, pev->vme_irq_ctl[idx].set, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
   /* raise semaphore */
   up( &pev->vme_irq_ctl[idx].sem);
 }
@@ -1323,7 +1359,7 @@ pev_vme_irq_alloc( struct pev_dev *pev,
 
     /* mask VME  interrupts belonging to set */
   debugk(("VME IRQ unmasking -> %08x\ - %08n", pev->vme_irq_ctl[idx].set, pev->vme_irq_set));
-  outl( pev->vme_irq_ctl[idx].set, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+  pev_outl( pev, pev->vme_irq_ctl[idx].set, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
 
   /* reset semahore */
   sema_init( &pev->vme_irq_ctl[idx].sem, 0);
@@ -1349,7 +1385,7 @@ pev_vme_irq_arm( struct pev_dev *pev,
 
     /* unmask VME  interrupts belonging to set */
   debugk(("VME IRQ unmasking -> %08x\ - %08n", pev->vme_irq_ctl[idx].set, pev->vme_irq_set));
-  outl( pev->vme_irq_ctl[idx].set, pev->io_base + pev->io_remap.vme_itc + 0x08);
+  pev_outl( pev, pev->vme_irq_ctl[idx].set, pev->io_remap[pev->csr_remap].vme_itc + 0x08);
 
   pev->vme_status = VME_IRQ_STARTED;
 
@@ -1386,7 +1422,7 @@ pev_vme_irq_wait( struct pev_dev *pev,
   else
   {
     pev->vme_status |= VME_IRQ_ENDED;
-    irq->vector = inl(pev->io_base + pev->io_remap.vme_itc);
+    irq->vector = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_itc);
     debugk(("VME IRQ received -> %x\n", pev->vme_status));
   }
   return( 0);
@@ -1410,7 +1446,7 @@ pev_vme_irq_clear( struct pev_dev *pev,
 
     /* mask VME  interrupts belonging to set */
   debugk(("VME IRQ unmasking -> %08x\ - %08n", pev->vme_irq_ctl[idx].set, pev->vme_irq_set));
-  outl( pev->vme_irq_ctl[idx].set, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+  pev_outl( pev, pev->vme_irq_ctl[idx].set, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
 
   return( 0);
 }
@@ -1423,7 +1459,7 @@ pev_vme_irq_init(struct pev_dev *pev)
   /* mask all VME interupt */
   pev->vme_status = 0;
   pev->vme_irq_set = 0;
-  outl( 0xffff, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+  pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
   for( i = 0; i < 16; i++)
   {
     pev_irq_register( pev, 0x10+i, pev_vme_irq, &vme_irq_vector[i]);
@@ -1432,7 +1468,7 @@ pev_vme_irq_init(struct pev_dev *pev)
   }
   sema_init( &pev->vme_sem, 0);
   /* clear all pending interrupts and enable VME global interupt */
-  outl( 0x7, pev->io_base + pev->io_remap.vme_itc + 0x04);
+  pev_outl( pev, 0x7, pev->io_remap[pev->csr_remap].vme_itc + 0x04);
 }
 
 
@@ -1443,13 +1479,22 @@ pev_vme_conf_read(struct pev_dev *pev,
   struct vme_ctl vme;
   struct vme_reg reg;
 
-  if( pev->io_remap.short_io)
+  if( pev->csr_remap)
   {
-    outl( PEV_SCSR_SEL_VME, pev->io_base);
+    reg.ctl = (ulong)pev->csr_ptr + pev->io_remap[1].vme_base;
+    reg.ader = (ulong)pev->csr_ptr + pev->io_remap[1].vme_ader;
+    reg.csr = (ulong)pev->csr_ptr + pev->io_remap[1].vme_csr;
   }
-  reg.ctl = pev->io_base + pev->io_remap.vme_base;
-  reg.ader = pev->io_base + pev->io_remap.vme_ader;
-  reg.csr = pev->io_base + pev->io_remap.vme_csr;
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    reg.ctl = pev->io_base + pev->io_remap[0].vme_base;
+    reg.ader = pev->io_base + pev->io_remap[0].vme_ader;
+    reg.csr = pev->io_base + pev->io_remap[0].vme_csr;
+  }
   vme_conf_get( &reg, &vme);
   conf->a24_base  = (vme.arb & 0x1f0000)<<3;
   conf->a24_size  = 0x80000;
@@ -1470,7 +1515,7 @@ pev_vme_conf_read(struct pev_dev *pev,
   conf->bto       = 0x10 << (( vme.arb >> 8) & 3) ;
   conf->req       = (char)( vme.master & 0x3);
   conf->level     = (char)(( vme.master >>  2) & 3);
-  conf->mas_ena   = (char)(( vme.master >> 31) & 1);
+  conf->mas_ena   = (char)((( vme.master >> 24) & 0x80) | (( vme.master >> 5) & 1));
   conf->slv_ena   = (char)((( vme.slave  >> 31) & 1) | (vme.slave & VME_SLV_1MB));
   conf->slv_retry = (char)(( vme.slave >> 4) & 1);
   conf->burst     = (char)(( vme.slave >>  6) & 3);
@@ -1485,13 +1530,22 @@ pev_vme_conf_write(struct pev_dev *pev,
   struct vme_ctl vme;
   struct vme_reg reg;
 
-  if( pev->io_remap.short_io)
+  if( pev->csr_remap)
   {
-    outl( PEV_SCSR_SEL_VME, pev->io_base);
+    reg.ctl = (ulong)pev->csr_ptr + pev->io_remap[1].vme_base;
+    reg.ader = (ulong)pev->csr_ptr + pev->io_remap[1].vme_ader;
+    reg.csr = (ulong)pev->csr_ptr + pev->io_remap[1].vme_csr;
   }
-  reg.ctl = pev->io_base + pev->io_remap.vme_base;
-  reg.ader = pev->io_base + pev->io_remap.vme_ader;
-  reg.csr = pev->io_base + pev->io_remap.vme_csr;
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    reg.ctl = pev->io_base + pev->io_remap[0].vme_base;
+    reg.ader = pev->io_base + pev->io_remap[0].vme_ader;
+    reg.csr = pev->io_base + pev->io_remap[0].vme_csr;
+  }
 
   vme.arb = ( conf->arb  & 3);
   if(  (conf->bto > 16) && (conf->bto <= 32)) vme.arb  |= 100;
@@ -1499,7 +1553,8 @@ pev_vme_conf_write(struct pev_dev *pev,
   else  vme.arb  |= 300;
 
   vme.master = ( conf->req  & 3) | (( conf->level  & 3) << 2);
-  if( conf->mas_ena) vme.master |= 0x80000000;
+  if( conf->mas_ena & 0x80) vme.master |= 0x80000000;
+  if( conf->mas_ena & 0x01) vme.master |= 0x20;
 
   if( conf->slv_ena & VME_SLV_1MB)
   {
@@ -1527,8 +1582,8 @@ pev_vme_conf_write(struct pev_dev *pev,
   if( conf->slv_ena & VME_SLV_ENA) vme.slave |= 0x80000000;
   vme.ader = conf->a32_base;
   vme_conf_set( &reg, &vme);
-  if( conf->slv_ena & VME_SLV_ENA) vme_crcsr_set( pev->io_base + pev->io_remap.vme_csr, 0x10);
-  else vme_crcsr_clear( pev->io_base + pev->io_remap.vme_csr, 0x10);
+  if( conf->slv_ena & VME_SLV_ENA) vme_crcsr_set( reg.csr, 0x10);
+  else vme_crcsr_clear( reg.csr, 0x10);
 
   return;
 }
@@ -1538,19 +1593,33 @@ pev_vme_crcsr( struct pev_dev *pev,
 	       struct pev_ioctl_vme_crcsr *crcsr)
 {
   uint data = 0;
+  ulong vme_csr;
+
+  if( pev->csr_remap)
+  {
+    vme_csr = (ulong)pev->csr_ptr + pev->io_remap[1].vme_csr;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_csr = pev->io_base + pev->io_remap[0].vme_csr;
+  }
 
   if( crcsr->operation & VME_CRCSR_GET)
   {
-    data = vme_crcsr_set( pev->io_base + pev->io_remap.vme_csr, 0);
+    data = vme_crcsr_set( vme_csr, 0);
     crcsr->get = data;
   }
   if( crcsr->operation & VME_CRCSR_CLEAR)
   {
-    data = vme_crcsr_clear( pev->io_base + pev->io_remap.vme_csr, crcsr->clear);
+    data = vme_crcsr_clear( vme_csr, crcsr->clear);
   }
   if( crcsr->operation & VME_CRCSR_SET)
   {
-    data = vme_crcsr_set( pev->io_base + pev->io_remap.vme_csr, crcsr->set);
+    data = vme_crcsr_set( vme_csr, crcsr->set);
   }
   return( data);
 }
@@ -1560,6 +1629,7 @@ pev_vme_rmw( struct pev_dev *pev,
 	     struct pev_ioctl_vme_rmw *rmw_p)
 {
   uint mode;
+  ulong vme_base;
 
   mode = rmw_p->ds & 3;
   if( !mode) mode = 3;
@@ -1600,7 +1670,19 @@ pev_vme_rmw( struct pev_dev *pev,
       return( -1);
     }
   }
-  rmw_p->status = vme_cmp_swap( pev->io_base + pev->io_remap.vme_base, rmw_p->addr,  rmw_p->cmp,  rmw_p->up, mode);
+  if( pev->csr_remap)
+  {
+    vme_base = (ulong)pev->csr_ptr + pev->io_remap[1].vme_base;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_base = pev->io_base + pev->io_remap[0].vme_base;
+  }
+  rmw_p->status = vme_cmp_swap( vme_base, rmw_p->addr,  rmw_p->cmp,  rmw_p->up, mode);
 
   return(0);
 }
@@ -1609,16 +1691,42 @@ pev_vme_lock( struct pev_dev *pev,
 	     struct pev_ioctl_vme_lock *lock_p)
 {
   uint mode;
+  ulong vme_base;
 
+  if( pev->csr_remap)
+  {
+    vme_base = (ulong)pev->csr_ptr + pev->io_remap[1].vme_base;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_base = pev->io_base + pev->io_remap[0].vme_base;
+  }
   mode = lock_p->mode;
-  lock_p->status = vme_lock( pev->io_base + pev->io_remap.vme_base, lock_p->addr,  mode);
+  lock_p->status = vme_lock( vme_base, lock_p->addr,  mode);
   return(0);
 }
 
 uint
 pev_vme_unlock( struct pev_dev *pev)
 {
-  vme_unlock( pev->io_base);
+  ulong vme_base;
+  if( pev->csr_remap)
+  {
+    vme_base = (ulong)pev->csr_ptr + pev->io_remap[1].vme_base;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_base = pev->io_base + pev->io_remap[0].vme_base;
+  }
+  vme_unlock( vme_base);
   return(0);
 }
 
@@ -1628,7 +1736,7 @@ pev_vme_slv_init( struct pev_dev *pev)
   int i, tmp;
   uint size, base;
 
-  tmp = inl( pev->io_base + pev->io_remap.vme_base + 0x8) & 0xf;
+  tmp = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_base + 0x8) & 0xf;
   pev->map_slave.pg_size = 0x100000;
   if( tmp & VME_SLV_1MB)
   {
@@ -1641,8 +1749,8 @@ pev_vme_slv_init( struct pev_dev *pev)
     if( size == 0x80000000) pev->map_slave.pg_size = 0x400000;
   }
 
-  base = inl( pev->io_base + pev->io_remap.vme_ader) << 24;
-  base += inl( pev->io_base + pev->io_remap.vme_ader + 4) << 16;
+  base = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_ader) << 24;
+  base += pev_inl( pev, pev->io_remap[pev->csr_remap].vme_ader + 4) << 16;
 
   /* prepare scatter/gather for VME slave */
   pev->map_slave.pg_num = size/pev->map_slave.pg_size;
@@ -1664,20 +1772,36 @@ pev_timer_irq( struct pev_dev *pev,
 {
   struct vme_time tm;
   int chan;
-  vme_timer_read( pev->io_base + pev->io_remap.vme_timer, &tm);
+  //vme_timer_read( pev->io_base + pev->io_remap[pev->csr_remap].vme_timer, &tm);
+  tm.time  = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x0c);
+  tm.utime = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x08);
   chan = (tm.utime & 0x1ffff)/10;
   histo_inc( pev->crate, chan, 1000);
   /* unmask TIMER  interrupts */
-  outl( 0x400, pev->io_base + pev->io_remap.vme_itc + 0x08);
+  pev_outl( pev, 0x400, pev->io_remap[pev->csr_remap].vme_itc + 0x08);
   return;
 }
 
 void
 pev_timer_init( struct pev_dev *pev)
 {
+  ulong vme_timer;
+
+  if( pev->csr_remap)
+  {
+    vme_timer = (ulong)pev->csr_ptr + pev->io_remap[1].vme_timer;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_timer = pev->io_base + pev->io_remap[0].vme_timer;
+  }
   pev_irq_register( pev, 0x1a, pev_timer_irq, NULL);
   histo_init();
-  vme_timer_start( pev->io_base + pev->io_remap.vme_timer, 3, 0);
+  vme_timer_start( vme_timer, 3, 0);
   return;
 }
 
@@ -1685,7 +1809,7 @@ void
 pev_timer_irq_ena( struct pev_dev *pev)
 {
   /* unmask TIMER  interrupts */
-  outl( 0x400, pev->io_base + pev->io_remap.vme_itc + 0x08);
+  pev_outl( pev, 0x400, pev->io_remap[pev->csr_remap].vme_itc + 0x08);
   return;
 }
 
@@ -1693,7 +1817,7 @@ void
 pev_timer_irq_dis( struct pev_dev *pev)
 {
   /* mask TIMER  interrupts */
-  outl( 0x400, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+  pev_outl( pev, 0x400, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
   return;
 }
 
@@ -1702,21 +1826,62 @@ pev_timer_start( struct pev_dev *pev,
 		 struct pev_ioctl_timer *tmr)
 {
   struct vme_time *tm;
+  ulong vme_timer;
 
+  if( pev->csr_remap)
+  {
+    vme_timer = (ulong)pev->csr_ptr + pev->io_remap[1].vme_timer;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_timer = pev->io_base + pev->io_remap[0].vme_timer;
+  }
   tm = (struct vme_time *)&tmr->time;
-  return( vme_timer_start( pev->io_base + pev->io_remap.vme_timer, tmr->mode, tm));
+  return( vme_timer_start( vme_timer, tmr->mode, tm));
 }
 void
 pev_timer_restart( struct pev_dev *pev)
 {
-  vme_timer_restart( pev->io_base + pev->io_remap.vme_timer);
+  ulong vme_timer;
+
+  if( pev->csr_remap)
+  {
+    vme_timer = (ulong)pev->csr_ptr + pev->io_remap[1].vme_timer;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_timer = pev->io_base + pev->io_remap[0].vme_timer;
+  }
+  vme_timer_restart( vme_timer);
   return;
 }
 
 void
 pev_timer_stop( struct pev_dev *pev)
 {
-  vme_timer_stop( pev->io_base + pev->io_remap.vme_timer);
+  ulong vme_timer;
+
+  if( pev->csr_remap)
+  {
+    vme_timer = (ulong)pev->csr_ptr + pev->io_remap[1].vme_timer;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_timer = pev->io_base + pev->io_remap[0].vme_timer;
+  }
+  vme_timer_stop( vme_timer);
   return;
 }
 
@@ -1725,9 +1890,23 @@ pev_timer_read( struct pev_dev *pev,
 		struct pev_ioctl_timer *tmr)
 {
   struct vme_time *tm;
+  ulong vme_timer;
+
+  if( pev->csr_remap)
+  {
+    vme_timer = (ulong)pev->csr_ptr + pev->io_remap[1].vme_timer;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    vme_timer = pev->io_base + pev->io_remap[0].vme_timer;
+  }
 
   tm = (struct vme_time *)&tmr->time;
-  vme_timer_read( pev->io_base + pev->io_remap.vme_timer, tm);
+  vme_timer_read( vme_timer, tm);
   return;
 }
 
@@ -1748,12 +1927,21 @@ pev_fifo_init(struct pev_dev *pev)
 {
   int i;
   u32 value;
+  ulong usr_fifo;
 
-  if( pev->io_remap.short_io)
+  if( pev->csr_remap)
   {
-    outl( PEV_SCSR_SEL_USR, pev->io_base);
+    usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
   }
-  fifo_init( pev->io_base + pev->io_remap.usr_fifo);
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
+  }
+  fifo_init( usr_fifo);
 
   for (i = 0; i < 8; i++) 
   {
@@ -1763,7 +1951,7 @@ pev_fifo_init(struct pev_dev *pev)
 
   /* enable USR global interupt */
   value = 0x3;
-  outl( value, pev->io_base + pev->io_remap.usr_itc + 0x04);
+  pev_outl( pev, value, pev->io_remap[pev->csr_remap].usr_itc + 0x04);
 
   return;
 }
@@ -1773,12 +1961,22 @@ pev_fifo_status( struct pev_dev *pev,
 	         struct pev_ioctl_fifo *fifo)
 
 {
-  if( pev->io_remap.short_io)
+  ulong usr_fifo;
+
+  if( pev->csr_remap)
   {
-    outl( PEV_SCSR_SEL_USR, pev->io_base);
+    usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
   }
   /* get FIFO status*/
-  fifo_status( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+  fifo_status( usr_fifo, fifo->idx, &fifo->sts);
 
   return;
 }
@@ -1789,18 +1987,28 @@ pev_fifo_clear( struct pev_dev *pev,
 
 {
   uint irq;
+  ulong usr_fifo;
 
-  if( pev->io_remap.short_io)
+  if( pev->csr_remap)
   {
-    outl( PEV_SCSR_SEL_USR, pev->io_base);
+    usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
   }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
+  }
+
   /* mask FIFO  interrupts */
   irq = 1 << fifo->idx;
-  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x0c);
+  pev_outl( pev, irq, pev->io_remap[pev->csr_remap].usr_itc + 0x0c);
   irq = 0x10 << fifo->idx;
-  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x0c);
+  pev_outl( pev, irq, pev->io_remap[pev->csr_remap].usr_itc + 0x0c);
   /* clear FIFO */
-  fifo_clear( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+  fifo_clear( usr_fifo, fifo->idx, &fifo->sts);
   /* reset semaphores */
   sema_init( &pev->fifo_sem[fifo->idx], 0);
   sema_init( &pev->fifo_sem[fifo->idx+4], 0);
@@ -1815,20 +2023,31 @@ pev_fifo_wait_ef( struct pev_dev *pev,
   uint irq;
   int retval;
   int jiffies;
+  ulong usr_fifo;
+
+  if( pev->csr_remap)
+
+  {
+    usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
+  }
 
   irq = 1 << fifo->idx;
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_USR, pev->io_base);
-  }
   /* reset semaphores */
   sema_init( &pev->fifo_sem[fifo->idx], 0);
 
   /* clear FIFO  interrupts */
-  outl( irq << 16, pev->io_base + pev->io_remap.usr_itc);
+  pev_outl( pev, irq << 16, pev->io_remap[pev->csr_remap].usr_itc);
 
   /* unmask FIFO  interrupts */
-  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x08);
+  pev_outl( pev, irq, pev->io_remap[pev->csr_remap].usr_itc + 0x08);
 
   /* wait for semaphores */
   jiffies = msecs_to_jiffies( fifo->tmo);
@@ -1841,7 +2060,7 @@ pev_fifo_wait_ef( struct pev_dev *pev,
     retval = down_interruptible( &pev->fifo_sem[fifo->idx]);
   }
 
-  fifo_status( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+  fifo_status( usr_fifo, fifo->idx, &fifo->sts);
 
   return( retval);
 }
@@ -1855,20 +2074,30 @@ pev_fifo_wait_ff( struct pev_dev *pev,
   uint irq;
   int retval;
   int jiffies;
+  ulong usr_fifo;
 
-  irq = 0x10 << fifo->idx;
-  if( pev->io_remap.short_io)
+  if( pev->csr_remap)
   {
-    outl( PEV_SCSR_SEL_USR, pev->io_base);
+    usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
   }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
+  }
+  irq = 0x10 << fifo->idx;
+
   /* reset semaphores */
   sema_init( &pev->fifo_sem[fifo->idx+4], 0);
 
   /* clear FIFO  interrupts */
-  outl( irq << 16, pev->io_base + pev->io_remap.usr_itc);
+  pev_outl( pev, irq << 16, pev->io_remap[pev->csr_remap].usr_itc);
 
   /* unmask FIFO  interrupts */
-  outl( irq, pev->io_base + pev->io_remap.usr_itc + 0x08);
+  pev_outl( pev, irq, pev->io_remap[pev->csr_remap].usr_itc + 0x08);
 
   /* wait for semaphores */
   jiffies = msecs_to_jiffies( fifo->tmo);
@@ -1881,7 +2110,7 @@ pev_fifo_wait_ff( struct pev_dev *pev,
     retval = down_interruptible( &pev->fifo_sem[fifo->idx+4]);
   }
 
-  fifo_status( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, &fifo->sts);
+  fifo_status( usr_fifo, fifo->idx, &fifo->sts);
 
   return( retval);
 }
@@ -1892,15 +2121,25 @@ pev_fifo_read( struct pev_dev *pev,
 
 {
   int *ptr, bcnt, wcnt;
+  ulong usr_fifo;
+
+  if( pev->csr_remap)
+  {
+    usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
+  }
 
 
   bcnt = sizeof(int) * fifo->cnt;
   ptr = (int *)kmalloc( bcnt, GFP_KERNEL);
-  if( pev->io_remap.short_io)
-  {
-    outl( PEV_SCSR_SEL_USR, pev->io_base);
-  }
-  wcnt = fifo_read( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, ptr, fifo->cnt, &fifo->sts);
+  wcnt = fifo_read( usr_fifo, fifo->idx, ptr, fifo->cnt, &fifo->sts);
   fifo->cnt = wcnt;
   bcnt = sizeof(int) * wcnt;
   if( copy_to_user( fifo->data, ptr, bcnt))
@@ -1917,6 +2156,7 @@ pev_fifo_write( struct pev_dev *pev,
 
 {
   int *ptr, wcnt, bcnt;
+  ulong usr_fifo;
 
   bcnt = sizeof(int) * fifo->cnt;
   ptr = (int *)kmalloc( bcnt, GFP_KERNEL);
@@ -1927,11 +2167,19 @@ pev_fifo_write( struct pev_dev *pev,
   }
   else
   {
-    if( pev->io_remap.short_io)
+    if( pev->csr_remap)
     {
-      outl( PEV_SCSR_SEL_USR, pev->io_base);
+      usr_fifo = (ulong)pev->csr_ptr + pev->io_remap[1].usr_fifo;
     }
-    wcnt = fifo_write( pev->io_base + pev->io_remap.usr_fifo, fifo->idx, ptr, fifo->cnt, &fifo->sts);
+    else
+    {
+      if( pev->io_remap[0].short_io)
+      {
+        pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+      }
+      usr_fifo = pev->io_base + pev->io_remap[0].usr_fifo;
+    }
+    wcnt = fifo_write( usr_fifo, fifo->idx, ptr, fifo->cnt, &fifo->sts);
     fifo->cnt = wcnt;
   }
   kfree( ptr);
@@ -1961,8 +2209,25 @@ pev_dma_init( struct pev_dev *pev)
   void *kaddr;
   ulong baddr;
   int order;
+  ulong dma_rd;
+  ulong dma_wr;
 
-  dma_init( pev->crate, pev->dma_shm_ptr, pev->dma_shm_base, pev->dma_shm_len, pev->io_base + pev->io_remap.dma_rd, pev->io_base + pev->io_remap.dma_wr);
+  if( pev->csr_remap)
+  {
+    dma_rd = (ulong)pev->csr_ptr + pev->io_remap[1].dma_rd;
+    dma_wr = (ulong)pev->csr_ptr + pev->io_remap[1].dma_wr;
+  }
+  else
+  {
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
+    }
+    dma_rd = pev->io_base + pev->io_remap[0].dma_rd;
+    dma_wr = pev->io_base + pev->io_remap[0].dma_wr;
+  }
+
+  dma_init( pev->crate, pev->dma_shm_ptr, pev->dma_shm_base, pev->dma_shm_len, dma_rd, dma_wr);
   //kaddr = kmalloc( 0x100000, GFP_KERNEL);
   //kaddr = kmalloc( 0x20000, GFP_KERNEL | __GFP_DMA);
   order = get_order( 0x100000); 
@@ -1989,11 +2254,11 @@ pev_dma_init( struct pev_dev *pev)
 #endif
 
   /* enable DMA read engine */
-  outl( 0x80000000, pev->io_base + pev->io_remap.dma_rd);
+  pev_outl( pev, 0x80000000, pev->io_remap[pev->csr_remap].dma_rd);
   /* enable DMA write engine */
-  outl( 0x80000000, pev->io_base + pev->io_remap.dma_wr);
+  pev_outl( pev, 0x80000000, pev->io_remap[pev->csr_remap].dma_wr);
   /* enable DMA global interupt */
-  outl( 0x3, pev->io_base + pev->io_remap.dma_itc + 0x04);
+  pev_outl( pev, 0x3, pev->io_remap[pev->csr_remap].dma_itc + 0x04);
 
   return;
 }
@@ -2030,10 +2295,13 @@ pev_dma_move_blk( struct pev_dev *pev,
   uint rdo;
   uint swap_rd;
   uint swap_wr;
+  uint blk;
 
 
   swap_rd = 0;
   swap_wr = 0;
+  blk = (dma->size >> 16) & 0xf000;
+  dma->size &= 0xffffff;
   if( ( dma->src_space & DMA_SPACE_MASK) !=  DMA_SPACE_VME)
   {
     if( ( dma->src_space & DMA_SPACE_MASK) ==  DMA_SPACE_SHM)
@@ -2069,8 +2337,8 @@ pev_dma_move_blk( struct pev_dev *pev,
     }
     else
     {
-      rdo = dma_set_rd_desc( pev->crate, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd);
-      outl( rdo, pev->io_base + pev->io_remap.dma_rd + 0x04); /* start read engine */
+      rdo = dma_set_rd_desc( pev->crate, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk);
+      pev_outl( pev, rdo, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine */
       pev->dma_status = DMA_RUN_RD0;
       *irq_p = 0x03;
     }
@@ -2079,8 +2347,8 @@ pev_dma_move_blk( struct pev_dev *pev,
   {
     if( ( dma->des_space & DMA_SPACE_MASK) ==  DMA_SPACE_SHM)
     {
-      wdo = dma_set_wr_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr);
-      outl( wdo, pev->io_base + pev->io_remap.dma_wr + 0x04); /* start write engine */
+      wdo = dma_set_wr_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk);
+      pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
       pev->dma_status = DMA_RUN_WR0;
       *irq_p = 0x30;
     }
@@ -2092,26 +2360,26 @@ pev_dma_move_blk( struct pev_dev *pev,
       {
 	uint mode;
 
-	mode = ((dma->des_mode | swap_rd) << 16) | ((dma->src_mode | swap_wr) & 0xffff);
-        if( pev->io_remap.short_io)
+	mode = ((dma->des_mode | swap_rd | blk) << 16) | ((dma->src_mode | swap_wr | blk) & 0xffff);
+        if( pev->io_remap[pev->csr_remap].short_io)
         {
-          outl( PEV_SCSR_SEL_DMA, pev->io_base);
-	  outl( 0x8200, pev->io_base + 0xc8);      /* enable read pipe                                 */
-	  outl( 0x80c0, pev->io_base + 0xcc);      /* enable write pipe                                */
+          pev_outl( pev, PEV_SCSR_SEL_DMA, 0);
+	  pev_outl( pev, 0x8200, pev->io_base + 0xc8);      /* enable read pipe                                 */
+	  pev_outl( pev, 0x80c0, pev->io_base + 0xcc);      /* enable write pipe                                */
         }
 	else
 	{
-	  outl( 0x8200, pev->io_base + 0x850);      /* enable read pipe                                 */
-	  outl( 0x80c0, pev->io_base + 0x858);      /* enable write pipe                                */
+	  pev_outl( pev, 0x8200, pev->io_base + 0x850);      /* enable read pipe                                 */
+	  pev_outl( pev, 0x80c0, pev->io_base + 0x858);      /* enable write pipe                                */
 	}
         dma_set_pipe_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->des_space, dma->src_space, mode);
       }
       else
       {
-        wdo = dma_set_wr_desc( pev->crate, -1, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr);
-        rdo = dma_set_rd_desc( pev->crate, -1, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd);
-        outl( rdo | 0x6, pev->io_base + pev->io_remap.dma_rd + 0x04); /* start read engine waiting for trigger from write */
-        outl( wdo, pev->io_base + pev->io_remap.dma_wr + 0x04); /* start write engine */
+        wdo = dma_set_wr_desc( pev->crate, -1, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk);
+        rdo = dma_set_rd_desc( pev->crate, -1, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk);
+        pev_outl( pev, rdo | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
+        pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
       }
       pev->dma_status = DMA_RUN_RD0 | DMA_RUN_WR0;
       *irq_p = 0x33;
@@ -2131,8 +2399,8 @@ pev_dma_list_rd( struct pev_dev *pev,
   retval = 0;
   *irq_p = 0x00;
   dma_set_list_desc( pev->crate, dma);
-  outl( 0xff00800 | 0x6, pev->io_base + pev->io_remap.dma_rd + 0x04); /* start read engine waiting for trigger from write */
-  outl( 0xff00000, pev->io_base + pev->io_remap.dma_wr + 0x04); /* start write engine */
+  pev_outl( pev, 0xff00800 | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
+  pev_outl( pev, 0xff00000, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
   pev->dma_status = DMA_RUN_RD0 | DMA_RUN_WR0;
   *irq_p = 0x33;
   dma->intr_mode |= DMA_INTR_ENA;
@@ -2193,7 +2461,7 @@ pev_dma_move( struct pev_dev *pev,
     sema_init( &pev->dma_sem, 0);
 #endif
     /* unmask DMA  interrupts */
-    outl( irq, pev->io_base + pev->io_remap.dma_itc + 0x08);
+    pev_outl( pev, irq, pev->io_remap[pev->csr_remap].dma_itc + 0x08);
     /* check for wait mode */
     if( dma->wait_mode & DMA_WAIT_INTR)
     {
@@ -2220,14 +2488,14 @@ int
 pev_dma_status( struct pev_dev *pev,
 	        struct pev_ioctl_dma_sts *dma_sts)
 {
-  dma_sts->rd_csr  = inl(pev->io_base + pev->io_remap.dma_rd + 0x00);
-  dma_sts->rd_ndes = inl(pev->io_base + pev->io_remap.dma_rd + 0x04);
-  dma_sts->rd_cdes = inl(pev->io_base + pev->io_remap.dma_rd + 0x08);
-  dma_sts->rd_cnt  = inl(pev->io_base + pev->io_remap.dma_rd + 0x0c);
-  dma_sts->wr_csr  = inl(pev->io_base + pev->io_remap.dma_wr + 0x00);
-  dma_sts->wr_ndes = inl(pev->io_base + pev->io_remap.dma_wr + 0x04);
-  dma_sts->wr_cdes = inl(pev->io_base + pev->io_remap.dma_wr + 0x08);
-  dma_sts->wr_cnt  = inl(pev->io_base + pev->io_remap.dma_wr + 0x0c);
+  dma_sts->rd_csr  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd + 0x00);
+  dma_sts->rd_ndes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd + 0x04);
+  dma_sts->rd_cdes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd + 0x08);
+  dma_sts->rd_cnt  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd + 0x0c);
+  dma_sts->wr_csr  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x00);
+  dma_sts->wr_ndes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x04);
+  dma_sts->wr_cdes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x08);
+  dma_sts->wr_cnt  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x0c);
   dma_get_desc( pev->crate, (uint *)&dma_sts->start);
   return( 0);
 }
@@ -2313,7 +2581,7 @@ pev_evt_register( struct pev_dev *pev,
 {
   int src;
 
-  src = evt->src_id & 0x3f;
+  src = evt->src_id & 0x7f;
   pev_irq_register( pev, src, pev_evt_irq, evt->evt_queue);
   return( evt_register( evt->evt_queue, evt->src_id));
 }
@@ -2327,23 +2595,33 @@ pev_evt_enable( struct pev_dev *pev,
   p = evt_get_src_id( evt->evt_queue);
   if( p[0])
   {
-    outl( p[0]<<16, pev->io_base + pev->io_remap.iloc_itc);
-    outl( p[0], pev->io_base + pev->io_remap.iloc_itc + 0x08);
+    pev_outl( pev, p[0]<<16, pev->io_remap[pev->csr_remap].iloc_itc);
+    pev_outl( pev, p[0], pev->io_remap[pev->csr_remap].iloc_itc + 0x08);
   }
   if( p[1])
   {
-    outl( p[1]<<16, pev->io_base + pev->io_remap.vme_itc);
-    outl( p[1], pev->io_base + pev->io_remap.vme_itc + 0x08);
+    pev_outl( pev, p[1]<<16, pev->io_remap[pev->csr_remap].vme_itc);
+    pev_outl( pev, p[1], pev->io_remap[pev->csr_remap].vme_itc + 0x08);
   }
   if( p[2])
   {
-    outl( p[2]<<16, pev->io_base + pev->io_remap.dma_itc);
-    outl( p[2], pev->io_base + pev->io_remap.dma_itc + 0x08);
+    pev_outl( pev, p[2]<<16, pev->io_remap[pev->csr_remap].dma_itc);
+    pev_outl( pev, p[2], pev->io_remap[pev->csr_remap].dma_itc + 0x08);
   }
   if( p[3])
   {
-    outl( p[3]<<16, pev->io_base + pev->io_remap.usr_itc);
-    outl( p[3], pev->io_base + pev->io_remap.usr_itc + 0x08);
+    pev_outl( pev, p[3]<<16, pev->io_remap[pev->csr_remap].usr_itc);
+    pev_outl( pev, p[3], pev->io_remap[pev->csr_remap].usr_itc + 0x08);
+  }
+  if( p[4])
+  {
+    pev_outl( pev, p[4]<<16, pev->io_remap[pev->csr_remap].usr1_itc);
+    pev_outl( pev, p[4], pev->io_remap[pev->csr_remap].usr1_itc + 0x08);
+  }
+  if( p[5])
+  {
+    pev_outl( pev, p[5]<<16, pev->io_remap[pev->csr_remap].usr2_itc);
+    pev_outl( pev, p[5], pev->io_remap[pev->csr_remap].usr2_itc + 0x08);
   }
   return;
 }
@@ -2356,26 +2634,40 @@ pev_evt_unmask( struct pev_dev *pev,
 
   ip = 1 << (evt->src_id & 0xf) ;
 
-  switch( (evt->src_id >> 4) & 3)
+  switch( (evt->src_id >> 4) & 7)
   {
     case 0:
     {
-      outl( ip, pev->io_base + pev->io_remap.iloc_itc + 0x08);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].iloc_itc + 0x08);
       return;
     }
     case 1:
     {
-      outl( ip, pev->io_base + pev->io_remap.vme_itc + 0x08);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].vme_itc + 0x08);
       return;
     }
     case 2:
     {
-      outl( ip, pev->io_base + pev->io_remap.dma_itc + 0x08);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].dma_itc + 0x08);
       return;
     }
     case 3:
     {
-      outl( ip, pev->io_base + pev->io_remap.usr_itc + 0x08);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr_itc + 0x08);
+      return;
+    }
+    case 4:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr1_itc + 0x08);
+      return;
+    }
+    case 5:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr2_itc + 0x08);
+      return;
+    }
+    default:
+    {
       return;
     }
   }
@@ -2389,26 +2681,40 @@ pev_evt_mask( struct pev_dev *pev,
 
   ip = 1 << (evt->src_id & 0xf) ;
 
-  switch( (evt->src_id >> 4) & 3)
+  switch( (evt->src_id >> 4) & 7)
   {
     case 0:
     {
-      outl( ip, pev->io_base + pev->io_remap.iloc_itc + 0x0c);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].iloc_itc + 0x0c);
       return;
     }
     case 1:
     {
-      outl( ip, pev->io_base + pev->io_remap.vme_itc + 0x0c);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
       return;
     }
     case 2:
     {
-      outl( ip, pev->io_base + pev->io_remap.dma_itc + 0x0c);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].dma_itc + 0x0c);
       return;
     }
     case 3:
     {
-      outl( ip, pev->io_base + pev->io_remap.usr_itc + 0x0c);
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr_itc + 0x0c);
+      return;
+    }
+    case 4:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr1_itc + 0x0c);
+      return;
+    }
+    case 5:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr2_itc + 0x0c);
+      return;
+    }
+    default:
+    {
       return;
     }
   }
@@ -2424,19 +2730,27 @@ pev_evt_disable( struct pev_dev *pev,
   p = evt_get_src_id( evt->evt_queue);
   if( p[0])
   {
-    outl( p[0], pev->io_base + pev->io_remap.iloc_itc + 0x0c);
+    pev_outl( pev, p[0], pev->io_remap[pev->csr_remap].iloc_itc + 0x0c);
   }
   if( p[1])
   {
-    outl( p[0], pev->io_base + pev->io_remap.vme_itc + 0x0c);
+    pev_outl( pev, p[1], pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
   }
   if( p[2])
   {
-    outl( p[0], pev->io_base + pev->io_remap.dma_itc + 0x0c);
+    pev_outl( pev, p[2], pev->io_remap[pev->csr_remap].dma_itc + 0x0c);
   }
   if( p[3])
   {
-    outl( p[0], pev->io_base + pev->io_remap.usr_itc + 0x0c);
+    pev_outl( pev, p[3], pev->io_remap[pev->csr_remap].usr_itc + 0x0c);
+  }
+  if( p[4])
+  {
+    pev_outl( pev, p[4], pev->io_remap[pev->csr_remap].usr1_itc + 0x0c);
+  }
+  if( p[5])
+  {
+    pev_outl( pev, p[5], pev->io_remap[pev->csr_remap].usr2_itc + 0x0c);
   }
   return;
 }
@@ -2457,9 +2771,56 @@ pev_evt_read( struct pev_dev *pev,
   int evt_id;
 
   evt->evt_cnt= evt_read( evt->evt_queue, &evt_id, evt->wait);
-  evt->src_id = (evt_id >> 8) & 0x3f;
+  evt->src_id = (evt_id >> 8) & 0x7f;
   evt->vec_id = evt_id & 0xff;
   return(0);
 }
 
+void
+pev_usr1_irq( struct pev_dev *pev,
+	      int src,
+	      void *arg)
+{
+  //printk("usr1_irq: %x\n", src);
+  return;
+}
+
+void
+pev_usr1_irq_init(struct pev_dev *pev)
+{
+  int i;
+
+  /* mask all USR1 interupts */
+  pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].usr1_itc + 0x0c);
+  for( i = 0; i < 16; i++)
+  {
+    pev_irq_register( pev, EVT_SRC_USR1+i, pev_usr1_irq, NULL);
+  }
+  /* clear all pending interrupts and enable USR1 global interupt */
+  pev_outl( pev, 0x3, pev->io_remap[pev->csr_remap].usr1_itc + 0x04);
+}
+
+void
+pev_usr2_irq( struct pev_dev *pev,
+	      int src,
+	      void *arg)
+{
+  //printk("usr2_irq: %x\n", src);
+  return;
+}
+
+void
+pev_usr2_irq_init(struct pev_dev *pev)
+{
+  int i;
+
+  /* mask all USR2 interupts */
+  pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].usr2_itc + 0x0c);
+  for( i = 0; i < 16; i++)
+  {
+    pev_irq_register( pev, EVT_SRC_USR2+i, pev_usr2_irq, NULL);
+  }
+  /* clear all pending interrupts and enable USR2 global interupt */
+  pev_outl( pev, 0x3, pev->io_remap[pev->csr_remap].usr2_itc + 0x04);
+}
 
