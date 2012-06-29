@@ -48,14 +48,15 @@
 #define ISRC_PCI	0x00		/* ITC_SRC bits 13:12 of ITC_IACK*/
 #define ISRC_VME	0x10		/* ITC_SRC */
 #define ISRC_SHM	0x20		/* ITC_SRC */
-#define ISRC_USR	0x30		/* ITC_SRC */
+#define ISRC_USR	0x40		/* ITC_SRC actually  USR1 */
+#define ISRC_NONE	-1		/* ITC_SRC actually  USR1 */
 #define FLAG_BLKMD	1		/* BlockMode flag */
 #define FLAG_OFF	0		/* flag not defined (default) */
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.13 2012/06/26 15:13:10 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.14 2012/06/29 12:47:55 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -255,21 +256,21 @@ int pevWrite(
     if (!device || device->magic != MAGIC)
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead: illegal device handle\n");
+            "pevWrite: illegal device handle\n");
         return -1;
     }
 
     if (offset > device->pev_rmArea_map.win_size)
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead %s: offset %d out of range (0-%d)\n",
+            "pevWrite %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
     if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
+            "pevWrite %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
             device->name, offset, nelem, device->pev_rmArea_map.win_size,
             offset+dlen*nelem - device->pev_rmArea_map.win_size);
         return -1;
@@ -313,16 +314,16 @@ int pevWrite(
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
       if( pev_dma_move(&device->pev_dmaReq) )
         {
-          printf("pevRead(): Invalid DMA transfer parameters! do normal transfer\n");
+          printf("pevWrite(): Invalid DMA transfer parameters! do normal transfer\n");
 	}
       else 
         {
 	 if( device->pev_dmaReq.dma_status )
-           printf("pevRead(): DMA transfer failed! do normal transfer\n");
+           printf("pevWrite(): DMA transfer failed! do normal transfer\n");
 	 else
 	  {
              regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, swap);
-	     printf("Dma Done!!!!!! \n");
+	     printf("pevWrite():Dma Done!!!!!! \n");
              return 0;
 	   }
         }
@@ -378,7 +379,7 @@ int pevAsynRead(
         return -1;
     }
 
-    if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
+    if( device->pev_rmArea_map.mode & MAP_SPACE_VME )
     {
 #ifndef powerpc
       srcMode = DMA_SWAP;
@@ -388,6 +389,8 @@ int pevAsynRead(
       swap = 0;
 #endif
     }
+    if( device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+      swap = 1;
       
     if( nelem > 100 ) 		/* do DMA */
     {  
@@ -1455,31 +1458,26 @@ int pevIntrHanlder_init()
 
 int pevIntrRegister(int mapMode)
 {    
-  int src_id = 0, i;
+  int src_id = ISRC_NONE, i;
    
   if( mapMode & MAP_SPACE_VME)
-  {
     src_id = ISRC_VME;
-    for( i = 0; i < 8; i++)     /* all 7 vme intr levels */
-    {
-      src_id += 0x1;
-      pev_evt_register( pevIntrEvent, src_id);
-    }
-  }
   else
-  {
-    if( mapMode & MAP_SPACE_USR1)
-      src_id = ISRC_USR;
-    else
-    if( mapMode & MAP_SPACE_SHM)
-      src_id = ISRC_SHM;
-    else
-    if( mapMode & MAP_SPACE_PCIE)
-      src_id = ISRC_PCI;
-    
-    pev_evt_register( pevIntrEvent, src_id);
-  }
-  pev_evt_register( pevIntrEvent, src_id);
+  if( mapMode & MAP_SPACE_USR1)
+    src_id = ISRC_USR;
+  else
+  if( mapMode & MAP_SPACE_SHM)
+    src_id = ISRC_SHM;
+  else
+  if( mapMode & MAP_SPACE_PCIE)
+    src_id = ISRC_PCI;
+  
+  if(src_id != ISRC_NONE)
+    for( i = 0; i < 8; i++)	/* all 7 vme intr levels */
+    {
+      pev_evt_register( pevIntrEvent, src_id);
+      src_id += 0x1;
+    }
   return 0;
 }
 
@@ -1493,16 +1491,16 @@ void pevIntrHandler(int sig)
     if(pevIntrEvent->src_id)	/* probably wrong since 0 is ISRC_PCI */
     {
       printf("%x - %x - %d\n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt);
-      if(pevIntrEvent->src_id == ISRC_VME)
+      if(pevIntrEvent->src_id & ISRC_VME)
       	intrEntry = pevIntrEvent->vec_id;
       else
-      if(pevIntrEvent->src_id == ISRC_USR)
+      if(pevIntrEvent->src_id & ISRC_USR)
       	intrEntry = 256;
       else
-      if(pevIntrEvent->src_id == ISRC_SHM)
+      if(pevIntrEvent->src_id & ISRC_SHM)
       	intrEntry = 257;
       else
-      if(pevIntrEvent->src_id == ISRC_PCI)
+      if(pevIntrEvent->src_id & ISRC_PCI)
       	intrEntry = 258;
             
       scanIoRequest(pevIntrTable[intrEntry]);
