@@ -27,6 +27,9 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
+ * Revision 1.9  2012/06/29 09:26:13  kalantari
+ * added missing include to get rid of compile warning
+ *
  * Revision 1.8  2012/06/29 08:47:00  kalantari
  * checked in the PEV_4_14 got from JF ioxos
  *
@@ -101,6 +104,8 @@
 
 #ifndef _H_PEVULIB
 #define _H_PEVULIB
+
+#include <pevioctl.h>
 
 #ifdef _cplusplus
 extern "C" {
