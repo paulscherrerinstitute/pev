@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.14 2012/06/29 12:47:55 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.15 2012/07/03 15:29:25 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -976,9 +976,12 @@ TESTJUMP:
 
   if( intrVec )
   {
-    if( intrVec<0 || intrVec>259 )
+    if( intrVec<0 || intrVec>255 || 
+         ((device->pev_rmArea_map.mode & MAP_SPACE_USR1) && (intrVec>16)) ||
+         ((device->pev_rmArea_map.mode & MAP_SPACE_SHM) && (intrVec>1))  || 
+	 ((device->pev_rmArea_map.mode & MAP_SPACE_PCIE) && (intrVec>1)) )
     {
-      printf("pevConfigure: ERROR, interrupt vector out of range (must be > 0 and < 259)\n");
+      printf("pevConfigure: ERROR, intrVec out of range (1<=VME<=255, 1<=USR1<=16, SH_MEM=1, PCIE=1)\n");
       return errno;
     }	
     if( !pevIntrHandlerInitialized ) 
@@ -986,7 +989,18 @@ TESTJUMP:
       pevIntrHanlder_init();
     }
     pev_evt_queue_disable(pevIntrEvent);
-    device->ioscanpvt = pevIntrTable[intrVec];
+    if(device->pev_rmArea_map.mode & MAP_SPACE_VME)
+      device->ioscanpvt = pevIntrTable[intrVec];
+      
+    if(device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+      device->ioscanpvt = pevIntrTable[255+intrVec];
+    
+    if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
+      device->ioscanpvt = pevIntrTable[272];
+    
+    if(device->pev_rmArea_map.mode & MAP_SPACE_PCIE)
+      device->ioscanpvt = pevIntrTable[273];
+    
     pevIntrRegister(device->pev_rmArea_map.mode); 
     pevIntrEvent->wait = -1;
     signal(pevIntrEvent->sig, pevIntrHandler);
@@ -995,7 +1009,6 @@ TESTJUMP:
   else 
   if( device->flags == FLAG_BLKMD )
   {
-    /*device->ioscanpvt = malloc(sizeof(IOSCANPVT));*/
     scanIoInit(&device->ioscanpvt);
   }    
  	
@@ -1298,9 +1311,12 @@ TESTJUMP:
 
   if( intrVec )
   {
-    if( intrVec<0 || intrVec>259 )
+    if( intrVec<0 || intrVec>255 || 
+         ((device->pev_rmArea_map.mode & MAP_SPACE_USR1) && (intrVec>16)) ||
+         ((device->pev_rmArea_map.mode & MAP_SPACE_SHM) && (intrVec>1))  || 
+	 ((device->pev_rmArea_map.mode & MAP_SPACE_PCIE) && (intrVec>1)) )
     {
-      printf("pevAsynConfigure: ERROR, interrupt vector out of range (must be > 0 and < 259)\n");
+      printf("pevConfigure: ERROR, intrVec out of range (1<=VME<=255, 1<=USR1<=16, SH_MEM=1, PCIE=1)\n");
       return errno;
     }	
     if( !pevIntrHandlerInitialized ) 
@@ -1308,12 +1324,23 @@ TESTJUMP:
       pevIntrHanlder_init();
     }
     pev_evt_queue_disable(pevIntrEvent);
-    device->ioscanpvt = pevIntrTable[intrVec];
+    if(device->pev_rmArea_map.mode & MAP_SPACE_VME)
+      device->ioscanpvt = pevIntrTable[intrVec];
+      
+    if(device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+      device->ioscanpvt = pevIntrTable[255+intrVec];
+    
+    if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
+      device->ioscanpvt = pevIntrTable[272];
+    
+    if(device->pev_rmArea_map.mode & MAP_SPACE_PCIE)
+      device->ioscanpvt = pevIntrTable[273];
+    
     pevIntrRegister(device->pev_rmArea_map.mode); 
     pevIntrEvent->wait = -1;
     signal(pevIntrEvent->sig, pevIntrHandler);
     pev_evt_queue_enable(pevIntrEvent);
-  }    
+  }
  	
   regDevAsyncRegisterDevice(name, &pevAsynSupport, device);
   ellAdd (&pevRegDevAsynList, &device->node);
@@ -1437,17 +1464,17 @@ return 0;
 
 /**
 * interrupt handling stuff:
-* we keep a table for 256 VME + 1 SUSER + 1 SHMEM + 1 PCIE = 259
-* VME: 0-255, SUSER: 256, SHMEM: 257, PCIE: 258 
+* we keep a table for 255 VME + 16 SUSER + 1 SHMEM + 1 PCIE = 273 total
+* VME: 1-255, SUSER: 256-271, SHMEM: 272, PCIE: 273 
 **/
 int pevIntrHanlder_init() 
 {
   int iSrcAndVec;
   
-  if( (pevIntrTable = malloc(259*sizeof(IOSCANPVT)))==NULL )
+  if( (pevIntrTable = malloc(274*sizeof(IOSCANPVT)))==NULL )
     return errno;
    
-  for(iSrcAndVec=0; iSrcAndVec<259; iSrcAndVec++)
+  for(iSrcAndVec=0; iSrcAndVec<274; iSrcAndVec++)
   {
     scanIoInit(&pevIntrTable[iSrcAndVec]);
   }
@@ -1458,25 +1485,36 @@ int pevIntrHanlder_init()
 
 int pevIntrRegister(int mapMode)
 {    
-  int src_id = ISRC_NONE, i;
+  int src_id = ISRC_NONE, i, idMax;
    
   if( mapMode & MAP_SPACE_VME)
+    {
     src_id = ISRC_VME;
+    idMax = 8;		/* all 7 VME intr levels */
+    }
   else
   if( mapMode & MAP_SPACE_USR1)
+    {
     src_id = ISRC_USR;
+    idMax = 16;		/* all 16 USER1 intr sources */
+    }
   else
   if( mapMode & MAP_SPACE_SHM)
+    {
     src_id = ISRC_SHM;
+    idMax = 1;
+    }
   else
   if( mapMode & MAP_SPACE_PCIE)
+    {
     src_id = ISRC_PCI;
+    idMax = 1;
+    }
   
   if(src_id != ISRC_NONE)
-    for( i = 0; i < 8; i++)	/* all 7 vme intr levels */
+    for( i = 0; i < idMax; i++)		
     {
-      pev_evt_register( pevIntrEvent, src_id);
-      src_id += 0x1;
+      pev_evt_register( pevIntrEvent, src_id++);
     }
   return 0;
 }
@@ -1495,13 +1533,13 @@ void pevIntrHandler(int sig)
       	intrEntry = pevIntrEvent->vec_id;
       else
       if(pevIntrEvent->src_id & ISRC_USR)
-      	intrEntry = 256;
+      	intrEntry = 256 + (pevIntrEvent->src_id & 0x0f);
       else
       if(pevIntrEvent->src_id & ISRC_SHM)
-      	intrEntry = 257;
+      	intrEntry = 272;
       else
       if(pevIntrEvent->src_id & ISRC_PCI)
-      	intrEntry = 258;
+      	intrEntry = 273;
             
       scanIoRequest(pevIntrTable[intrEntry]);
       pev_evt_unmask( pevIntrEvent, pevIntrEvent->src_id);
