@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.15 2012/07/03 15:29:25 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.16 2012/07/04 09:34:41 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -190,6 +190,8 @@ int pevRead(
       swap = 0;
 #endif
     }
+    if( device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+      swap = 1;
       
     if( (nelem>100 && device->flags!=FLAG_BLKMD ) || (device->flags==FLAG_BLKMD && prio==2) ) 		/* do DMA, prio_2=HIGH */
     {  
@@ -285,6 +287,8 @@ int pevWrite(
       swap = 0;
 #endif
     }
+    if( device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+      swap = 1;
       
     
     if(nelem > 100)
@@ -530,7 +534,6 @@ int pevAsynWrite(
     }
       
     regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + offset, NULL, swap); 
-    callbackRequest((CALLBACK*)cbStruct);
     return 0;
 }
 
