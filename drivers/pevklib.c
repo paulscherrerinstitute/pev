@@ -38,8 +38,11 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.10  2012/06/29 08:47:00  kalantari
- * checked in the PEV_4_14 got from JF ioxos
+ * Revision 1.11  2012/07/09 12:28:42  kalantari
+ * bug fix by JFG
+ *
+ * Revision 1.47  2012/07/05 13:34:49  ioxos
+ * bug in pev_i2c_set_reg() [JFG]
  *
  * Revision 1.46  2012/06/28 12:22:57  ioxos
  * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
@@ -1110,8 +1113,8 @@ pev_i2c_set_reg( struct pev_dev *pev,
       {
         pev_outl( pev, PEV_SCSR_SEL_ILOC, 0);
       }
+      reg_p = (ulong)pev->io_base + pev->io_remap[0].iloc_i2c;
     }
-    reg_p = (ulong)pev->io_base + pev->io_remap[0].iloc_i2c;
   }
   return( reg_p);
 }
