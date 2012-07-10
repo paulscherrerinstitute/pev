@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.17 2012/07/09 13:15:33 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.18 2012/07/10 07:08:41 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -963,7 +963,7 @@ SKIP_PEV_RESMAP:
   {
     device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
   }
-  if( strcmp(resource, "USR1")==0 )
+  if( strcmp(resource, "USR1")==0 || strcmp(resource, "SH_MEM")==0 )
   {
     if( strcmp(vmeProtocol, "WS")==0 )
       device->dmaSpace |= DMA_SPACE_WS;
@@ -1302,7 +1302,7 @@ SKIP_PEV_RESMAP:
   {
     device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
   }
-  if( strcmp(resource, "USR1")==0 )
+  if( strcmp(resource, "USR1")==0 || strcmp(resource, "SH_MEM")==0 )
   {
     if( strcmp(vmeProtocol, "WS")==0 )
       device->dmaSpace |= DMA_SPACE_WS;
