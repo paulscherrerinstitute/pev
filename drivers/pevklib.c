@@ -38,8 +38,11 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.11  2012/07/09 12:28:42  kalantari
- * bug fix by JFG
+ * Revision 1.12  2012/07/10 10:21:48  kalantari
+ * added tosca driver release 4.15 from ioxos
+ *
+ * Revision 1.48  2012/07/10 09:42:30  ioxos
+ * protect access to CSR space [JFG]
  *
  * Revision 1.47  2012/07/05 13:34:49  ioxos
  * bug in pev_i2c_set_reg() [JFG]
@@ -272,8 +275,11 @@ pev_rdwr(struct pev_dev *pev,
     }
     if( m->space == RDWR_CSR)
     {
-      if( rdwr_p->offset + rdwr_p->len >= pev->csr_len) return( -EFAULT);
-      pev_addr = pev->csr_ptr + rdwr_p->offset;
+      if(  pev->csr_ptr)
+      {
+        if( rdwr_p->offset + rdwr_p->len >= pev->csr_len) return( -EFAULT);
+        pev_addr = pev->csr_ptr + rdwr_p->offset;
+      }
     }
     if( m->space == RDWR_ELB)
     {
@@ -345,6 +351,7 @@ pev_rdwr(struct pev_dev *pev,
       }
       return( retval);
     }
+    return( -EINVAL);
   }
   /* single cycle */
   if( m->space == RDWR_CFG) /* PCI Config cycle */
@@ -387,8 +394,11 @@ pev_rdwr(struct pev_dev *pev,
   }
   if( m->space == RDWR_CSR) /* CSR cycle */
   {
-    if( rdwr_p->offset >  pev->csr_len - m->ds) return( -EINVAL);
-    pev_addr = pev->csr_ptr + rdwr_p->offset;
+    if( pev->csr_ptr)
+    {
+      if( rdwr_p->offset >  pev->csr_len - m->ds) return( -EINVAL);
+      pev_addr = pev->csr_ptr + rdwr_p->offset;
+    }
   }
   if( m->space == RDWR_ELB) /* ELB cycle */
   {

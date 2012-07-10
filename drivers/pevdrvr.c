@@ -43,8 +43,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.8  2012/06/29 08:47:00  kalantari
- * checked in the PEV_4_14 got from JF ioxos
+ * Revision 1.9  2012/07/10 10:21:48  kalantari
+ * added tosca driver release 4.15 from ioxos
+ *
+ * Revision 1.59  2012/07/10 09:45:35  ioxos
+ * rel 4.15 + support for ADNESC [JFG]
  *
  * Revision 1.58  2012/06/28 12:22:57  ioxos
  * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
@@ -270,7 +273,7 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.14"
+#define DRIVER_VERSION "4.15"
 char *pev_version=DRIVER_VERSION;
 
 
@@ -1197,10 +1200,14 @@ pev_probe( struct pev_dev *pev)
 #endif
   
   pev_timer_init( pev);                        /* initialize VME timer           */
-  pev_vme_irq_init( pev);
   sema_init( &pev->sem_remap, 1);             /* initialize locking semaphore for IO remapping           */
   sema_init( &pev->i2c_lock, 1);              /* initialize locking semaphore for I2C controller         */
   sema_init( &pev->spi_lock, 1);              /* initialize locking semaphore for SPI controller         */
+  if( pev->board == PEV_BOARD_ADN4001)
+  {
+    return(0);
+  }
+  pev_vme_irq_init( pev);
   if( pev->board == PEV_BOARD_IFC1210)
   {
     pev_usr1_irq_init( pev);
@@ -1424,16 +1431,17 @@ static int pev_init( void)
         *(short *)(pev->pex_ptr + 0x103e) =  SWAP16(bcr & ~4);
         bcr =  SWAP16(*(short *)(pev->pex_ptr + 0x503e));
         *(short *)(pev->pex_ptr + 0x503e) =  SWAP16(bcr & ~4);
-        bcr =  SWAP16(*(short *)(pev->pex_ptr + 0x603e));
-        *(short *)(pev->pex_ptr + 0x603e) =  SWAP16(bcr & ~4);
 	if( ldev->device == 0x8624)
 	{
+          bcr =  SWAP16(*(short *)(pev->pex_ptr + 0x603e));
+          *(short *)(pev->pex_ptr + 0x603e) =  SWAP16(bcr & ~4);
 	  bcr =  SWAP16(*(short *)(pev->pex_ptr + 0x803e));
 	  *(short *)(pev->pex_ptr + 0x803e) =  SWAP16(bcr & ~4);
 	  bcr =  SWAP16(*(short *)(pev->pex_ptr + 0x903e));
 	  *(short *)(pev->pex_ptr + 0x903e) =  SWAP16(bcr & ~4);
 	}
-      }
+
+       }
      }
     ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, ldev);
   }
@@ -1540,6 +1548,10 @@ static int pev_init( void)
               if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1102))
               {
 		pev->board = PEV_BOARD_IPV1102;
+              }
+              if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x4001))
+              {
+		pev->board = PEV_BOARD_ADN4001;
               }
               if( pev->board)
               {

@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: EvtTrig.c,v $
- * Revision 1.3  2012/06/29 08:47:01  kalantari
- * checked in the PEV_4_14 got from JF ioxos
+ * Revision 1.4  2012/07/10 10:21:48  kalantari
+ * added tosca driver release 4.15 from ioxos
+ *
+ * Revision 1.4  2012/07/10 09:49:07  ioxos
+ * check 16 sources from user area [JFG]
  *
  * Revision 1.3  2012/06/28 14:00:43  ioxos
  * set USR1 interrupt [JFG]
@@ -72,7 +75,7 @@ main( int argc,
   }
 
   pev_csr_wr( 0x80001008, 0xffff);
-  for( i = 0; i < 8; i++)
+  for( i = 0; i < 16; i++)
   {
     pev_csr_wr( 0x8000100c, 1<<i);
     usleep(1000);

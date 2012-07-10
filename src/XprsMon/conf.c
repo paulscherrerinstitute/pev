@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.6  2012/06/29 08:47:00  kalantari
- * checked in the PEV_4_14 got from JF ioxos
+ * Revision 1.7  2012/07/10 10:21:48  kalantari
+ * added tosca driver release 4.15 from ioxos
+ *
+ * Revision 1.16  2012/07/03 14:34:42  ioxos
+ * bug in PCI MEM/PME size calculation [JFG]
  *
  * Revision 1.15  2012/06/01 13:59:43  ioxos
  * -Wall cleanup [JFG]
@@ -79,7 +82,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.6 2012/06/29 08:47:00 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.7 2012/07/10 10:21:48 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -296,7 +299,7 @@ conf_show_pci_ep( void)
   printf("   PCI End Point\n");
   if( d0 & (1<<23))
   {
-    printf("     MEM size          : %d MBytes\n", 0x20 << ((d0>>18)&3));
+    printf("     MEM size          : %d MBytes\n", 0x20 << ((d0>>18)&7));
   }
   else
   {
@@ -312,7 +315,7 @@ conf_show_pci_ep( void)
   }
   if( d0 & (1<<31))
   {
-    printf("     PMEM size         : %d MBytes\n", 0x20 << ((d0>>26)&3));
+    printf("     PMEM size         : %d MBytes\n", 0x20 << ((d0>>26)&7));
   }
   else
   {

@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.8  2012/06/29 08:47:00  kalantari
- * checked in the PEV_4_14 got from JF ioxos
+ * Revision 1.9  2012/07/10 10:21:48  kalantari
+ * added tosca driver release 4.15 from ioxos
+ *
+ * Revision 1.36  2012/07/10 09:46:26  ioxos
+ * rel 4.15 + support for ADNESC [JFG]
  *
  * Revision 1.35  2012/06/28 12:36:13  ioxos
  * support for IRQ from usr1 and usr2 [JFG]
@@ -231,6 +234,7 @@ struct pev_reg_remap
 #define PEV_BOARD_VCC1105 0x73571105
 #define PEV_BOARD_IFC1210 0x73571210
 #define PEV_BOARD_MPC1200 0x73571200
+#define PEV_BOARD_ADN4001 0x73574001
 
 #define PEV_IOCTL_OP_MASK    0x0FFF0000
 

@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.6  2012/06/29 08:47:00  kalantari
- *  checked in the PEV_4_14 got from JF ioxos
+ *  Revision 1.7  2012/07/10 10:21:48  kalantari
+ *  added tosca driver release 4.15 from ioxos
+ *
+ *  Revision 1.56  2012/07/10 09:47:12  ioxos
+ *  rel 4.15 [JFG]
  *
  *  Revision 1.55  2012/06/28 14:01:11  ioxos
  *  set release 4.14 [JFG]
@@ -199,7 +202,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.6 2012/06/29 08:47:00 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.7 2012/07/10 10:21:48 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -221,7 +224,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.14";
+char pev_lib_version[] = "4.15";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
