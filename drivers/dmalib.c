@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.9  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.10  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.23  2012/08/13 08:51:19  ioxos
+ * correct bug in setting block boundary for VME [JFG]
  *
  * Revision 1.22  2012/06/28 12:05:00  ioxos
  * cleanup [JFG]
@@ -279,7 +282,7 @@ dma_set_ctl( uint space,
   if( (space & DMA_SPACE_MASK) == DMA_SPACE_VME)
   { 
     ctl |= (mode & 0xc000) << 4;
-    if (( space > 0x30) || (space < 0x50))
+    if (( space > 0x30) && (space < 0x50))
     {
       ctl |= 0x30000;
     }

@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.18 2012/07/10 07:08:41 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.19 2012/08/16 09:11:38 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -1533,13 +1533,13 @@ int pevIntrRegister(int mapMode)
 void pevIntrHandler(int sig)
 { 
   int intrEntry = 0;
-  printf("pevIntrHandler(): in pevIntrHandle...%d\n", sig);
+  /* printf("pevIntrHandler(): in pevIntrHandle...%d\n", sig); */
   do
   {
     pev_evt_read( pevIntrEvent, 0);
     if(pevIntrEvent->src_id)	/* probably wrong since 0 is ISRC_PCI */
     {
-      printf("%x - %x - %d\n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt);
+      /* printf("%x - %x - %d\n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt); */
       if(pevIntrEvent->src_id & ISRC_VME)
       	intrEntry = pevIntrEvent->vec_id;
       else

@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.9  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.10  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.37  2012/08/13 15:32:26  ioxos
+ * support for timeout while waiting for DMA interrupts [JFG]
  *
  * Revision 1.36  2012/07/10 09:46:26  ioxos
  * rel 4.15 + support for ADNESC [JFG]
@@ -714,6 +717,12 @@ struct pev_ioctl_buf
 #define DMA_VME_2e320     0xa0
 #define DMA_INTR_ENA      0x01
 #define DMA_WAIT_INTR     0x01
+#define DMA_WAIT_1MS      0x02
+#define DMA_WAIT_10MS     0x04
+#define DMA_WAIT_100MS    0x06
+#define DMA_WAIT_1S       0x08
+#define DMA_WAIT_10S      0x0a
+#define DMA_WAIT_100S     0x0c
 #define DMA_MODE_BLOCK    0x00  /* move one block from src to des */
 #define DMA_MODE_PIPE     0x01
 #define DMA_MODE_LIST_RD  0x02  /* source is a chain descriptor      */
@@ -740,6 +749,15 @@ struct pev_ioctl_buf
 #define DMA_SPACE_WS      0x10
 #define DMA_SPACE_DS      0x20
 #define DMA_SPACE_QS      0x30
+
+#define DMA_STATUS_RUN_RD0             0x01
+#define DMA_STATUS_RUN_RD1             0x02
+#define DMA_STATUS_RUN_WR0             0x04
+#define DMA_STATUS_RUN_WR1             0x08
+#define DMA_STATUS_DONE                0x10
+#define DMA_STATUS_WAITING             0x100
+#define DMA_STATUS_ENDED               0x100
+#define DMA_STATUS_TMO                 0x80
 
 struct pev_ioctl_dma_req
 {

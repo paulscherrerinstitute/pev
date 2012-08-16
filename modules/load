@@ -43,7 +43,7 @@ fi
 elif [ $1 = $LINUX_PPC ]; then
 device="pev"
 mode="666"
-group="wheel"
+group="root"
 
 echo loading PEV1100 linux driver $LINUX_PPC.ko
 /sbin/insmod $LINUX_PPC.ko

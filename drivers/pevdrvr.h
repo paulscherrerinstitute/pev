@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.9  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.10  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.16  2012/08/13 15:31:39  ioxos
+ * support for timeout while waiting for DMA interrupts [JFG]
  *
  * Revision 1.15  2012/06/28 12:22:57  ioxos
  * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
@@ -192,14 +195,6 @@ struct pev_reg
   } usr;
 };
 
-
-#define DMA_RUN_RD0             0x01
-#define DMA_RUN_RD1             0x02
-#define DMA_RUN_WR0             0x04
-#define DMA_RUN_WR1             0x08
-#define DMA_DONE                0x10
-#define DMA_WAITING             0x102
-#define DMA_ENDED               0x108
 
 
 

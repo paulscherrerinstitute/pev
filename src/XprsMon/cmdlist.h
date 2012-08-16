@@ -47,6 +47,7 @@ char *conf_msg[] =
   "            switch",
   "            vme",
   "            pci",
+  "            bmr",
 0};
 char *map_msg[] = 
 {

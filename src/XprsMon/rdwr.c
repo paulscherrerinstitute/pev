@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.7  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.8  2012/08/16 09:11:39  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.28  2012/08/13 15:35:38  ioxos
+ * dma command displays  DMA status [JFG]
+ *
+ * Revision 1.27  2012/08/08 08:04:18  ioxos
+ * allow to set oustanding read request in dma command [JFG]
  *
  * Revision 1.26  2012/06/01 13:59:44  ioxos
  * -Wall cleanup [JFG]
@@ -112,7 +118,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.7 2012/07/10 10:21:48 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.8 2012/08/16 09:11:39 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -348,6 +354,7 @@ extern struct aiocb aiocb;
 extern char aio_buf[256];
 struct pev_ioctl_buf dma_buf;
 struct pev_ioctl_dma_req dma_req;
+struct pev_ioctl_dma_sts dma_sts;
 char rdwr_filename[256];
 int rdwr_board = 0;
 
@@ -2303,7 +2310,7 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       sw = 0;
       npara = sscanf( c->para[1], "%lx:%x.%c", &dma_req.des_addr, &para, &sw);
       dma_req.des_space = (char)para;
-      dma_req.des_mode = 0x0;
+      dma_req.des_mode = 0;
       if( npara == 3)
       {
         if( ( dma_req.des_space & DMA_SPACE_MASK) ==  DMA_SPACE_VME)
@@ -2336,7 +2343,7 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       sw = 0;
       npara = sscanf( c->para[2], "%lx:%x.%c", &dma_req.src_addr, &para, &sw);
       dma_req.src_space = (char)para;
-      dma_req.src_mode = 0x0;
+      dma_req.src_mode = 0;
       if( npara == 3)
       {
         if( ( dma_req.src_space & DMA_SPACE_MASK) ==  DMA_SPACE_VME)
@@ -2384,9 +2391,14 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       }
       dma_req.end_mode = 0;
       dma_req.intr_mode = DMA_INTR_ENA;
-      dma_req.wait_mode = DMA_WAIT_INTR;
+      dma_req.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (5<<4); /* 5 sec timeout */
       //dma_req.intr_mode = 0;
       //dma_req.wait_mode = 0;
+      if( dma_req.size & 0x20000000)
+      {
+	dma_req.src_mode |= DMA_PCIE_RR2;
+	dma_req.des_mode |= DMA_PCIE_RR2;
+      }
 
       pev_timer_read( &tmi);
       pev_dma_move(&dma_req);
@@ -2395,12 +2407,24 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       utmo = (tmo.utime & 0x1ffff);
 
       usec = (tmo.time - tmi.time)*1000 + (utmo - utmi)/100;
-      printf("ok [%d usec - %f MBytes/sec]\n", usec, (float)dma_req.size/(float)usec);
+      if(  dma_req.dma_status & DMA_STATUS_TMO)
+      {
+	printf("NOK -> timeout - status=%08x\n",  dma_req.dma_status);
+      }
+      else
+      {
+	printf("OK -> %d usec - %f MBytes/sec - status=%08x\n", usec, (float)(dma_req.size & 0xffffff)/(float)usec, dma_req.dma_status);
+      }
     }
     if( !strcmp( "status", c->para[0]))
     {
-      printf("DMA status...");
-      printf("ok\n");
+      struct pev_ioctl_dma_sts *sts;
+
+      sts = &dma_sts;
+      printf("DMA CSR registers\n");
+      pev_dma_status(sts);
+      printf("RD: %08x: %08x : %08x: %08x\n", sts->rd_csr, sts->rd_ndes, sts->rd_cdes, sts->rd_cnt);
+      printf("WR: %08x: %08x : %08x: %08x\n", sts->wr_csr, sts->wr_ndes, sts->wr_cdes, sts->wr_cnt);
     }
     if( !strcmp( "kill", c->para[0]))
     {

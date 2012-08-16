@@ -29,8 +29,14 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.9  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.10  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.20  2012/08/13 15:31:39  ioxos
+ * support for timeout while waiting for DMA interrupts [JFG]
+ *
+ * Revision 1.19  2012/08/13 09:03:37  ioxos
+ * update dma_req after transfer [JFG]
  *
  * Revision 1.18  2012/06/28 12:22:57  ioxos
  * support for register access through PCI MEM + IRQ from usr1 and usr2 [JFG]
@@ -212,8 +218,10 @@ pev_ioctl_dma( struct pev_dev *pev,
   {
     case PEV_IOCTL_DMA_MOVE:
     {
-      struct pev_ioctl_dma_req dma;
+      struct pev_ioctl_dma_req dma, *a;
 
+
+      a = (struct pev_ioctl_dma_req *)arg;
 #ifdef XENOMAI
       if( rtdm_copy_from_user( pev->user_info, (void *)&dma, (void *)arg, sizeof(dma)))
 #else
@@ -223,6 +231,14 @@ pev_ioctl_dma( struct pev_dev *pev,
 	return( -EFAULT);
       }
       retval = pev_dma_move( pev, &dma);
+#ifdef XENOMAI
+      if( rtdm_copy_to_user( pev->user_info, (void *)&a->dma_status, &dma.dma_status, sizeof(uint)))
+#else
+      if( copy_to_user( (void *)&a->dma_status, &dma.dma_status, sizeof(uint)))
+#endif
+      {
+	return( -EFAULT);
+      }
       break;
     }
     case PEV_IOCTL_DMA_STATUS:

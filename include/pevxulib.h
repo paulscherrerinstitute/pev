@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevxulib.h,v $
- * Revision 1.9  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.10  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.15  2012/08/07 09:21:12  ioxos
+ * support for BMR DC-DC converter [JFG]
  *
  * Revision 1.14  2012/06/01 14:20:06  ioxos
  * -Wall cleanup [JFG]
@@ -121,6 +124,8 @@ int pevx_i2c_read( uint, uint, uint);
 int pevx_i2c_write( uint, uint, uint, uint);
 int pevx_pex_read( uint, uint);
 int pevx_pex_write( uint, uint, uint);
+int pevx_bmr_read( uint, uint, uint, uint);
+int pevx_bmr_write( uint, uint, uint, uint, uint);
 int pevx_sflash_id( uint, char *, uint);
 int pevx_sflash_rdsr( uint, uint);
 int pevx_sflash_wrsr( uint, int, uint);

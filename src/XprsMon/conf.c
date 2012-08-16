@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.7  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.8  2012/08/16 09:11:39  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.17  2012/08/08 08:02:32  ioxos
+ * support for BMR DC-DC converter [JFG]
  *
  * Revision 1.16  2012/07/03 14:34:42  ioxos
  * bug in PCI MEM/PME size calculation [JFG]
@@ -82,7 +85,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.7 2012/07/10 10:21:48 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.8 2012/08/16 09:11:39 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -600,6 +603,56 @@ conf_show_smon( void)
   return;
 }
 
+void
+conf_show_bmr( void)
+{
+  unsigned short d0, d1, d2, d3;
+  float f0, f1, f2, f3;
+  int i, div;
+  short h,l;
+
+  if( conf_board != PEV_BOARD_IFC1210)
+  {
+    return;
+  }
+  printf("   DC-DC Voltage Regulators\n");
+  for( i = 0; i < 3; i++)
+  {
+    d0 = (unsigned short)pev_bmr_read( i, 0x88, 2);/*0x88*/
+    l = d0&0x7ff;
+    if( l & 0x400) l |= 0xf800;
+    h = d0 >> 11;
+    h |= 0xffe0;
+    h =  ~h + 1;
+    div = 1 << h;
+    f0 = ((float)l/div);
+    f0 = pev_bmr_conv_11bit_u( d0);
+    usleep( 10000);
+    d1 = (unsigned short)pev_bmr_read( i, 0x8b, 2);
+    f1 = ((float)d1*0.00012207);
+    f1 = pev_bmr_conv_16bit_u( d1);
+    usleep( 10000);
+    d2 = (unsigned short)pev_bmr_read( i, 0x8c, 2);
+    l = d2&0x7ff;
+    h = d2 >> 11;
+    h |= 0xffe0;
+    h =  ~h + 1;
+    div = 1 << h;
+    f2 = ((float)l/div);
+    f2 = pev_bmr_conv_11bit_u( d2);
+    usleep( 10000);
+    d3 = (unsigned short)pev_bmr_read( i, 0x8d, 2);/*0x8d*/
+    f3 = ((float)((short)((d3&0x7ff)<<5))/512);
+    f3 = pev_bmr_conv_11bit_s( d3);
+    usleep( 10000);
+    printf("      BMR#%d\n", i);
+    printf("        VIN                : %.2f [%04x]\n", f0, d0);
+    printf("        VOUT               : %.2f [%04x]\n", f1, d1);
+    printf("        IOUT               : %.2f [%04x]\n", f2, d2);
+    printf("        TEMP               : %.2f [%04x]\n", f3, d3);
+  }
+  return;
+}
 int 
 xprs_conf_show( struct cli_cmd_para *c)
 {
@@ -620,6 +673,7 @@ xprs_conf_show( struct cli_cmd_para *c)
     conf_show_shm();
     conf_show_vme();
     conf_show_smon();
+    conf_show_bmr();
     return(0);;
   }
 
@@ -633,7 +687,7 @@ xprs_conf_show( struct cli_cmd_para *c)
       show_set = 0x0;
       if( !cnt)
       {
-	show_set = 0x3f;
+	show_set = 0xff;
       }
       while( cnt--)
       {
@@ -671,6 +725,10 @@ xprs_conf_show( struct cli_cmd_para *c)
         {
 	  show_set |= 0x40;
 	}
+        if( !strcmp( "bmr", c->para[i]))
+        {
+	  show_set |= 0x80;
+	}
       }
       printf("PEV1100 Configuration\n");
       if( show_set & 0x1) conf_show_static();
@@ -680,6 +738,7 @@ xprs_conf_show( struct cli_cmd_para *c)
       if( show_set & 0x10) conf_show_vme();
       if( show_set & 0x20) conf_show_smon();
       if( show_set & 0x40) conf_show_pci_ep();
+      if( show_set & 0x80) conf_show_bmr();
       return(0); 
     }
   }

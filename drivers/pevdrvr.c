@@ -43,8 +43,14 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.9  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.10  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.61  2012/08/13 15:31:39  ioxos
+ * support for timeout while waiting for DMA interrupts [JFG]
+ *
+ * Revision 1.60  2012/08/07 09:18:13  ioxos
+ * enable PCI interrupt + work around for PEV/IPV to access CSR registers [JFG]
  *
  * Revision 1.59  2012/07/10 09:45:35  ioxos
  * rel 4.15 + support for ADNESC [JFG]
@@ -273,7 +279,7 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.15"
+#define DRIVER_VERSION "4.16"
 char *pev_version=DRIVER_VERSION;
 
 
@@ -1161,6 +1167,13 @@ pev_probe( struct pev_dev *pev)
     pev->csr_remap = 0;
     pev->io_remap[1].short_io = 0;
   }
+  if( ( pev->board == PEV_BOARD_PEV1100) ||
+      ( pev->board == PEV_BOARD_IPV1102)    )
+  {
+    /* interrupt controller registers don't work through CSR space on IPV and PEV !! */
+    printk("workaround for PEV and IPV: map CSR in IO space...");
+    pev->csr_remap = 0;
+  }
 
   printk("initialize VME slave...");
   /* initialize VME CSR */
@@ -1176,11 +1189,6 @@ pev_probe( struct pev_dev *pev)
   pev_outl( pev, 0x7, pev->io_remap[pev->csr_remap].vme_itc + 0x4);            /* enable VME global interupt     */
   printk("done\n");
  
-  /* enable PCIe master access from FPGA */
-  pci_read_config_word( pev->dev, 4, &tmp);
-  tmp |= 4;
-  pci_write_config_word( pev->dev, 4, tmp);
-
 #ifdef XENOMAI
   retval = rtdm_irq_request( &pev->rtdm_irq, pev->dev->irq, pev_irq, RTDM_IRQTYPE_SHARED, pev_rt.device_name, pev);
   pev->affinity.bits[0] = 0x2;
@@ -1205,7 +1213,7 @@ pev_probe( struct pev_dev *pev)
   sema_init( &pev->spi_lock, 1);              /* initialize locking semaphore for SPI controller         */
   if( pev->board == PEV_BOARD_ADN4001)
   {
-    return(0);
+    goto pev_probe_exit;
   }
   pev_vme_irq_init( pev);
   if( pev->board == PEV_BOARD_IFC1210)
@@ -1214,6 +1222,14 @@ pev_probe( struct pev_dev *pev)
     pev_usr2_irq_init( pev);
   }
   pev_evt_init( pev);
+
+  /* enable interrupts and PCIe master access from FPGA */
+ pev_probe_exit:
+  pci_read_config_word( pev->dev, 4, &tmp);
+  tmp |= 4;
+  tmp &= ~0x10;
+  pci_write_config_word( pev->dev, 4, tmp);
+
  
   return( 0);
 }

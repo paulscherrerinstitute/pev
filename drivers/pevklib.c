@@ -38,8 +38,11 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.12  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.13  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.49  2012/08/13 15:31:39  ioxos
+ * support for timeout while waiting for DMA interrupts [JFG]
  *
  * Revision 1.48  2012/07/10 09:42:30  ioxos
  * protect access to CSR space [JFG]
@@ -2205,7 +2208,7 @@ pev_dma_irq( struct pev_dev *pev,
 	     int src,
 	     void *arg)
 {
-  pev->dma_status |= DMA_DONE;
+  pev->dma_status |= DMA_STATUS_DONE | (src << 16);
 #ifdef XENOMAI
   rtdm_sem_up( &pev->dma_done);
 #else
@@ -2352,7 +2355,7 @@ pev_dma_move_blk( struct pev_dev *pev,
     {
       rdo = dma_set_rd_desc( pev->crate, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk);
       pev_outl( pev, rdo, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine */
-      pev->dma_status = DMA_RUN_RD0;
+      pev->dma_status = DMA_STATUS_RUN_RD0;
       *irq_p = 0x03;
     }
   }
@@ -2362,7 +2365,7 @@ pev_dma_move_blk( struct pev_dev *pev,
     {
       wdo = dma_set_wr_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk);
       pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
-      pev->dma_status = DMA_RUN_WR0;
+      pev->dma_status = DMA_STATUS_RUN_WR0;
       *irq_p = 0x30;
     }
     else
@@ -2394,7 +2397,7 @@ pev_dma_move_blk( struct pev_dev *pev,
         pev_outl( pev, rdo | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
         pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
       }
-      pev->dma_status = DMA_RUN_RD0 | DMA_RUN_WR0;
+      pev->dma_status = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
       *irq_p = 0x33;
     }
   }
@@ -2414,7 +2417,7 @@ pev_dma_list_rd( struct pev_dev *pev,
   dma_set_list_desc( pev->crate, dma);
   pev_outl( pev, 0xff00800 | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
   pev_outl( pev, 0xff00000, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
-  pev->dma_status = DMA_RUN_RD0 | DMA_RUN_WR0;
+  pev->dma_status = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
   *irq_p = 0x33;
   dma->intr_mode |= DMA_INTR_ENA;
   dma->wait_mode |= DMA_WAIT_INTR;
@@ -2433,7 +2436,7 @@ pev_dma_move( struct pev_dev *pev,
 
   debugk(("in pev_dma_move()...%x -%x\n", dma->src_mode, DMA_SRC_BLOCK));
 
-  /* multi user protection */
+  /* set multi user protection */
 #ifdef XENOMAI
   rtdm_lock_get( &pev->dma_lock);
 #else
@@ -2441,6 +2444,15 @@ pev_dma_move( struct pev_dev *pev,
 #endif
 
   retval = -EINVAL;
+  if( dma->intr_mode & DMA_INTR_ENA)
+  {
+    /* mask DMA  interrupts */
+    pev_outl( pev, 0xff, pev->io_remap[pev->csr_remap].dma_itc + 0x0c);
+    /* clear any pending  interrupts */
+    pev_outl( pev, 0xff << 16, pev->io_remap[pev->csr_remap].dma_itc + 0x00);
+  }
+
+  /* perform DMA transfer */
   if(( dma->start_mode == DMA_MODE_BLOCK) ||
      ( dma->start_mode == DMA_MODE_PIPE)     )
   {
@@ -2451,8 +2463,7 @@ pev_dma_move( struct pev_dev *pev,
     retval= pev_dma_list_rd( pev, dma, &irq);
   }
 
-
-
+  /* release multi user protection */
 #ifdef XENOMAI
   rtdm_lock_put( &pev->dma_lock);
 #else
@@ -2460,6 +2471,7 @@ pev_dma_move( struct pev_dev *pev,
 #endif
   if( retval)
   {
+    dma->dma_status = pev->dma_status;
     return( retval);
   }
 
@@ -2478,22 +2490,55 @@ pev_dma_move( struct pev_dev *pev,
     /* check for wait mode */
     if( dma->wait_mode & DMA_WAIT_INTR)
     {
+      int tmo, scale, i;
+
       /* wait for end of DMA */
-      pev->dma_status |= DMA_WAITING;
+      pev->dma_status |= DMA_STATUS_WAITING;
+      tmo = ( dma->wait_mode & 0xf0) >> 4;
+      if( tmo)
+      {
+	int jiffies;
+
+        i = ( dma->wait_mode & 0x0e) >> 1;
+        scale = 1;
+	if( i)
+	{
+          i -= 1;
+          while(i--)
+          {
+	    scale = scale*10;
+          }
+	}
+	jiffies =  msecs_to_jiffies(tmo*scale);
 #ifdef XENOMAI
-      rtdm_sem_down( &pev->dma_done);
+        rtdm_sem_down( &pev->dma_done);
 #else
-      retval = down_interruptible( &pev->dma_sem);
+        retval = down_timeout( &pev->dma_sem, jiffies);
+	if( retval)
+	{
+	  printk("DMA timeout..\n");
+	  pev->dma_status |= DMA_STATUS_TMO;
+	}
 #endif
+      }
+      else
+      {
+#ifdef XENOMAI
+        rtdm_sem_down( &pev->dma_done);
+#else
+        retval = down_interruptible( &pev->dma_sem);
+#endif
+      }
       if( dma->start_mode == DMA_MODE_LIST_RD)
       {
         retval= dma_get_list( pev->crate, dma);
       }
-      pev->dma_status |= DMA_ENDED;
+      pev->dma_status |= DMA_STATUS_ENDED;
       /*vme_timer_read( pev->io_base, &tm);
       debugk(("DMA ended: %08x - %08x\n", tm.time, tm.utime));*/
     }
   }
+  dma->dma_status = pev->dma_status;
   return( retval);
 }
 
@@ -2518,13 +2563,13 @@ pev_dma_wait( struct pev_dev *pev)
 {
   int retval;
 
-  pev->dma_status |= DMA_WAITING;
+  pev->dma_status |= DMA_STATUS_WAITING;
 #ifdef XENOMAI
   rtdm_sem_down( &pev->dma_done);
 #else
   retval = down_interruptible( &pev->dma_sem);
 #endif
-  pev->dma_status |= DMA_ENDED;
+  pev->dma_status |= DMA_STATUS_ENDED;
   return;
 }
 

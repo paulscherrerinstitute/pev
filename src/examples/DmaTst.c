@@ -24,8 +24,14 @@
  *  Change History
  *  
  * $Log: DmaTst.c,v $
- * Revision 1.7  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.8  2012/08/16 09:11:39  kalantari
+ * added version 4.16 of tosca driver
+ *
+ * Revision 1.13  2012/08/15 06:50:57  ioxos
+ * wait for end of DMA with timeout protection [JFG]
+ *
+ * Revision 1.12  2012/08/08 09:27:29  ioxos
+ * optimize transfer mode (1kbyte + RR2) [JFG]
  *
  * Revision 1.11  2012/06/01 14:00:14  ioxos
  * -Wall cleanup [JFG]
@@ -88,8 +94,8 @@ RT_TASK rt_task_desc;
 
 #endif
 
-static int tst_dma_read( long, int, int, int *);
-static int tst_dma_write( long, int, int, int *);
+static int tst_dma_read( long, uint, int, int *);
+static int tst_dma_write( long, uint, int, int *);
 static void print_res_read( void);
 static void print_res_write( void);
 
@@ -255,7 +261,6 @@ main( int argc,
   }
 
   print_res_read();
-
 
   for( i = 0x30; i <= 0xa0; i += 0x10)
   //for( i = 0x30; i <= 0x30; i += 0x10)
@@ -426,7 +431,7 @@ print_res_write( void)
 
 int 
 tst_dma_read( long vme_addr, 
-              int size,
+              uint size,
               int mode,
 	      int *usec)
 {
@@ -454,15 +459,15 @@ tst_dma_read( long vme_addr,
 
   dma_req.src_addr = vme_addr;                    /* source is VME address of SHM */
   dma_req.des_addr = (ulong)dma_buf.b_addr;       /* destination is DMA buffer    */
-  dma_req.size = size;                  
+  dma_req.size = size| 0xe0000000;                  
   dma_req.src_space = DMA_SPACE_VME|mode;
   dma_req.des_space = DMA_SPACE_PCIE;
-  dma_req.src_mode = 0;
-  dma_req.des_mode = 0;
+  dma_req.src_mode = DMA_PCIE_RR2;
+  dma_req.des_mode = DMA_PCIE_RR2;
   dma_req.start_mode = DMA_MODE_BLOCK;
   dma_req.end_mode = 0;
   dma_req.intr_mode = DMA_INTR_ENA;
-  dma_req.wait_mode = DMA_WAIT_INTR;
+  dma_req.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (5<<4);
 
 
   retval = pev_dma_move(&dma_req);
@@ -508,7 +513,7 @@ tst_dma_read( long vme_addr,
 
 int 
 tst_dma_write( long vme_addr, 
-               int size,
+               uint size,
                int mode,
 	       int *usec)
 {
@@ -536,15 +541,15 @@ tst_dma_write( long vme_addr,
 
   dma_req.des_addr = vme_addr;                    /* destination is VME address of SHM */
   dma_req.src_addr = (ulong)dma_buf.b_addr;       /* source is DMA buffer    */
-  dma_req.size = size;                  
+  dma_req.size = size | 0xe0000000;                  
   dma_req.des_space = DMA_SPACE_VME|mode;
   dma_req.src_space = DMA_SPACE_PCIE;
-  dma_req.src_mode = 0;
-  dma_req.des_mode = 0;
+  dma_req.src_mode = DMA_PCIE_RR2;
+  dma_req.des_mode = DMA_PCIE_RR2;
   dma_req.start_mode = DMA_MODE_BLOCK;
   dma_req.end_mode = 0;
   dma_req.intr_mode = DMA_INTR_ENA;
-  dma_req.wait_mode = DMA_WAIT_INTR;
+  dma_req.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (5<<4);
 
   retval = pev_dma_move(&dma_req);
   pev_timer_read( &tmi);

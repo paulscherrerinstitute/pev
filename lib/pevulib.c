@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.7  2012/07/10 10:21:48  kalantari
- *  added tosca driver release 4.15 from ioxos
+ *  Revision 1.8  2012/08/16 09:11:38  kalantari
+ *  added version 4.16 of tosca driver
+ *
+ *  Revision 1.57  2012/08/07 09:21:04  ioxos
+ *  support for BMR DC-DC converter [JFG]
  *
  *  Revision 1.56  2012/07/10 09:47:12  ioxos
  *  rel 4.15 [JFG]
@@ -202,7 +205,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.7 2012/07/10 10:21:48 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.8 2012/08/16 09:11:38 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -224,7 +227,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.15";
+char pev_lib_version[] = "4.16";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -791,6 +794,134 @@ pev_pex_write( uint reg,
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = data;
   //i2c.data = pev_swap_32( data);
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
+
+  return( 0);
+}
+
+float
+pev_bmr_conv_11bit_u( unsigned short val)
+{
+  unsigned short l;
+  short h;
+
+  l = val & 0x7ff;
+  h = val >> 11;
+  h |= 0xffe0;
+  h =  ~h + 1;
+  return(((float)l/(1 << h)));
+}
+
+float
+pev_bmr_conv_11bit_s( unsigned short val)
+{
+  short h,l;
+
+  l = val & 0x7ff;
+  if( l & 0x400) l |= 0xf800;
+  h = val >> 11;
+  h |= 0xffe0;
+  h =  ~h + 1;
+  return(((float)l/(1 << h)));
+}
+
+float
+pev_bmr_conv_16bit_u( unsigned short val)
+{
+  return(((float)val/(1 << 13)));
+}
+
+int
+pev_bmr_read( uint bmr,
+	      uint reg,
+	      uint cnt)
+{
+  struct pev_ioctl_i2c i2c;
+  int device;
+
+  device = 0;
+  if( cnt > 3) return( -1);
+  switch( bmr)
+  {
+    case 0:
+    {
+      device = 0x40000053;
+      break;
+    }
+    case 1:
+    {
+      device = 0x4000005b;
+      break;
+    }
+    case 2:
+    {
+      device = 0x40000063;
+      break;
+    }
+    case 3:
+    {
+      device = 0x40000023;
+      break;
+    }
+    default:
+    {
+      return(-1);
+    }
+  }
+  i2c.device = device | 0x8000;
+  i2c.cmd = reg;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_CMD, &i2c);
+  //usleep( 100000);
+  i2c.device = device | ((cnt -1) << 18);
+  i2c.data = 0;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
+
+  return( i2c.data);
+}
+
+int
+pev_bmr_write( uint bmr,
+	       uint reg,
+	       uint data,
+	       uint cnt)
+{
+  struct pev_ioctl_i2c i2c;
+  int device;
+
+  device = 0;
+  if( cnt > 3) return( -1);
+  switch( bmr)
+  {
+    case 0:
+    {
+      device = 0x40000053;
+      break;
+    }
+    case 1:
+    {
+      device = 0x4000005b;
+      break;
+    }
+    case 2:
+    {
+      device = 0x40000063;
+      break;
+    }
+    case 3:
+    {
+      device = 0x40000023;
+      break;
+    }
+    default:
+    {
+      return(-1);
+    }
+  }
+  i2c.device = device | 0x8000;
+  i2c.cmd = reg;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_CMD, &i2c);
+  i2c.device = device | ((cnt -1) << 18);
+  i2c.data = data;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
   return( 0);

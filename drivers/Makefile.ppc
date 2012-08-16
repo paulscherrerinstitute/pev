@@ -30,7 +30,7 @@
 obj-m := pev.o
 pev-objs := pevdrvr.o pevioctl.o pevklib.o rdwrlib.o sflashlib.o maplib.o i2clib.o vmelib.o dmalib.o fifolib.o fpgalib.o histolib.o evtlib.o
 #KERNELDIR ?= /lib/modules/$(shell uname -r)/build
-KERNELDIR = /home/ioxos/Projects/IPV1102/linux
+KERNELDIR = /home/eldk-5.1/powerpc-e500v2/rootfs-sato-sdk/usr/src/linux
 #ARCH      = $(LINTARCH)
 ARCH      = powerpc
 #CROSS_DIR = /opt/freescale/usr/local/gcc-4.3.74-eglibc-2.8.74-dp-2/powerpc-none-linux-gnuspe/bin

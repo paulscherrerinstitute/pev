@@ -27,11 +27,11 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.11  2012/07/10 11:38:42  kalantari
- * included pevioctl header
+ * Revision 1.12  2012/08/16 09:11:38  kalantari
+ * added version 4.16 of tosca driver
  *
- * Revision 1.10  2012/07/10 10:21:48  kalantari
- * added tosca driver release 4.15 from ioxos
+ * Revision 1.23  2012/08/07 09:21:12  ioxos
+ * support for BMR DC-DC converter [JFG]
  *
  * Revision 1.22  2012/06/01 14:20:06  ioxos
  * -Wall cleanup [JFG]
@@ -105,8 +105,6 @@
 #ifndef _H_PEVULIB
 #define _H_PEVULIB
 
-#include <pevioctl.h>
-
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -154,7 +152,12 @@ int pev_i2c_cmd( uint, uint);
 int pev_i2c_read( uint, uint);
 int pev_i2c_write( uint, uint, uint);
 int pev_pex_read( uint);
+float pev_bmr_conv_11bit_u( unsigned short);
+float pev_bmr_conv_11bit_s( unsigned short);
+float pev_bmr_conv_16bit_u( unsigned short);
 int pev_pex_write( uint, uint);
+int pev_bmr_read( uint, uint, uint);
+int pev_bmr_write( uint, uint, uint, uint);
 int pev_sflash_id( char *, uint);
 int pev_sflash_rdsr( uint);
 int pev_sflash_wrsr( int, uint);
