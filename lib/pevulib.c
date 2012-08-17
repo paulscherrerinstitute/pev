@@ -27,6 +27,9 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
+ *  Revision 1.9  2012/08/17 08:04:57  kalt_r
+ *  change access to BMR dc/dc from PCIe to ELB
+ *
  *  Revision 1.8  2012/08/16 09:11:38  kalantari
  *  added version 4.16 of tosca driver
  *
@@ -205,7 +208,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.8 2012/08/16 09:11:38 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.9 2012/08/17 08:04:57 kalt_r Exp $";
 #endif
 
 #include <stdlib.h>
@@ -845,22 +848,22 @@ pev_bmr_read( uint bmr,
   {
     case 0:
     {
-      device = 0x40000053;
+      device = 0x400000d3;
       break;
     }
     case 1:
     {
-      device = 0x4000005b;
+      device = 0x400000db;
       break;
     }
     case 2:
     {
-      device = 0x40000063;
+      device = 0x400000e3;
       break;
     }
     case 3:
     {
-      device = 0x40000023;
+      device = 0x400000a3;
       break;
     }
     default:
@@ -894,22 +897,22 @@ pev_bmr_write( uint bmr,
   {
     case 0:
     {
-      device = 0x40000053;
+      device = 0x400000d3;
       break;
     }
     case 1:
     {
-      device = 0x4000005b;
+      device = 0x400000db;
       break;
     }
     case 2:
     {
-      device = 0x40000063;
+      device = 0x400000e3;
       break;
     }
     case 3:
     {
-      device = 0x40000023;
+      device = 0x400000a3;
       break;
     }
     default:
