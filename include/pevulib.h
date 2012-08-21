@@ -27,6 +27,9 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
+ * Revision 1.13  2012/08/21 09:02:39  kalantari
+ * included required header
+ *
  * Revision 1.12  2012/08/16 09:11:38  kalantari
  * added version 4.16 of tosca driver
  *
@@ -104,6 +107,8 @@
 
 #ifndef _H_PEVULIB
 #define _H_PEVULIB
+
+#include <pevioctl.h>
 
 #ifdef _cplusplus
 extern "C" {
