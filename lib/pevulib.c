@@ -27,6 +27,9 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
+ *  Revision 1.10  2012/08/22 13:29:00  kalt_r
+ *  corrected BMR no 3 (1V0_opt) I2C address, cleared bit 7 such that transfer done vie PCIe interface as came original with 4.16 release
+ *
  *  Revision 1.9  2012/08/17 08:04:57  kalt_r
  *  change access to BMR dc/dc from PCIe to ELB
  *
@@ -208,7 +211,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.9 2012/08/17 08:04:57 kalt_r Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.10 2012/08/22 13:29:00 kalt_r Exp $";
 #endif
 
 #include <stdlib.h>
@@ -848,22 +851,22 @@ pev_bmr_read( uint bmr,
   {
     case 0:
     {
-      device = 0x400000d3;
+      device = 0x40000053;
       break;
     }
     case 1:
     {
-      device = 0x400000db;
+      device = 0x4000005b;
       break;
     }
     case 2:
     {
-      device = 0x400000e3;
+      device = 0x40000063;
       break;
     }
     case 3:
     {
-      device = 0x400000a3;
+      device = 0x40000024;
       break;
     }
     default:
@@ -897,22 +900,22 @@ pev_bmr_write( uint bmr,
   {
     case 0:
     {
-      device = 0x400000d3;
+      device = 0x40000053;
       break;
     }
     case 1:
     {
-      device = 0x400000db;
+      device = 0x4000005b;
       break;
     }
     case 2:
     {
-      device = 0x400000e3;
+      device = 0x40000063;
       break;
     }
     case 3:
     {
-      device = 0x400000a3;
+      device = 0x40000024;
       break;
     }
     default:
