@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.19 2012/08/16 09:11:38 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.20 2012/08/22 10:56:52 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -218,8 +218,8 @@ int pevRead(
 	}
       else 
         {
-	 if( device->pev_dmaReq.dma_status )
-           printf("pevRead(): DMA transfer failed! do normal transfer\n");
+	 if( !(device->pev_dmaReq.dma_status & DMA_STATUS_ENDED) )
+           printf("pevRead(): DMA transfer failed (STATUS=0x%x)! do normal transfer \n", device->pev_dmaReq.dma_status);
 	 else
 	  {
              if( device->flags==FLAG_BLKMD ) 
@@ -1420,7 +1420,7 @@ void *pev_dmaRequetServer(int *crate)
         dmaStatRet = pev_dma_status( &dmaStatus );
         if( dmaStatRet < 0 )
      	  { 
-	    printf("pevRead(): DMA transfer failed! do normal transfer; dma stat = 0x%x\n", dmaStatRet);
+	    printf("pev_dmaRequetServer(): DMA transfer failed! do normal transfer; dma stat = 0x%x\n", dmaStatRet);
 	    /**  
 	    	TODO: DO NORMAL TRANSFER **/
 	  }

@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/06/26 15:12:32 $*/
-/*$Revision: 1.4 $*/
+/*$Date: 2012/08/22 10:56:52 $*/
+/*$Revision: 1.5 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -34,11 +34,13 @@ struct {
 };
 
 
-typedef enum { IFC_ELB, IFC_SMON, PCI_IO } IfcDevType;
+typedef enum { IFC_ELB, IFC_SMON, PCI_IO, BMR, BMR_11U, BMR_11S, BMR_16U } IfcDevType;
 
 typedef struct ifcPrivate{
-    unsigned short address;
+    unsigned int address;
     IfcDevType devType;
+    unsigned int card;
+    unsigned int count;
 } ifcPrivate;
 
 static long devIfc1210InitRecord(dbCommon* record, struct link* link)
@@ -58,6 +60,7 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
          return errno;
     }
     p->address = link->value.vmeio.signal;
+    p->card  = link->value.vmeio.card;;
     
     if(strcmp(link->value.vmeio.parm, "ELB") == 0) 
     	p->devType = IFC_ELB;
@@ -68,6 +71,32 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
     if(strcmp(link->value.vmeio.parm, "PIO") == 0) 
     	p->devType = PCI_IO;
     else 
+    if(strncmp(link->value.vmeio.parm, "BMR_11U", 7) == 0) 
+      { 
+    	  printf("checked for BMR_11U and was successful\n");
+	  p->devType = BMR_11U;
+	  printf("p->devType=%d and p->count=%d\n", p->devType, p->count);
+  	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+      }
+    else 
+    if(strncmp(link->value.vmeio.parm, "BMR_11S", 7) == 0) 
+      { 
+    	  p->devType = BMR_11S;
+	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+      }
+    else 
+    if(strncmp(link->value.vmeio.parm, "BMR_16U", 7) == 0) 
+      { 
+    	  p->devType = BMR_16U;
+	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+      }
+    else 
+    if(strncmp(link->value.vmeio.parm, "BMR", 3) == 0)
+      { 
+    	  p->devType = BMR;
+	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+      }
+   else 
         {
         recGblRecordError(S_db_badField, record,
             "devIfc1210InitRecord: Illegal param in io link");
@@ -114,6 +143,34 @@ long devIfc1210AiRead(aiRecord* record)
     	rval = pev_smon_rd( p->address );
     if(p->devType == PCI_IO)
     	rval = pev_csr_rd( p->address | 0x80000000 );
+    else
+    if(p->devType == BMR){
+        rval = pev_bmr_read( p->card,  p->address, p->count);
+	printf("pev_bmr_read( %d, %d, %d, %d) \n",p->card, p->address, (unsigned int)record->val, p->count);}
+    else
+    if(p->devType == BMR_11U)
+      {
+        rval = pev_bmr_read( p->card,  p->address, p->count);
+	record->val = pev_bmr_conv_11bit_u(rval);
+	printf("pev_bmr_read11U( %d, %d, %f, %d) \n",p->card, p->address, record->val, p->count);
+	return 2;
+      }
+    else
+    if(p->devType == BMR_11S)
+      {
+        rval = pev_bmr_read( p->card,  p->address, p->count);
+	record->val = pev_bmr_conv_11bit_s(rval);
+	printf("pev_bmr_read11S( %d, %d, %f, %d) \n",p->card, p->address, record->val, p->count);
+	return 2;
+      }
+    else
+    if(p->devType == BMR_16U)
+      {
+        rval = pev_bmr_read( p->card,  p->address, p->count);
+	record->val = pev_bmr_conv_16bit_u(rval);
+	printf("pev_bmr_read16U( %d, %d, %f, %d) \n",p->card, p->address, record->val, p->count);
+	return 2;
+      }
     
     record->val = rval;
     return 2; 	/* no conversion */
@@ -174,7 +231,18 @@ long devIfc1210AoWrite(aoRecord* record)
     else
     if(p->devType == PCI_IO)
     	pev_csr_wr( p->address | 0x80000000, (int)record->val);
-	
+    else
+    if(p->devType == BMR) {
+    	pev_bmr_write(p->card, p->address, (unsigned int)record->val, p->count);
+	printf("pev_bmr_write( %d, %d, %d, %d) \n",p->card, p->address, (unsigned int)record->val, p->count);
+/*
+pev_bmr_write( uint bmr,
+	       uint reg,
+	       uint data,
+	       uint cnt)
+*/
+	}
+
     return 0; 
 }
 
