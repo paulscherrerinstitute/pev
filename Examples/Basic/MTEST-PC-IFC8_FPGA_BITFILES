@@ -1,0 +1,31 @@
+# $Source: /cvs/G/DRV/pev/Examples/Basic/MTEST-PC-IFC8_FPGA_BITFILES,v $
+# $Date: 2012/08/31 08:53:18 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            28.08.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: Basic Example for accessing TOSCA-II
+#           * USERBLOCK in Virtex-6 CENTRAL FPGA
+#           * 512 MB shared memory connected to Virtex-6 CENTRAL FPGA
+#           * VME64x-bridge in Virtex-6 CENTRAL FPGA
+#
+# Purpose of this file:
+#           * Config file for fetching correct CENTRAL and IO FPGA
+#             bitfiles from Codebeamer SVN repository using the
+#             getFiles command called from Makefile.
+
+##########################################################################
+# filename                                 url
+##########################################################################
+ifc1210_iocstandard_current_CENTRAL.bit    https://codebeamer.psi.ch/svn/IFC_SourceCode/IFC/IFC1210_applications/Standard_IOC/Firmware/Synth/Bit_files/
+ifc1210_basic_current_IO.bit               https://codebeamer.psi.ch/svn/IFC_SourceCode/IFC/IFC1210_applications/Standard_IOC/Firmware/Synth/Bit_files/
+##########################################################################
+

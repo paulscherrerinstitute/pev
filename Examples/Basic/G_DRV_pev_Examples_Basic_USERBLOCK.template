@@ -1,0 +1,466 @@
+# $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_USERBLOCK.template,v $
+# $Date: 2012/08/31 08:53:18 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            28.08.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: Basic Example for accessing TOSCA-II
+#           * USERBLOCK in Virtex-6 CENTRAL FPGA
+#           * 512 MB shared memory connected to Virtex-6 CENTRAL FPGA
+#           * VME64x-bridge in Virtex-6 CENTRAL FPGA
+#
+# Purpose of this file:
+#           * access to USERBLOCK in Virtex-6 CENTRAL FPGA
+
+# USER1 block of Standard_IOC project. Find details of memory map definition here:
+# https://codebeamer.psi.ch/cb/proj/sources/sccFileLog.do?proj_id=104&filename=IFC%2FIFC1210_applications%2FStandard_IOC%2FDocumentation%2FStandard_IOC_concept.doc&isDir=false
+
+
+######################################################################
+# TCSR: TOSCA Configuration Space Registers (single access)
+######################################################################
+record(ai,"$(IOC):USER-TCSR-ENDIAN")
+{
+    field(DESC, "endian test reg") # should read X"76543210"(lsb)
+    field(DTYP, "ifc1210")
+    field(PINI, "YES")             # read once a at startup of EPICS
+    field(INP , "#C S0x1000 @PIO")
+}
+
+record(ai,"$(IOC):USER-TCSR-TESTREG-R")
+{
+    field(DESC, "test reg read")
+    field(DTYP, "ifc1210")
+    field(SCAN, "1 second")
+    field(INP , "#C S0x1004 @PIO")
+}
+
+record(ao,"$(IOC):USER-TCSR-TESTREG-W")
+{
+    field(DESC, "test reg write")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1004 @PIO")
+}
+
+record(ao,"$(IOC):USER-TCSR-INTMOD")
+{
+    field(DESC, "int mode lvl/edge") # 0 = level / 1 = edge
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1008 @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "65535") # set all 16 to edge
+}
+
+record(ao,"$(IOC):USER-TCSR-INTREQ")
+{
+    field(DESC, "int request")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x100C @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "0") # disable all 16 interrupts, set to 1 to activate
+}
+
+
+
+######################################################################
+# TMEM: TOSCA Memory
+######################################################################
+
+# some commands with rw registers, passive scanning
+record(ao,"$(IOC):USER-RAMP-INITIAL")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x0 T=UINT32")
+   field(VAL,  "0")
+   field(PINI, "YES")
+}
+
+record(ao,"$(IOC):USER-FMC1LED")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x4 T=UINT32")
+   field(VAL,  "0")
+   field(PINI, "YES")
+}
+
+record(ao,"$(IOC):USER-FMC2LED")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x8 T=UINT32")
+   field(VAL,  "0")
+   field(PINI, "YES")
+}
+
+record(ao,"$(IOC):USER-INTRATE")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRegisters/0xC T=UINT32")
+   field(VAL,  "0") # disable periodic interrupt generation in USER block
+   field(PINI, "YES")
+   field(EGU,  "x 10ns")
+}
+
+record(ao,"$(IOC):USER-INTLENGTH")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x10 T=UINT32")
+   field(VAL,  "0")
+   field(PINI, "YES")
+   field(EGU,  "x 10ns")
+}
+
+record(ao,"$(IOC):USER-INTRST")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x14 T=UINT32")
+   field(VAL,  "0")
+}
+
+#some status, periodic asynchronous scanning
+record(ai,"$(IOC):USER-INTID1")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x18 T=UINT32")
+   field(SCAN, "1 second")
+   field(FLNK, "$(IOC):USER-INTID2")
+}
+record(ai,"$(IOC):USER-INTID2")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x1C T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID3")
+}
+record(ai,"$(IOC):USER-INTID3")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x20 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID4")
+}
+record(ai,"$(IOC):USER-INTID4")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x24 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID5")
+}
+record(ai,"$(IOC):USER-INTID5")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x28 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID6")
+}
+record(ai,"$(IOC):USER-INTID6")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x2C T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID7")
+}
+record(ai,"$(IOC):USER-INTID7")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x30 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID8")
+}
+record(ai,"$(IOC):USER-INTID8")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x34 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID9")
+}
+record(ai,"$(IOC):USER-INTID9")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x38 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID10")
+}
+record(ai,"$(IOC):USER-INTID10")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x3C T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID11")
+}
+record(ai,"$(IOC):USER-INTID11")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x40 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID12")
+}
+record(ai,"$(IOC):USER-INTID12")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x44 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID13")
+}
+record(ai,"$(IOC):USER-INTID13")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x48 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID14")
+}
+record(ai,"$(IOC):USER-INTID14")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x4C T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID15")
+}
+record(ai,"$(IOC):USER-INTID15")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x50 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTID16")
+}
+record(ai,"$(IOC):USER-INTID16")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x54 T=UINT32")
+}
+
+#readout of INT_TIM_x timer status register to measure interrupt latency from CENTRAL/USER --> P2020 CPU
+record(ao,"$(IOC):USER-INTTIM1-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT1/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM1")
+}
+record(ai,"$(IOC):USER-INTTIM1")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT1/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM2-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT2/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM2")
+}
+record(ai,"$(IOC):USER-INTTIM2")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT2/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM3-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT3/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM3")
+}
+record(ai,"$(IOC):USER-INTTIM3")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT3/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM4-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT4/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM4")
+}
+record(ai,"$(IOC):USER-INTTIM4")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT4/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM5-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT5/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM5")
+}
+record(ai,"$(IOC):USER-INTTIM5")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT5/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM6-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT6/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM6")
+}
+record(ai,"$(IOC):USER-INTTIM6")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT6/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM7-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT7/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM7")
+}
+record(ai,"$(IOC):USER-INTTIM7")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT7/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM8-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT8/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM8")
+}
+record(ai,"$(IOC):USER-INTTIM8")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT8/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM9-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT9/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM9")
+}
+record(ai,"$(IOC):USER-INTTIM9")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT9/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM10-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT10/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM10")
+}
+record(ai,"$(IOC):USER-INTTIM10")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT10/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM11-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT11/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM11")
+}
+record(ai,"$(IOC):USER-INTTIM11")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT11/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM12-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT12/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM12")
+}
+record(ai,"$(IOC):USER-INTTIM12")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT12/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM13-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT13/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM13")
+}
+record(ai,"$(IOC):USER-INTTIM13")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT13/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM14-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT14/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM14")
+}
+record(ai,"$(IOC):USER-INTTIM14")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT14/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM15-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT15/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM15")
+}
+record(ai,"$(IOC):USER-INTTIM15")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT15/0 T=UINT32")
+}
+
+record(ao,"$(IOC):USER-INTTIM16-STOP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT16/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM16")
+}
+record(ai,"$(IOC):USER-INTTIM16")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT16/0 T=UINT32")
+}
+
+
+
+######################################################################
+
+#the ramp waveform, readout interrupted with INT 12 with DMA transfer
+#(see startup.script for definition)
+record(aai,"$(IOC):USER-RAMP")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(INP,  "#C S @Usr1StdIOCUserRamp/0x0 T=UINT32")
+   field(NELM, "2048")
+   field(FTVL, "LONG")
+   field(FLNK, "$(IOC):SHMEM-ReadInitiator") # kick shared memory readout
+}
+
+
