@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.20 2012/08/22 10:56:52 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.21 2012/09/03 08:15:53 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -336,7 +336,7 @@ int pevWrite(
 static regDevSupport pevSupport = {
     pevReport,
     pevGetIoScanPvt,
-    NULL,
+    pevGetIoScanPvt,
     pevRead,
     pevWrite
 };
@@ -573,7 +573,7 @@ int pevAlloc(
 static regDevAsyncSupport pevAsynSupport = {
     pevAsynReport,
     pevAsynGetIoScanPvt,
-    NULL,
+    pevAsynGetIoScanPvt,
     pevAsynRead,
     pevAsynWrite,	/* asyn write must be implemented */
     pevAlloc

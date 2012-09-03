@@ -1,13 +1,14 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/08/22 12:53:34 $*/
-/*$Revision: 1.6 $*/
+/*$Date: 2012/09/03 08:15:53 $*/
+/*$Revision: 1.7 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 #include <pevulib.h>
 
 #include <epicsTypes.h>
@@ -149,6 +150,7 @@ long devIfc1210AiRead(aiRecord* record)
       {
         rval = pev_bmr_read( p->card,  p->address, p->count);
 	record->val = pev_bmr_conv_11bit_u(rval);
+        usleep( 10000);
 	return 2;
       }
     else
@@ -156,6 +158,7 @@ long devIfc1210AiRead(aiRecord* record)
       {
         rval = pev_bmr_read( p->card,  p->address, p->count);
 	record->val = pev_bmr_conv_11bit_s(rval);
+        usleep( 10000);
 	return 2;
       }
     else
@@ -163,6 +166,7 @@ long devIfc1210AiRead(aiRecord* record)
       {
         rval = pev_bmr_read( p->card,  p->address, p->count);
 	record->val = pev_bmr_conv_16bit_u(rval);
+        usleep( 10000);
 	return 2;
       }
     
@@ -224,12 +228,11 @@ long devIfc1210AoWrite(aoRecord* record)
     	pev_smon_wr( p->address, (int)record->val );
     else
     if(p->devType == PCI_IO)
-    	pev_csr_wr( p->address | 0x80000000, (int)record->val);
+    	pev_csr_wr( p->address | 0x80000000, (unsigned int)record->val);
     else
     if(p->devType == BMR) 
     	pev_bmr_write(p->card, p->address, (unsigned int)record->val, p->count);
 	
-
     return 0; 
 }
 
