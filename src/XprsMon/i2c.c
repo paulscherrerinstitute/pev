@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: i2c.c,v $
- * Revision 1.8  2012/08/16 09:11:39  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.9  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.7  2012/09/03 13:19:05  ioxos
+ * adapt pec_i2c_xx(), pev_pex_xx() and pev_bmr_xx() to new FPGA and library [JFG]
+ *
+ * Revision 1.6  2012/08/28 13:40:46  ioxos
+ * cleanup + update i2c status + reset [JFG]
  *
  * Revision 1.5  2012/06/01 13:59:44  ioxos
  * -Wall cleanup [JFG]
@@ -49,7 +55,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: i2c.c,v 1.8 2012/08/16 09:11:39 kalantari Exp $";
+static char *rcsid = "$Id: i2c.c,v 1.9 2012/09/04 07:34:33 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -66,19 +72,19 @@ static char *rcsid = "$Id: i2c.c,v 1.8 2012/08/16 09:11:39 kalantari Exp $";
 
 struct pev_i2c_devices i2c_devices_ifc[] =
 {
-  { "max5970",  0x45000030},
-  { "bmr463_0", 0x45000053},
-  { "bmr463_1", 0x4500005b},
-  { "bmr463_2", 0x45000063},
-  { "bmr463_3", 0x45000024},
-  { "lm95255_1",0x0400004c},
-  { "lm95255_2",0x0400001c},
-  { "idt8n4q01",0xe500006e},
-  { "pes32nt",  0xc5000075},
+  { "max5970",  0x41000030},
+  { "bmr463_0", 0x40048053},
+  { "bmr463_1", 0x4004805b},
+  { "bmr463_2", 0x40048063},
+  { "bmr463_3", 0x40048024},
+  { "lm95255_1",0x0100004c},
+  { "lm95255_2",0x01000018},
+  { "idt8n4q01",0xe100006e},
+  { "pes32nt",  0xc1000075},
   { "plx8624",  0x010f0069},
-  { "vmep0",    0x64000000},
-  { "fmc1",     0x84000000},
-  { "fmc2",     0xa4000000},
+  { "vmep0",    0x60000000},
+  { "fmc1",     0x80000000},
+  { "fmc2",     0xa000000},
   { NULL,       0x00000000}
 };
 
@@ -108,7 +114,7 @@ xprs_i2c( struct cli_cmd_para *c)
   uint addr;
   char *i2d_name, *p;
 
-  if( c->cnt < 3)
+  if( c->cnt < 2)
   {
     printf("i2c command needs more arguments\n");
     printf("usage: i2c <dev> <op> <reg> [<data>]\n");
@@ -170,11 +176,14 @@ xprs_i2c( struct cli_cmd_para *c)
       i2c.device |= 0x80;
     }
   }
-  if( sscanf( c->para[2],"%x", &i2c.cmd) != 1)
+  if( c->cnt > 2)
   {
-    printf("wrong register number\n");
-    printf("usage: i2c <dev> <op> <reg> [<data>]\n");
-    return(-1);
+    if( sscanf( c->para[2],"%x", &i2c.cmd) != 1)
+    {
+      printf("wrong register number\n");
+      printf("usage: i2c <dev> <op> <reg> [<data>]\n");
+      return(-1);
+    }
   }
   printf("device: %08x\n", i2c.device);
   if( !strcmp( "cmd", c->para[1]))
@@ -183,15 +192,54 @@ xprs_i2c( struct cli_cmd_para *c)
   }
   if( !strcmp( "read", c->para[1]))
   {
+    int status;
+
     if( i2d->id == 0x010f0069) /* PEX8624 */
     {
-      i2c.data = pev_pex_read( i2c.cmd);
+      status = pev_pex_read( i2c.cmd, &i2c.data);
+      if( status & I2C_CTL_ERR)
+      {
+	printf("%s: reg=%x -> error = %08x\n", i2d->name, i2c.cmd, status);
+      }
+      else
+      {
+	printf("%s: reg=%x -> data = %x\n", i2d->name, i2c.cmd, i2c.data);
+      }
     } 
     else
     {
-      i2c.data = pev_i2c_read( i2c.device, i2c.cmd);
+      status = pev_i2c_read( i2c.device, i2c.cmd, &i2c.data);
+      if( status & I2C_CTL_ERR)
+      {
+	printf("%s: reg=%x -> error = %08x\n", i2d->name, i2c.cmd, status);
+      }
+      else
+      {
+        switch(( i2c.device >> 18) & 0x3)
+        {
+          case 0:
+  	  {
+            printf("%s: reg=%x -> data = %02x\n", i2d->name, i2c.cmd, (uchar)i2c.data);
+	    break;
+  	  }
+          case 1:
+	  {
+            printf("%s: reg=%x -> data = %04x\n", i2d->name, i2c.cmd, (ushort)i2c.data);
+	    break;
+	  }
+          case 2:
+	  {
+            printf("%s: reg=%x -> data = %06x\n", i2d->name, i2c.cmd, (uint)i2c.data & 0xffffff);
+	    break;
+	  }
+          case 3:
+	  {
+            printf("%s: reg=%x -> data = %08x\n", i2d->name, i2c.cmd, (uint)i2c.data);
+	    break;
+	  }
+	}
+      }
     }
-    printf("%s: reg=%x -> data = %x\n", i2d->name, i2c.cmd, i2c.data);
   }
   if( !strcmp( "write", c->para[1]))
   {
@@ -214,6 +262,11 @@ xprs_i2c( struct cli_cmd_para *c)
     {
        pev_i2c_write( i2c.device, i2c.cmd, i2c.data);
     } 
+  }
+  if( !strcmp( "reset", c->para[1]))
+  {
+    printf("resetting I2C bus 0x%08x\n", i2c.device & 0xe0000000);
+    pev_i2c_reset( i2c.device);
   }
   return(0);
 

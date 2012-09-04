@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.10  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.11  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.39  2012/08/28 13:53:43  ioxos
+ * cleanup + update i2c status + reset [JFG]
+ *
+ * Revision 1.38  2012/08/27 08:43:53  ioxos
+ * support for VME fast single cycles through ELB bus [JFG]
  *
  * Revision 1.37  2012/08/13 15:32:26  ioxos
  * support for timeout while waiting for DMA interrupts [JFG]
@@ -168,6 +174,7 @@ typedef unsigned char uchar;
 #define PEV_SCSR_ITC_USR2   0xb0
 #define PEV_SCSR_VME_ADER   0xc0
 #define PEV_SCSR_VME_CSR    0xd0
+#define PEV_SCSR_VME_ELB    0xf0
 #define PEV_SCSR_ILOC_SPI   0xd0
 #define PEV_SCSR_ILOC_I2C   0xf0
 #define PEV_SCSR_USR_FIFO   0xe0
@@ -201,8 +208,14 @@ typedef unsigned char uchar;
 #define PEV_CSR_ITC_USR2  0x1480
 #define PEV_CSR_VME_ADER  0x560
 #define PEV_CSR_VME_CSR   0x5f0
+#define PEV_CSR_VME_ELB   0x438
 #define PEV_CSR_ITC_SHIFT 2
 #define PEV_CSR_ITC_MASK  0x1c00
+
+#define PEV_CSR_ELB_BASE  0xffb00000
+#define PEV_CSR_ELB_SIZE  0x10000
+#define PEV_VME_ELB_BASE  0xc0000000
+#define PEV_VME_ELB_SIZE  0x10000000
 
 struct pev_reg_remap
 {
@@ -221,6 +234,7 @@ struct pev_reg_remap
   uint vme_ader;
   uint vme_csr;
   uint vme_itc;
+  uint vme_elb;
   uint shm_base;
   uint dma_rd;
   uint dma_wr;
@@ -354,6 +368,7 @@ struct pev_reg_remap
 #define PEV_IOCTL_I2C_DEV_RD      0x00070103
 #define PEV_IOCTL_I2C_DEV_WR      0x00070104
 #define PEV_IOCTL_I2C_DEV_CMD     0x00070105
+#define PEV_IOCTL_I2C_DEV_RST     0x00070106
 
 #define PEV_IOCTL_VME             0x00080000
 #define PEV_IOCTL_VME_CONF_RD     0x00080001
@@ -500,6 +515,7 @@ struct pev_ioctl_rdwr
 #define MAP_PCIE_PMEM     2
 #define MAP_SLAVE_VME     4
 #define MAP_VME_SLAVE     4
+#define MAP_VME_ELB       8
 
 #define MAP_SPACE_PCIE    0x0000
 #define MAP_SPACE_VME     0x1000
@@ -578,6 +594,8 @@ struct pev_ioctl_map_ctl
 #define I2C_DEV_LM86_2 0x3
 #define I2C_DEV_XMC_1  0x4
 #define I2C_DEV_XMC_2  0x5
+#define I2C_CTL_ERR  0x100000
+#define I2C_CTL_DONE   0x200000
 
 struct pev_i2c_devices
 {
@@ -590,6 +608,7 @@ struct pev_ioctl_i2c
   uint device;
   uint cmd;
   uint data;
+  uint status;
 };
 
 struct pev_ioctl_vme_conf
@@ -666,10 +685,10 @@ struct pev_ioctl_vme_irq
   uint umask;
 };
 
-struct pev_ioctl_vme_slv_map
+struct pev_ioctl_vme_map
 {
   uint status;
-  uint base;
+  uint addr;
   uint size;
   uint mode;
 };
@@ -731,6 +750,10 @@ struct pev_ioctl_buf
 #define DMA_START_PIPE    0x01
 #define DMA_SIZE_MAX_BLK  0xff800  
 #define DMA_SIZE_MAX_LIST 0x3f  
+#define DMA_SIZE_PKT_128  0x00000000 
+#define DMA_SIZE_PKT_256  0x40000000 
+#define DMA_SIZE_PKT_512  0x80000000 
+#define DMA_SIZE_PKT_1K   0xc0000000 
 
 #define DMA_PCIE_TC0      0x00  /* Traffic Class 0 */
 #define DMA_PCIE_TC1      0x01  /* Traffic Class 1 */

@@ -29,8 +29,11 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.10  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.11  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.21  2012/08/28 13:34:14  ioxos
+ * update i2c status + reset [JFG]
  *
  * Revision 1.20  2012/08/13 15:31:39  ioxos
  * support for timeout while waiting for DMA interrupts [JFG]
@@ -471,13 +474,14 @@ pev_ioctl_i2c( struct pev_dev *pev,
 	       unsigned long arg)
 {
   int retval = 0;  
-  struct pev_ioctl_i2c i2c;
+  struct pev_ioctl_i2c i2c, *i2c_up;
 
   if( !pev->dev)
   {
     return( -ENODEV);
   }
-  if( copy_from_user(&i2c, (void *)arg, sizeof(i2c)))
+  i2c_up = (struct pev_ioctl_i2c *)arg;
+  if( copy_from_user(&i2c, (void *)i2c_up, sizeof(i2c)))
   {
     return( -EFAULT);
   }
@@ -491,15 +495,20 @@ pev_ioctl_i2c( struct pev_dev *pev,
     case PEV_IOCTL_I2C_DEV_RD:
     {
       pev_i2c_dev_read( pev, &i2c);
-      if( copy_to_user( (void *)arg, &i2c, sizeof( i2c)))
+      if( copy_to_user( (void *)&i2c_up->data, &i2c.data, sizeof( int)))
       {
         return -EFAULT;
-      }
+       }
       break;
     }
     case PEV_IOCTL_I2C_DEV_WR:
     {
       pev_i2c_dev_write( pev, &i2c);
+      break;
+    }
+    case PEV_IOCTL_I2C_DEV_RST:
+    {
+      pev_i2c_dev_reset( pev, &i2c);
       break;
     }
     case PEV_IOCTL_I2C_PEX_RD:
@@ -520,6 +529,10 @@ pev_ioctl_i2c( struct pev_dev *pev,
     {
       return( -EINVAL);
     }
+  }
+  if( copy_to_user( (void *)&i2c_up->status, &i2c.status, sizeof( int)))
+  {
+    return -EFAULT;
   }
      
   return( retval);

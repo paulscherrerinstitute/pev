@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.10  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.11  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.17  2012/08/27 08:41:45  ioxos
+ * support for VME fast single cycles through ELB bus [JFG]
  *
  * Revision 1.16  2012/08/13 15:31:39  ioxos
  * support for timeout while waiting for DMA interrupts [JFG]
@@ -203,7 +206,11 @@ struct pev_dev
   struct pci_dev *dev; 
   u32 board;
   u32 fpga;
+#ifdef PPC
+  u32 pmem_base;
+#else
   u64 pmem_base;
+#endif
   u32 pmem_len;
   u32 io_base;
   u32 io_len;
@@ -228,16 +235,29 @@ struct pev_dev
   struct pev_ioctl_map_ctl map_mas32;   /*      */
   struct pev_ioctl_map_ctl map_mas64;   /*      */
   struct pev_ioctl_map_ctl map_slave;   /*      */
+  struct pev_ioctl_map_ctl map_elb;     /*      */
   struct pci_dev *pex;                  /* pointer to the PEX8624 device structure      */
+#ifdef PPC
+  u32 pex_base;                         /* PEX8624 PCI MEM base address                 */
+#else
   u64 pex_base;                         /* PEX8624 PCI MEM base address                 */
+#endif
   u32 pex_len;                          /* PEX8624 PCI MEM window size                  */
   void *pex_ptr;                        /* PEX8624 PCI MEM kernel pointer               */
   struct pci_dev *plx;                  /* pointer to the PLX8112 device structure      */
+#ifdef PPC
+  u32 plx_base;                         /* PEX8624 PCI MEM base address                 */
+#else
   u64 plx_base;                         /* PEX8624 PCI MEM base address                 */
+#endif
   u32 plx_len;                          /* PEX8624 PCI MEM window size                  */
   void *plx_ptr;                        /* PEX8624 PCI MEM kernel pointer               */
   u32 shm_len;                          /* size of on board shared memory (SHM)         */
+#ifdef PPC
+  u32 dma_shm_base;                     /* base address of SHM buffer reserved for DMA  */
+#else
   u64 dma_shm_base;                     /* base address of SHM buffer reserved for DMA  */
+#endif
   u32 dma_shm_len;                      /* size of SHM buffer reserved for DMA          */
   void *dma_shm_ptr;                    /* pointer to SHM buffer reserved for DMA       */
 #ifdef XENOMAI

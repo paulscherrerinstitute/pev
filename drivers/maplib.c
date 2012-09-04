@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: maplib.c,v $
- * Revision 1.10  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.11  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.7  2012/08/29 11:29:09  ioxos
+ * initialize loc_addr to -1 [JFG]
  *
  * Revision 1.6  2009/04/06 12:19:24  ioxos
  * remove pevdrvr.h [JFG]
@@ -87,6 +90,7 @@ map_blk_alloc( struct pev_ioctl_map_ctl *map_ctl_p,
   size = map_pg_p->size + (u32)(map_pg_p->rem_addr % map_ctl_p->pg_size);
   npg = (ushort)(((size-1)/map_ctl_p->pg_size) + 1);
   off = -1;
+  map_pg_p->loc_addr = -1;
    /* scan list block per block */
   for( i = 0; i < map_ctl_p->pg_num; i += p[i].npg)
   {
@@ -155,6 +159,7 @@ map_blk_find( struct pev_ioctl_map_ctl *map_ctl_p,
   u64 h_addr;
 
   off = -1;
+  map_pg_p->loc_addr = -1;
   p = map_ctl_p->map_p;
   for( i = 0; i < map_ctl_p->pg_num; i += p[i].npg)
   {

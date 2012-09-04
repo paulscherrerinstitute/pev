@@ -38,8 +38,14 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.13  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.14  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.51  2012/08/28 13:36:49  ioxos
+ * update i2c status + rest + workaround for elb vme csr access in short IO [JFG]
+ *
+ * Revision 1.50  2012/08/27 08:41:45  ioxos
+ * support for VME fast single cycles through ELB bus [JFG]
  *
  * Revision 1.49  2012/08/13 15:31:39  ioxos
  * support for timeout while waiting for DMA interrupts [JFG]
@@ -264,17 +270,23 @@ pev_rdwr(struct pev_dev *pev,
     }
     if( m->space == RDWR_PMEM)
     {
-      if( rdwr_p->offset + rdwr_p->len >= pev->pmem_len) return( -EFAULT);
-      //pev_addr = pev->pmem_ptr + rdwr_p->offset;
-      pev_addr = ioremap( pev->pmem_base + rdwr_p->offset, rdwr_p->len);
-      pev_remap = 1;
+      if(  pev->pmem_base)
+      {
+        if( rdwr_p->offset + rdwr_p->len >= pev->pmem_len) return( -EFAULT);
+        //pev_addr = pev->pmem_ptr + rdwr_p->offset;
+        pev_addr = ioremap( pev->pmem_base + rdwr_p->offset, rdwr_p->len);
+        pev_remap = 1;
+      }
     }
     if( m->space == RDWR_MEM)
     {
-      if( rdwr_p->offset + rdwr_p->len >= pev->mem_len) return( -EFAULT);
-      //pev_addr = pev->mem_ptr + rdwr_p->offset;
-      pev_addr = ioremap( pev->mem_base + rdwr_p->offset, rdwr_p->len);
-      pev_remap = 1;
+      if(  pev->mem_base)
+      {
+        if( rdwr_p->offset + rdwr_p->len >= pev->mem_len) return( -EFAULT);
+        //pev_addr = pev->mem_ptr + rdwr_p->offset;
+        pev_addr = ioremap( pev->mem_base + rdwr_p->offset, rdwr_p->len);
+        pev_remap = 1;
+      }
     }
     if( m->space == RDWR_CSR)
     {
@@ -286,12 +298,13 @@ pev_rdwr(struct pev_dev *pev,
     }
     if( m->space == RDWR_ELB)
     {
-      if( pev->board != PEV_BOARD_IFC1210) /* ELB access only on IFC1210 */
+      if(  pev->elb_base)
       {
-	return( -EFAULT);
+        if( rdwr_p->offset + rdwr_p->len >= pev->elb_len) return( -EFAULT);
+        //pev_addr = pev->elb_ptr + rdwr_p->offset;
+        pev_addr = ioremap( pev->elb_base + rdwr_p->offset, rdwr_p->len);
+        pev_remap = 1;
       }
-      if( rdwr_p->offset + rdwr_p->len >= pev->elb_len) return( -EFAULT);
-      pev_addr = pev->elb_ptr + rdwr_p->offset;
     }
     if( m->space == RDWR_DMA_SHM)
     {
@@ -383,17 +396,23 @@ pev_rdwr(struct pev_dev *pev,
   }
   if( m->space == RDWR_PMEM) /* PMEM cycle */
   {
-    if( rdwr_p->offset >  pev->pmem_len - m->ds) return( -EINVAL);
-    //pev_addr = pev->pmem_ptr + rdwr_p->offset;
-    pev_addr = ioremap( pev->pmem_base + rdwr_p->offset, 8);
-    pev_remap = 1;
+    if( pev->pmem_base)
+    {
+      if( rdwr_p->offset >  pev->pmem_len - m->ds) return( -EINVAL);
+      //pev_addr = pev->pmem_ptr + rdwr_p->offset;
+      pev_addr = ioremap( pev->pmem_base + rdwr_p->offset, 8);
+      pev_remap = 1;
+    }
   }
   if( m->space == RDWR_MEM) /* MEM cycle */
   {
-    if( rdwr_p->offset >  pev->mem_len - m->ds) return( -EINVAL);
-    //pev_addr = pev->mem_ptr + rdwr_p->offset;
-    pev_addr = ioremap( pev->mem_base + rdwr_p->offset, 8);
-    pev_remap = 1;
+    if( pev->mem_base)
+    {
+      if( rdwr_p->offset >  pev->mem_len - m->ds) return( -EINVAL);
+      //pev_addr = pev->mem_ptr + rdwr_p->offset;
+      pev_addr = ioremap( pev->mem_base + rdwr_p->offset, 8);
+      pev_remap = 1;
+    }
   }
   if( m->space == RDWR_CSR) /* CSR cycle */
   {
@@ -405,12 +424,13 @@ pev_rdwr(struct pev_dev *pev,
   }
   if( m->space == RDWR_ELB) /* ELB cycle */
   {
-    if( pev->board != PEV_BOARD_IFC1210) /* ELB access only on IFC1210 */
+    if( pev->elb_base)
     {
-      return( -EFAULT);
+      if( rdwr_p->offset >  pev->elb_len - m->ds) return( -EINVAL);
+      //pev_addr = pev->elb_ptr + rdwr_p->offset;
+      pev_addr = ioremap( pev->elb_base + rdwr_p->offset, 8);
+      pev_remap = 1;
     }
-    if( rdwr_p->offset >  pev->elb_len - m->ds) return( -EINVAL);
-    pev_addr = pev->elb_ptr + rdwr_p->offset;
   }
   if( m->space == RDWR_DMA_SHM)
   {
@@ -750,6 +770,27 @@ pev_sg_master_64_set( struct pev_dev *pev,
   return;
 }
 
+int rdwr_swap_32( int);
+int rdwr_swap_32( int);
+
+void
+pev_sg_vme_elb_set( struct pev_dev *pev,
+                    uint off,
+		    ulong rem_addr,
+		    uint mode)
+{
+  uint val;
+
+  val = (rem_addr & 0xf0000000) | (mode & 0x3f);
+  //pev_outl( pev, val, pev->io_remap[pev->csr_remap].vme_elb);
+  if(  pev->csr_ptr) /* work around until vme_elb is mapped in short PCI_IO */
+  {
+    *(uint *)(pev->csr_ptr + PEV_CSR_VME_ELB) = rdwr_swap_32( val);
+  }
+
+  return;
+}
+
 void
 pev_sg_slave_vme_set( struct pev_dev *pev,
                       uint off,
@@ -810,6 +851,11 @@ pev_map_set_sg( struct pev_dev *pev,
 	pev_sg_master_64_set( pev, i, rem_addr, mode);
         rem_addr += pev->map_mas64.pg_size;
       }
+      break;
+    }
+    case MAP_VME_ELB:
+    {
+      pev_sg_vme_elb_set( pev, 0, rem_addr, mode);
       break;
     }
     case MAP_SLAVE_VME:
@@ -882,6 +928,11 @@ pev_map_clear_sg( struct pev_dev *pev,
       }
       break;
     }
+    case MAP_VME_ELB:
+    {
+      pev_sg_vme_elb_set( pev, 0, 0, 0x3c);
+      break;
+    }
     case MAP_SLAVE_VME:
     {
       uint tmp;
@@ -949,6 +1000,11 @@ map_get_map( struct pev_dev *pev,
     case MAP_MASTER_64:
     {
       mc = &pev->map_mas64;
+      break;
+    }
+    case MAP_VME_ELB:
+    {
+      mc = &pev->map_elb;
       break;
     }
     case MAP_SLAVE_VME:
@@ -1144,7 +1200,8 @@ pev_i2c_dev_cmd(struct pev_dev *pev,
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_cmd(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
-
+  i2c_para_p->status = i2c_wait( reg_p, 100000);
+  //printk("i2c cmd sts = %08x\n", sts);
   return;
 }
 
@@ -1161,9 +1218,13 @@ pev_i2c_dev_read(struct pev_dev *pev,
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_read(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  i2c_wait( reg_p, 100000);
+  sts = i2c_wait( reg_p, 100000);
+  //printk("i2c cmd sts = %08x\n", sts);
+  i2c_para_p->device &= ~0x8000;
   i2c_para_p->data = i2c_read( reg_p,  i2c_para_p->device, &sts);
-  i2c_para_p->device = sts;
+  i2c_para_p->status = sts;
+  //sts = i2c_wait( reg_p, 100000);
+  //printk("i2c read sts = %08x\n", sts);
   return;
 }
 
@@ -1179,7 +1240,23 @@ pev_i2c_dev_write(struct pev_dev *pev,
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_write(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
-  i2c_wait( reg_p, 100000);
+  i2c_para_p->status = i2c_wait( reg_p, 100000);
+
+  return;
+}
+void
+pev_i2c_dev_reset(struct pev_dev *pev,
+	          struct pev_ioctl_i2c *i2c_para_p)
+{
+  ulong reg_p;
+  int elbc;
+
+  elbc = i2c_para_p->device & 0x80;
+  i2c_para_p->device &= ~0x80;
+  reg_p = pev_i2c_set_reg( pev, elbc);
+  //printk("pev_i2c_dev_reset(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device);
+  i2c_reset( reg_p,  i2c_para_p->device);
+  i2c_para_p->status = i2c_wait( reg_p, 100000);
 
   return;
 }
@@ -1193,6 +1270,7 @@ pev_i2c_pex_read(struct pev_dev *pev,
   i2c_cmd( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, i2c_para_p->cmd);
   i2c_wait( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 100000);
   i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, &sts);
+  i2c_para_p->status = sts;
 
   return;
 }
@@ -1202,7 +1280,7 @@ pev_i2c_pex_write(struct pev_dev *pev,
 	          struct pev_ioctl_i2c *i2c_para_p)
 {
   i2c_write( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, i2c_para_p->cmd, i2c_para_p->data);
-  i2c_wait( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 100000);
+  i2c_para_p->status = i2c_wait( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 100000);
 
   return;
 }
@@ -2516,7 +2594,7 @@ pev_dma_move( struct pev_dev *pev,
         retval = down_timeout( &pev->dma_sem, jiffies);
 	if( retval)
 	{
-	  printk("DMA timeout..\n");
+	  //printk("DMA timeout..\n");
 	  pev->dma_status |= DMA_STATUS_TMO;
 	}
 #endif

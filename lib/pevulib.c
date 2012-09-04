@@ -27,14 +27,23 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.10  2012/08/22 13:29:00  kalt_r
- *  corrected BMR no 3 (1V0_opt) I2C address, cleared bit 7 such that transfer done vie PCIe interface as came original with 4.16 release
+ *  Revision 1.11  2012/09/04 07:34:33  kalantari
+ *  added tosca driver 4.18 from ioxos
  *
- *  Revision 1.9  2012/08/17 08:04:57  kalt_r
- *  change access to BMR dc/dc from PCIe to ELB
+ *  Revision 1.62  2012/09/03 13:54:32  ioxos
+ *  tagging release 4.18 [JFG]
  *
- *  Revision 1.8  2012/08/16 09:11:38  kalantari
- *  added version 4.16 of tosca driver
+ *  Revision 1.61  2012/09/03 13:10:15  ioxos
+ *  pointer to data as arg of read function and return i2c cycle status [JFG]
+ *
+ *  Revision 1.60  2012/08/28 13:59:45  ioxos
+ *  release 4.17 [JFG]
+ *
+ *  Revision 1.59  2012/08/28 13:52:54  ioxos
+ *  cleanup i2c + reset [JFG]
+ *
+ *  Revision 1.58  2012/08/27 08:47:23  ioxos
+ *  support for VME fast single cycles through ELB bus [JFG]
  *
  *  Revision 1.57  2012/08/07 09:21:04  ioxos
  *  support for BMR DC-DC converter [JFG]
@@ -211,7 +220,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.10 2012/08/22 13:29:00 kalt_r Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.11 2012/09/04 07:34:33 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -233,7 +242,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.16";
+char pev_lib_version[] = "4.18";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -607,6 +616,12 @@ pev_mmap( struct pev_ioctl_map_pg *map)
     map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, 0x100000000 | map->loc_addr);
 #endif
   }
+  if( map->sg_id == MAP_VME_ELB)
+  {
+#if defined(PPC)
+    map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0xa0000000);
+#endif
+  }
 
   return( map->usr_addr);
 }
@@ -731,7 +746,8 @@ pev_dma_status( struct pev_ioctl_dma_sts *ds_p)
 
 int
 pev_i2c_read( uint dev,
-	      uint reg)
+	      uint reg,
+	      uint *data)
 {
   struct pev_ioctl_i2c i2c;
 
@@ -739,8 +755,9 @@ pev_i2c_read( uint dev,
   i2c.cmd = reg;
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
+  *data = i2c.data;
 
-  return( i2c.data);
+  return( i2c.status);
 }
 
 int
@@ -754,7 +771,7 @@ pev_i2c_cmd( uint dev,
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_CMD, &i2c);
 
-  return( i2c.data);
+  return( i2c.status);
 }
 
 int
@@ -769,11 +786,25 @@ pev_i2c_write( uint dev,
   i2c.data = data;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
-  return( 0);
+  return( i2c.status);
 }
 
 int
-pev_pex_read( uint reg)
+pev_i2c_reset( uint dev)
+{
+  struct pev_ioctl_i2c i2c;
+
+  i2c.device = dev;
+  i2c.cmd = 0;
+  i2c.data = 0;
+  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RST, &i2c);
+
+  return( i2c.status);
+}
+
+int
+pev_pex_read( uint reg,
+	      uint *data)
 {
   struct pev_ioctl_i2c i2c;
 
@@ -783,9 +814,9 @@ pev_pex_read( uint reg)
   i2c.cmd = pev_swap_32( i2c.cmd);
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
-  //i2c.data = pev_swap_32( i2c.data);
+  *data = i2c.data;
 
-  return( i2c.data);
+  return( i2c.status);
 }
 
 int
@@ -802,7 +833,7 @@ pev_pex_write( uint reg,
   //i2c.data = pev_swap_32( data);
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
-  return( 0);
+  return( i2c.status);
 }
 
 float
@@ -840,6 +871,7 @@ pev_bmr_conv_16bit_u( unsigned short val)
 int
 pev_bmr_read( uint bmr,
 	      uint reg,
+	      uint *data,
 	      uint cnt)
 {
   struct pev_ioctl_i2c i2c;
@@ -847,26 +879,28 @@ pev_bmr_read( uint bmr,
 
   device = 0;
   if( cnt > 3) return( -1);
+  device =  0x40000080;
+  //device =  0x40000000;
   switch( bmr)
   {
     case 0:
     {
-      device = 0x40000053;
+      device |= 0x53;
       break;
     }
     case 1:
     {
-      device = 0x4000005b;
+      device |= 0x5b;
       break;
     }
     case 2:
     {
-      device = 0x40000063;
+      device |= 0x63;
       break;
     }
     case 3:
     {
-      device = 0x40000024;
+      device |= 0x24;
       break;
     }
     default:
@@ -874,15 +908,13 @@ pev_bmr_read( uint bmr,
       return(-1);
     }
   }
-  i2c.device = device | 0x8000;
   i2c.cmd = reg;
-  ioctl( pev->fd, PEV_IOCTL_I2C_DEV_CMD, &i2c);
-  //usleep( 100000);
-  i2c.device = device | ((cnt -1) << 18);
+  i2c.device = device | ((cnt -1) << 18) | 0x8000;
   i2c.data = 0;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_RD, &i2c);
+  *data = i2c.data;
 
-  return( i2c.data);
+  return( i2c.status);
 }
 
 int
@@ -896,26 +928,29 @@ pev_bmr_write( uint bmr,
 
   device = 0;
   if( cnt > 3) return( -1);
+  if( cnt > 3) return( -1);
+  device =  0x40000080;
+  //device =  0x40000000;
   switch( bmr)
   {
     case 0:
     {
-      device = 0x40000053;
+      device |= 0x53;
       break;
     }
     case 1:
     {
-      device = 0x4000005b;
+      device |= 0x5b;
       break;
     }
     case 2:
     {
-      device = 0x40000063;
+      device |= 0x63;
       break;
     }
     case 3:
     {
-      device = 0x40000024;
+      device |= 0x24;
       break;
     }
     default:
@@ -930,7 +965,7 @@ pev_bmr_write( uint bmr,
   i2c.data = data;
   ioctl( pev->fd, PEV_IOCTL_I2C_DEV_WR, &i2c);
 
-  return( 0);
+  return( i2c.status);
 }
 
 int
@@ -1167,6 +1202,7 @@ pev_vme_unlock( void)
 {
   return( ioctl( pev->fd, PEV_IOCTL_VME_UNLOCK, 0));
 }
+
 
 int
 pev_vme_init( void)

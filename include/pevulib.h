@@ -27,11 +27,20 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.13  2012/08/21 09:02:39  kalantari
- * included required header
+ * Revision 1.14  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
  *
- * Revision 1.12  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.27  2012/09/03 13:10:33  ioxos
+ * pointer to data as arg of read function and return i2c cycle status [JFG]
+ *
+ * Revision 1.26  2012/08/29 11:30:15  ioxos
+ * declare pev_map_finf() [JFG]
+ *
+ * Revision 1.25  2012/08/28 13:53:43  ioxos
+ * cleanup + update i2c status + reset [JFG]
+ *
+ * Revision 1.24  2012/08/27 08:45:14  ioxos
+ * include pevioctl.h [JFG]
  *
  * Revision 1.23  2012/08/07 09:21:12  ioxos
  * support for BMR DC-DC converter [JFG]
@@ -151,17 +160,19 @@ void *pev_vmap( struct pev_ioctl_map_pg *);
 int pev_map_alloc( struct pev_ioctl_map_pg *);
 int pev_map_free( struct pev_ioctl_map_pg *);
 int pev_map_modify( struct pev_ioctl_map_pg *);
+int pev_map_find( struct pev_ioctl_map_pg *);
 int pev_map_read( struct pev_ioctl_map_ctl *);
 int pev_map_clear( struct pev_ioctl_map_ctl *);
 int pev_i2c_cmd( uint, uint);
-int pev_i2c_read( uint, uint);
+int pev_i2c_read( uint, uint, uint *);
 int pev_i2c_write( uint, uint, uint);
-int pev_pex_read( uint);
+int pev_i2c_reset( uint);
+int pev_pex_read( uint, uint *);
 float pev_bmr_conv_11bit_u( unsigned short);
 float pev_bmr_conv_11bit_s( unsigned short);
 float pev_bmr_conv_16bit_u( unsigned short);
 int pev_pex_write( uint, uint);
-int pev_bmr_read( uint, uint, uint);
+int pev_bmr_read( uint, uint, uint *, uint);
 int pev_bmr_write( uint, uint, uint, uint);
 int pev_sflash_id( char *, uint);
 int pev_sflash_rdsr( uint);

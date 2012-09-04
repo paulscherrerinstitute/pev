@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.8  2012/08/16 09:11:39  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.9  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.18  2012/09/03 13:19:05  ioxos
+ * adapt pec_i2c_xx(), pev_pex_xx() and pev_bmr_xx() to new FPGA and library [JFG]
  *
  * Revision 1.17  2012/08/08 08:02:32  ioxos
  * support for BMR DC-DC converter [JFG]
@@ -85,7 +88,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.8 2012/08/16 09:11:39 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.9 2012/09/04 07:34:33 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -271,11 +274,18 @@ conf_show_static( void)
 void
 conf_show_switch( void)
 {
-  int d0;
+  uint d0, sts;
 
-  d0 = pev_pex_read( 0x0);
+  sts = pev_pex_read( 0x0, &d0);
   printf("   PCIe SWITCH Status\n");
-  printf("      Identifier           : 0x%08x\n", d0);
+  if( sts & I2C_CTL_ERR)
+  {
+    printf("      Identifier           : 0x%08x -> readout error\n", sts);
+  }
+  else
+  {
+    printf("      Identifier           : 0x%08x\n", d0);
+  }
   return;
 }
 
@@ -610,6 +620,7 @@ conf_show_bmr( void)
   float f0, f1, f2, f3;
   int i, div;
   short h,l;
+  uint sts, data;
 
   if( conf_board != PEV_BOARD_IFC1210)
   {
@@ -618,38 +629,49 @@ conf_show_bmr( void)
   printf("   DC-DC Voltage Regulators\n");
   for( i = 0; i < 3; i++)
   {
-    d0 = (unsigned short)pev_bmr_read( i, 0x88, 2);/*0x88*/
-    l = d0&0x7ff;
-    if( l & 0x400) l |= 0xf800;
-    h = d0 >> 11;
-    h |= 0xffe0;
-    h =  ~h + 1;
-    div = 1 << h;
-    f0 = ((float)l/div);
-    f0 = pev_bmr_conv_11bit_u( d0);
-    usleep( 10000);
-    d1 = (unsigned short)pev_bmr_read( i, 0x8b, 2);
-    f1 = ((float)d1*0.00012207);
-    f1 = pev_bmr_conv_16bit_u( d1);
-    usleep( 10000);
-    d2 = (unsigned short)pev_bmr_read( i, 0x8c, 2);
-    l = d2&0x7ff;
-    h = d2 >> 11;
-    h |= 0xffe0;
-    h =  ~h + 1;
-    div = 1 << h;
-    f2 = ((float)l/div);
-    f2 = pev_bmr_conv_11bit_u( d2);
-    usleep( 10000);
-    d3 = (unsigned short)pev_bmr_read( i, 0x8d, 2);/*0x8d*/
-    f3 = ((float)((short)((d3&0x7ff)<<5))/512);
-    f3 = pev_bmr_conv_11bit_s( d3);
-    usleep( 10000);
-    printf("      BMR#%d\n", i);
-    printf("        VIN                : %.2f [%04x]\n", f0, d0);
-    printf("        VOUT               : %.2f [%04x]\n", f1, d1);
-    printf("        IOUT               : %.2f [%04x]\n", f2, d2);
-    printf("        TEMP               : %.2f [%04x]\n", f3, d3);
+    sts = (unsigned short)pev_bmr_read( i, 0x88, &data, 2);/*0x88*/
+    if( sts & I2C_CTL_ERR)
+    {
+      printf("      BMR#%d -> readout error [%08x]\n", i,sts);
+    }
+    else
+    {
+      d0 = (unsigned short)data;
+      l = d0&0x7ff;
+      if( l & 0x400) l |= 0xf800;
+      h = d0 >> 11;
+      h |= 0xffe0;
+      h =  ~h + 1;
+      div = 1 << h;
+      f0 = ((float)l/div);
+      f0 = pev_bmr_conv_11bit_u( d0);
+      usleep( 10000);
+      sts = (unsigned short)pev_bmr_read( i, 0x8b, &data, 2);
+      d1 = (unsigned short)data;
+      f1 = ((float)d1*0.00012207);
+      f1 = pev_bmr_conv_16bit_u( d1);
+      usleep( 10000);
+      sts = (unsigned short)pev_bmr_read( i, 0x8c, &data, 2);
+      d2 = (unsigned short)data;
+      l = d2&0x7ff;
+      h = d2 >> 11;
+      h |= 0xffe0;
+      h =  ~h + 1;
+      div = 1 << h;
+      f2 = ((float)l/div);
+      f2 = pev_bmr_conv_11bit_u( d2);
+      usleep( 10000);
+      sts = (unsigned short)pev_bmr_read( i, 0x8d, &data, 2);/*0x8d*/
+      d3 = (unsigned short)data;
+      f3 = ((float)((short)((d3&0x7ff)<<5))/512);
+      f3 = pev_bmr_conv_11bit_s( d3);
+      usleep( 10000);
+      printf("      BMR#%d\n", i);
+      printf("        VIN                : %.2f [%04x]\n", f0, d0);
+      printf("        VOUT               : %.2f [%04x]\n", f1, d1);
+      printf("        IOUT               : %.2f [%04x]\n", f2, d2);
+      printf("        TEMP               : %.2f [%04x]\n", f3, d3);
+    }
   }
   return;
 }

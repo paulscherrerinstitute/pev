@@ -65,6 +65,7 @@
 #define I2C_CTL_CMD      0x400000
 #define I2C_CTL_WRITE    0x800000
 #define I2C_CTL_READ     0xC00000
+#define I2C_CTL_RESET    0x004000
 #define I2C_CTL_MASK     0xC00000
 
 uint i2c_elb = 0;
@@ -136,14 +137,18 @@ i2c_wait( uint io_base,
 	  uint tmo)
 {
   uint ctl;
+  int iex;
+
 
   ctl = i2c_read_io( io_base + I2C_CTL_OFFSET);
-  while( ctl & 0x300000)
+  
+  while( !(ctl & 0x300000))
   {
     ctl = i2c_read_io( io_base + I2C_CTL_OFFSET);
-    if( !tmo--) return( -1);
+    if( !tmo--) break;
   }
-  i2c_read_io( io_base + I2C_CTL_OFFSET);
+  //iex = 10;
+  //while(iex--)i2c_read_io( io_base + I2C_CTL_OFFSET);
   return( ctl);
 }
 uint
@@ -152,10 +157,6 @@ i2c_cmd( uint io_base,
 	 uint cmd)
 {
   /* load command in register */
-  if( !i2c_elb)
-  {
-    //cmd = i2c_swap_32( cmd);
-  }
   i2c_write_io( cmd, io_base + I2C_CMD_OFFSET);
   /* trig command cycle */
   i2c_write_io( (~I2C_CTL_MASK & dev), io_base + I2C_CTL_OFFSET);
@@ -169,19 +170,16 @@ i2c_read( uint io_base,
 	  uint dev,
 	  uint *sts_p)
 {
+
+
   uint data;
 
   /* trig read cycle */
   i2c_write_io( (~I2C_CTL_MASK & dev), io_base + I2C_CTL_OFFSET);
   i2c_write_io( (I2C_CTL_READ | dev), io_base + I2C_CTL_OFFSET);
-  i2c_wait( io_base, 10000);
+  *sts_p = i2c_wait( io_base, 10000);
   /* get data */
   data = i2c_read_io( io_base + I2C_READ_OFFSET);
-  if( !i2c_elb)
-  {
-    //data = i2c_swap_32( data);
-  }
-  *sts_p = i2c_read_io( io_base + I2C_CTL_OFFSET);
 
   return( data);
 }
@@ -193,11 +191,6 @@ i2c_write( uint io_base,
 	   uint data)
 {
   /* load command register */
-  if( !i2c_elb)
-  {
-    //cmd = i2c_swap_32( cmd);
-    //data = i2c_swap_32( data);
-  }
   i2c_write_io( cmd, io_base + I2C_CMD_OFFSET);
   /* load data register */
   i2c_write_io( data, io_base + I2C_WRITE_OFFSET);
@@ -208,5 +201,16 @@ i2c_write( uint io_base,
   return( 0);
 }
 
+uint
+i2c_reset( uint io_base,
+	   uint dev)
+{
+  /* kill any pending transaction on  I2C bus*/
+  dev &= 0xe0000000; /* select I"C bus */
+  i2c_write_io( dev, io_base + I2C_CTL_OFFSET);
+  i2c_write_io( (I2C_CTL_RESET | dev), io_base + I2C_CTL_OFFSET);
+
+  return( 0);
+}
 
 

@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.8  2012/08/16 09:11:39  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.9  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.29  2012/09/03 13:19:06  ioxos
+ * adapt pec_i2c_xx(), pev_pex_xx() and pev_bmr_xx() to new FPGA and library [JFG]
  *
  * Revision 1.28  2012/08/13 15:35:38  ioxos
  * dma command displays  DMA status [JFG]
@@ -118,7 +121,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.8 2012/08/16 09:11:39 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.9 2012/09/04 07:34:33 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -2203,6 +2206,7 @@ xprs_rdwr_i2c( struct cli_cmd_para *c)
   int retval;
   int cnt, i;
   char *p;
+  uint sts;
 
   retval = -1;
   cnt = c->cnt;
@@ -2227,8 +2231,15 @@ xprs_rdwr_i2c( struct cli_cmd_para *c)
             {
 	      return(-1);
 	    }
-	    data = pev_pex_read( reg);
-	    printf("Reading PEX8624 register %03x = %08x\n", reg, data);
+	    sts = pev_pex_read( reg, &data);
+            if( sts & I2C_CTL_ERR)
+            {
+	       printf("Reading PEX8624 register %03x -> ERROR [%08x]\n", reg, sts);
+	    }
+	    else
+            {
+	       printf("Reading PEX8624 register %03x = %08x\n", reg, data);
+	    }
 	  }
 	  return( -1);
 	}
@@ -2247,8 +2258,15 @@ xprs_rdwr_i2c( struct cli_cmd_para *c)
             {
 	      return(-1);
 	    }
-	    pev_pex_write( reg, data);
-	    printf("Writing PEX8624 register %03x = %08x\n", reg, data);
+	    sts = pev_pex_write( reg, data);
+            if( sts & I2C_CTL_ERR)
+            {
+	       printf("Writing PEX8624 register %03x -> ERROR [%08x]\n", reg, sts);
+	    }
+	    else
+            {
+	       printf("Writing PEX8624 register %03x = %08x\n", reg, data);
+	    }
 	  }
 	  return( -1);
 	}

@@ -27,8 +27,20 @@
  *  Change History
  *  
  * $Log: pevxulib.h,v $
- * Revision 1.10  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.11  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.19  2012/09/03 13:10:34  ioxos
+ * pointer to data as arg of read function and return i2c cycle status [JFG]
+ *
+ * Revision 1.18  2012/08/29 11:30:15  ioxos
+ * declare pev_map_finf() [JFG]
+ *
+ * Revision 1.17  2012/08/28 13:53:43  ioxos
+ * cleanup + update i2c status + reset [JFG]
+ *
+ * Revision 1.16  2012/08/27 08:45:14  ioxos
+ * include pevioctl.h [JFG]
  *
  * Revision 1.15  2012/08/07 09:21:12  ioxos
  * support for BMR DC-DC converter [JFG]
@@ -81,6 +93,8 @@
 #ifndef _H_PEVXULIB
 #define _H_PEVXULIB
 
+#include <pevioctl.h>
+
 #ifdef _cplusplus
 extern "C" {
 #endif
@@ -102,6 +116,8 @@ struct pevx_node *pevx_init( uint);
 char *pevx_id( void);
 uint pevx_board( void);
 char *pevx_board_name(void);
+char *pevx_get_driver_version(void);
+char *pevx_get_lib_version(void);
 struct pev_reg_remap *pevx_io_remap( void);
 struct pevx_node *pevx_set_crate( uint);
 int pevx_exit( uint);
@@ -120,11 +136,12 @@ int pevx_map_modify( uint, struct pev_ioctl_map_pg *);
 int pevx_map_read( uint, struct pev_ioctl_map_ctl *);
 int pevx_map_clear( uint, struct pev_ioctl_map_ctl *);
 int pevx_i2c_cmd( uint, uint, uint);
-int pevx_i2c_read( uint, uint, uint);
+int pevx_i2c_read( uint, uint, uint, uint *);
 int pevx_i2c_write( uint, uint, uint, uint);
-int pevx_pex_read( uint, uint);
+int pevx_i2c_reset( uint, uint);
+int pevx_pex_read( uint, uint, uint *);
 int pevx_pex_write( uint, uint, uint);
-int pevx_bmr_read( uint, uint, uint, uint);
+int pevx_bmr_read( uint, uint, uint, uint *, uint);
 int pevx_bmr_write( uint, uint, uint, uint, uint);
 int pevx_sflash_id( uint, char *, uint);
 int pevx_sflash_rdsr( uint, uint);

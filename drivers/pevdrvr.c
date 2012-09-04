@@ -43,8 +43,20 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.10  2012/08/16 09:11:38  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.11  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.65  2012/09/03 13:54:31  ioxos
+ * tagging release 4.18 [JFG]
+ *
+ * Revision 1.64  2012/08/28 13:59:45  ioxos
+ * release 4.17 [JFG]
+ *
+ * Revision 1.63  2012/08/27 09:21:47  ioxos
+ * map local crate to 0 [JFG]
+ *
+ * Revision 1.62  2012/08/27 08:41:45  ioxos
+ * support for VME fast single cycles through ELB bus [JFG]
  *
  * Revision 1.61  2012/08/13 15:31:39  ioxos
  * support for timeout while waiting for DMA interrupts [JFG]
@@ -279,8 +291,9 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.16"
+#define DRIVER_VERSION "4.18"
 char *pev_version=DRIVER_VERSION;
+int pev_local_crate=0;
 
 
 struct pev_drv *
@@ -495,6 +508,21 @@ pev_mmap( struct file *filp,
 #endif
       return( 0);
     }
+#if defined(PPC)
+    else
+    {
+      if( ((off & 0x30000000) == 0x20000000) && (pev->elb_base == PEV_VME_ELB_BASE))
+      {
+	off &= 0xfffffff;
+        io_remap_pfn_range( vma, 
+		            vma->vm_start,
+		            (((ulong)pev->elb_base + off) >> PAGE_SHIFT),
+		            size,
+		            vma->vm_page_prot); 
+        return( 0);
+      }
+    }
+#endif
   }
 
   if( (off & 0xc0000000) == 0xc0000000)
@@ -856,6 +884,18 @@ pev_open( struct inode *inode,
     filp->private_data = (void *)pev;
     return(0);
   }
+  else
+  {
+    if( !minor)
+    {
+      pev = (void *)pev_drv.pev[pev_local_crate];
+      if( pev)
+      {
+        filp->private_data = (void *)pev;
+        return(0);
+      }
+    }
+  }
   filp->private_data = (void *)0;
   return(-1);
 }
@@ -982,7 +1022,6 @@ pev_probe( struct pev_dev *pev)
     debugk(("CSR#0 : %08x - %p -%08lx [%x]\n", pev->csr_base,  pev->csr_ptr, *(long *)pev->csr_ptr, pev->csr_len));
   }
 
-
   /* check for compressed IO window... */
   pev->csr_remap = 0;
   if( inl( pev->io_base) & 0x80000000)
@@ -999,6 +1038,7 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap[0].vme_timer = PEV_SCSR_VME_TIMER;
     pev->io_remap[0].vme_ader  = PEV_SCSR_VME_ADER;
     pev->io_remap[0].vme_csr   = PEV_SCSR_VME_CSR;
+    pev->io_remap[0].vme_elb   = PEV_SCSR_VME_ELB;
     pev->io_remap[0].shm_base  = PEV_SCSR_SHM_BASE;
     pev->io_remap[0].dma_rd    = PEV_SCSR_DMA_RD;
     pev->io_remap[0].dma_wr    = PEV_SCSR_DMA_WR;
@@ -1026,6 +1066,7 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap[0].vme_timer = PEV_CSR_VME_TIMER;
     pev->io_remap[0].vme_ader  = PEV_CSR_VME_ADER;
     pev->io_remap[0].vme_csr   = PEV_CSR_VME_CSR;
+    pev->io_remap[0].vme_elb   = PEV_CSR_VME_ELB;
     pev->io_remap[0].shm_base  = PEV_CSR_SHM_BASE;
     pev->io_remap[0].dma_rd    = PEV_CSR_DMA_RD;
     pev->io_remap[0].dma_wr    = PEV_CSR_DMA_WR;
@@ -1053,7 +1094,7 @@ pev_probe( struct pev_dev *pev)
   pev->map_mas64.sg_id = MAP_INVALID;
   if( pev->pmem_len)
   {
-    debugk(("pev pmem space mapping = %px - %x\n", pev->pmem_base, pev->pmem_len));
+    debugk(("pev pmem space mapping = %px - %x\n", (void *)pev->pmem_base, pev->pmem_len));
 
     /* prepare scatter/gather for PCI PMEM space */
     //pev->map_mas64.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap[0].pcie_mmu) >> 28) & 0x7);
@@ -1077,7 +1118,7 @@ pev_probe( struct pev_dev *pev)
   pev->map_mas32.sg_id = MAP_INVALID;
   if( pev->mem_len)
   {
-    debugk(("pev mem space mapping = %px - %x\n", pev->mem_base, pev->mem_len));
+    debugk(("pev mem space mapping = %px - %x\n", (void *)pev->mem_base, pev->mem_len));
 
     /* prepare scatter/gather for PCI MEM space */
     //pev->map_mas32.pg_size = 0x100000 << ( ( inl( pev->io_base + pev->io_remap[0].pcie_mmu) >> 24) & 0x7);
@@ -1116,10 +1157,10 @@ pev_probe( struct pev_dev *pev)
     pev->dma_shm_base = pev->shm_len - pev->dma_shm_len;
     pev_sg_master_32_set( pev, i, pev->dma_shm_base, 0x2003); /* point to SHM last MByte */
     pev->dma_shm_ptr = ioremap( pev->mem_base + (i*pev->map_mas32.pg_size), pev->dma_shm_len);
-    debugk(("pev mem space DMA = %x - %p - %llx\n",
+    debugk(("pev mem space DMA = %x - %p - %p\n",
                                  pev->dma_shm_len, 
                                  pev->dma_shm_ptr, 
-                                 pev->dma_shm_base));
+	                         (void *)pev->dma_shm_base));
     if( ( pev->board == PEV_BOARD_PEV1100) ||
         ( pev->board == PEV_BOARD_IPV1102)    )
     {
@@ -1135,6 +1176,17 @@ pev_probe( struct pev_dev *pev)
     debugk(("Didn't find PEV non prefetchable memory space [BAR2]\n"));
   }
 
+  if( pev->elb_base == PEV_VME_ELB_BASE)
+  {
+    printk("map ELB -> VME space for fast access\n");
+    pev->map_elb.pg_size = 0x10000000;
+    pev->map_elb.pg_num = 1;
+    pev->map_elb.loc_base = (u64)pev->elb_base;
+    pev->map_elb.sg_id = MAP_VME_ELB;
+    pev->map_elb.map_p = (struct pev_map_blk *)0;
+    pev_map_init( pev, &pev->map_elb);
+    pev_sg_vme_elb_set( pev, 0, 0, 0x3c);
+  }
   if( pev->csr_ptr)
   {
     printk("remap CSR space \n");
@@ -1151,6 +1203,7 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap[1].vme_timer = PEV_CSR_VME_TIMER;
     pev->io_remap[1].vme_ader  = PEV_CSR_VME_ADER;
     pev->io_remap[1].vme_csr   = PEV_CSR_VME_CSR;
+    pev->io_remap[1].vme_elb   = PEV_CSR_VME_ELB;
     pev->io_remap[1].shm_base  = PEV_CSR_SHM_BASE;
     pev->io_remap[1].dma_rd    = PEV_CSR_DMA_RD;
     pev->io_remap[1].dma_wr    = PEV_CSR_DMA_WR;
@@ -1365,6 +1418,9 @@ static int pev_init( void)
         pev->pex_base   = 0;
         pev->pex_len   = 0;
         pev->pex_ptr = 0;
+        pev->elb_base    = 0x0;
+        pev->elb_len    = 0x0;
+        pev->elb_ptr = NULL;
 	pev->dev = ldev;
         pev->crate = 0;
         pev_drv.pev[pev->crate] = pev;
@@ -1392,13 +1448,16 @@ static int pev_init( void)
         pev_drv.pev[0] = pev;
         printk("PCIe SWITCH IDT32NT24 found\n");
 #ifdef PPC
-        pev->elb_base    = 0xffb00000;
-        pev->elb_len    = 0x10000;
+        pev->elb_base    = PEV_CSR_ELB_BASE;
+        pev->elb_len    = PEV_CSR_ELB_SIZE;
         pev->elb_ptr = ioremap(pev->elb_base, pev->elb_len);
 	pev->fpga_status = 0;
 	pev->board =  PEV_BOARD_IFC1210;
         printk("ELB#0 : %08x - %p -%08lx [%x]\n", pev->elb_base,  pev->elb_ptr, *(long *)pev->elb_ptr, pev->elb_len);
 #else
+        pev->elb_base    = 0x0;
+        pev->elb_len    = 0x0;
+        pev->elb_ptr = NULL;
 #endif
       }
       break;
@@ -1423,7 +1482,9 @@ static int pev_init( void)
         pev = (struct pev_dev *)kmalloc( sizeof(struct pev_dev), GFP_KERNEL);
         memset( pev, 0, sizeof(struct pev_dev));
         pev->pex = pex;
-	pev->elb_ptr = NULL;
+        pev->elb_base    = 0x0;
+        pev->elb_len    = 0x0;
+        pev->elb_ptr = NULL;
 	pev->fpga_status = 0;
 
         /* else store BAR0 parameters */
@@ -1435,6 +1496,7 @@ static int pev_init( void)
         pev->crate = ~(SWAP32(*(int *)(pev->pex_ptr + 0x640)))&0xf;
         pev_drv.pev[pev->crate] = pev;
         printk("PEV crate number = %d\n", pev->crate);
+	if( !pev_local_crate) pev_local_crate = pev->crate;
 	
   	/* Disable SERR# bit[8] generation */
 	bcr = SWAP16(*(short *)(pev->pex_ptr + 0x04));
@@ -1560,10 +1622,26 @@ static int pev_init( void)
               if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1100))
               {
 		pev->board = PEV_BOARD_PEV1100;
+#ifdef PPC
+                pev->elb_base    = PEV_VME_ELB_BASE;
+                pev->elb_len    = PEV_VME_ELB_SIZE;
+                pev->elb_ptr = NULL;
+                printk("ELB#0 : %08x - %p [%x]\n", pev->elb_base,  pev->elb_ptr, pev->elb_len);
+                //printk("ELB#0 : %08x - %p -%08lx [%x]\n", pev->elb_base,  pev->elb_ptr, *(long *)pev->elb_ptr, pev->elb_len);
+#else
+#endif
               }
               if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1102))
               {
 		pev->board = PEV_BOARD_IPV1102;
+#ifdef PPC
+                pev->elb_base    = PEV_VME_ELB_BASE;
+                pev->elb_len    = PEV_VME_ELB_SIZE;
+                pev->elb_ptr = NULL;
+                printk("ELB#0 : %08x - %p [%x]\n", pev->elb_base,  pev->elb_ptr, pev->elb_len);
+                //printk("ELB#0 : %08x - %p -%08lx [%x]\n", pev->elb_base,  pev->elb_ptr, *(long *)pev->elb_ptr, pev->elb_len);
+#else
+#endif
               }
               if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x4001))
               {

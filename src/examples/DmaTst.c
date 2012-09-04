@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: DmaTst.c,v $
- * Revision 1.8  2012/08/16 09:11:39  kalantari
- * added version 4.16 of tosca driver
+ * Revision 1.9  2012/09/04 07:34:34  kalantari
+ * added tosca driver 4.18 from ioxos
+ *
+ * Revision 1.14  2012/08/28 13:39:25  ioxos
+ * cleanup [JFG]
  *
  * Revision 1.13  2012/08/15 06:50:57  ioxos
  * wait for end of DMA with timeout protection [JFG]
@@ -459,7 +462,7 @@ tst_dma_read( long vme_addr,
 
   dma_req.src_addr = vme_addr;                    /* source is VME address of SHM */
   dma_req.des_addr = (ulong)dma_buf.b_addr;       /* destination is DMA buffer    */
-  dma_req.size = size| 0xe0000000;                  
+  dma_req.size = size | DMA_SIZE_PKT_1K;                  
   dma_req.src_space = DMA_SPACE_VME|mode;
   dma_req.des_space = DMA_SPACE_PCIE;
   dma_req.src_mode = DMA_PCIE_RR2;
@@ -541,7 +544,7 @@ tst_dma_write( long vme_addr,
 
   dma_req.des_addr = vme_addr;                    /* destination is VME address of SHM */
   dma_req.src_addr = (ulong)dma_buf.b_addr;       /* source is DMA buffer    */
-  dma_req.size = size | 0xe0000000;                  
+  dma_req.size = size | DMA_SIZE_PKT_1K;                  
   dma_req.des_space = DMA_SPACE_VME|mode;
   dma_req.src_space = DMA_SPACE_PCIE;
   dma_req.src_mode = DMA_PCIE_RR2;

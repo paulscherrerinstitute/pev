@@ -358,6 +358,10 @@ April 18, 2012 : JFG
       support for PEV1100 - VCC1104 - IPV1102 - IFC1210
       support for x86_32, x86_64, p2020 (cross development)
 
+September 2, 2012: JFG
+   -> tagging release 4.18
+      update of I2C and BMR read/write functions to return I2c transaction status 
+
 ===============================< end of file >================================
 
 
