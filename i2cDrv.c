@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.6 2012/09/05 08:33:08 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.7 2012/09/05 08:40:13 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -336,7 +336,6 @@ void *pev_i2cRequetServer(int *crate)
      	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4, &((epicsUInt32*)msgptr.pi2cData)[ii]);
      	   break;
        }       
-       printf("pev_i2cRequetServer status = 0x%x... %p\n", status&I2CEXEC_MASK, msgptr.opStat );
        if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
 	 *(int*)msgptr.opStat = -1;
        else 
