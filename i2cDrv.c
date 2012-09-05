@@ -35,11 +35,13 @@
 #define DMA_Q_SIZE	2000
 #define MAX_PEVS	21		/* taken from VME 21 slot. makes sense ??? */
 #define ELB_I2C_CTL	0x30		/* ELB_I2C_CTL address on ELB bus (4-bytes) */
+#define I2CEXEC_OK	0x0200000
+#define I2CEXEC_MASK	0x0300000
 
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.5 2012/05/16 12:02:17 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.6 2012/09/05 08:33:08 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -56,6 +58,7 @@ typedef struct pevI2cReqMsg {
     void *pi2cData;
     epicsBoolean readOperation;			/* is it read or not = write operation */
     epicsBoolean cmndOperation;			/* is it a command operation or not */
+    int* opStat;				/* status of the operation */
 } pevI2cReqMsg;
 
 
@@ -79,9 +82,12 @@ int pevI2cAsynRead(
     unsigned int nelem,
     void* pdata,
     CALLBACK* cbStruct,
-    int prio)
+    int prio,
+    int* rdStatus)
 {
     pevI2cReqMsg pevI2cRequest;
+    unsigned int i2cData;
+    int status = 0;
 
     if (!device || device->magic != MAGIC)
     {
@@ -98,6 +104,7 @@ int pevI2cAsynRead(
     pevI2cRequest.i2cCmd = offset;		/* reg address within an i2c device */
     pevI2cRequest.readOperation = epicsTrue;
     pevI2cRequest.cmndOperation = device->command;
+    pevI2cRequest.opStat = rdStatus;
     
     if( !epicsMessageQueueSend(pevI2cMsgQueueId, (void*)&pevI2cRequest, sizeof(pevI2cReqMsg)) )
        return (1);  /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
@@ -107,7 +114,11 @@ int pevI2cAsynRead(
       } 
 	
     /* do synchronous i2c read here */
-    *(unsigned int*)pdata = pev_i2c_read( device->i2cDevice, offset);	    
+    status = pev_i2c_read( device->i2cDevice, offset, &i2cData);	    
+    *(unsigned int*)pdata = i2cData;
+    
+    if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+      return -1;
     return 0;
 }
 
@@ -287,6 +298,7 @@ void *pev_i2cRequetServer(int *crate)
    int numByteRecvd = 0;
    unsigned int i2cCtrl = 0;
    int ii=0;
+   int status = 0;
         
    while(1)
    {
@@ -311,19 +323,24 @@ void *pev_i2cRequetServer(int *crate)
        {
      	 case 1:     /* 1 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-     	     ((epicsUInt8*)msgptr.pi2cData)[ii] = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii);
+     	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii, &((epicsUInt8*)msgptr.pi2cData)[ii]);
      	   break;
      	 
      	 case 2:     /* 2 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-     	     ((epicsUInt16*)msgptr.pi2cData)[ii] = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2); 
+     	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2, &((epicsUInt16*)msgptr.pi2cData)[ii]); 
      	   break;
      	 
      	 case 4:     /* 4 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-     	     ((epicsUInt32*)msgptr.pi2cData)[ii] = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4);
+     	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4, &((epicsUInt32*)msgptr.pi2cData)[ii]);
      	   break;
        }       
+       printf("pev_i2cRequetServer status = 0x%x... %p\n", status&I2CEXEC_MASK, msgptr.opStat );
+       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+	 *(int*)msgptr.opStat = -1;
+       else 
+         *(int*)msgptr.opStat = 0; 
      }
      else
      {
@@ -334,22 +351,22 @@ void *pev_i2cRequetServer(int *crate)
        {
      	 case 1:     /* 1 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-             pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii, ((epicsUInt8*)msgptr.pi2cData)[ii]);
+             status = pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii, ((epicsUInt8*)msgptr.pi2cData)[ii]);
      	   break;
      	 
      	 case 2:     /* 2 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-             pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*2, ((epicsUInt16*)msgptr.pi2cData)[ii]);
+             status = pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*2, ((epicsUInt16*)msgptr.pi2cData)[ii]);
      	   break;
      	 
      	 case 4:     /* 4 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-             pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*4, ((epicsUInt32*)msgptr.pi2cData)[ii]);
+             status = pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*4, ((epicsUInt32*)msgptr.pi2cData)[ii]);
      	   break;
        }
        
      }  
-	
+       
      callbackRequest((CALLBACK*)msgptr.pCallBack);
    } /* endWhile */
    

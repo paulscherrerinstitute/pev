@@ -43,7 +43,7 @@
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
 #define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
-#define DMA_Q_SIZE	1000
+#define DMA_Q_SIZE	100000
 #define MAX_PEVS	21		/* taken from VME 21 slot. makes sense ??? */
 #define ISRC_PCI	0x00		/* ITC_SRC bits 13:12 of ITC_IACK*/
 #define ISRC_VME	0x10		/* ITC_SRC */
@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.21 2012/09/03 08:15:53 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.22 2012/09/05 08:33:08 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -349,7 +349,8 @@ int pevAsynRead(
     unsigned int nelem,
     void* pdata,
     CALLBACK* cbStruct,
-    int prio)
+    int prio,
+    int* rdStat)
 {
   int swap = 0;
   unsigned short srcMode = 0;

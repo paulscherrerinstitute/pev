@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/09/03 08:15:53 $*/
-/*$Revision: 1.7 $*/
+/*$Date: 2012/09/05 08:33:08 $*/
+/*$Revision: 1.8 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -21,6 +21,8 @@
 #include <dbScan.h>
 #include <dbAccess.h>
 
+#define I2CEXEC_OK	0x0200000
+#define I2CEXEC_MASK	0x0300000
 #define BIT_31_SET  0x80000000
 
 long  ifc1210Init(){ return 0; }
@@ -125,7 +127,8 @@ long devIfc1210AiInitRecord(aiRecord* record)
 long devIfc1210AiRead(aiRecord* record)
 {
    ifcPrivate* p = record->dpvt;
-   int rval = 0;
+   unsigned int rval = 0;
+   int status = 0;
     
    if (p == NULL)
     {
@@ -144,29 +147,51 @@ long devIfc1210AiRead(aiRecord* record)
     	rval = pev_csr_rd( p->address | 0x80000000 );
     else
     if(p->devType == BMR)
-        rval = pev_bmr_read( p->card,  p->address, p->count);
+      {
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
+	  {
+            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+            return -1;	  
+	  }
+      }
     else
     if(p->devType == BMR_11U)
       {
-        rval = pev_bmr_read( p->card,  p->address, p->count);
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
 	record->val = pev_bmr_conv_11bit_u(rval);
         usleep( 10000);
+	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
+	  {
+            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+            return -1;	  
+	  }
 	return 2;
       }
     else
     if(p->devType == BMR_11S)
       {
-        rval = pev_bmr_read( p->card,  p->address, p->count);
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
 	record->val = pev_bmr_conv_11bit_s(rval);
         usleep( 10000);
+	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
+	  {
+            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+            return -1;	  
+	  }
 	return 2;
       }
     else
     if(p->devType == BMR_16U)
       {
-        rval = pev_bmr_read( p->card,  p->address, p->count);
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
 	record->val = pev_bmr_conv_16bit_u(rval);
         usleep( 10000);
+	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
+	  {
+            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+            return -1;	  
+	  }
 	return 2;
       }
     
