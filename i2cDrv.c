@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.7 2012/09/05 08:40:13 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.8 2012/09/05 09:57:32 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -299,6 +299,7 @@ void *pev_i2cRequetServer(int *crate)
    unsigned int i2cCtrl = 0;
    int ii=0;
    int status = 0;
+   unsigned int readVal;
         
    while(1)
    {
@@ -322,18 +323,27 @@ void *pev_i2cRequetServer(int *crate)
        switch(msgptr.i2cDatSiz)
        {
      	 case 1:     /* 1 Byte */
-     	   for (ii=0; ii<msgptr.nelem; ii++)
-     	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii, &((epicsUInt8*)msgptr.pi2cData)[ii]);
+     	   for (ii=0; ii<msgptr.nelem; ii++) 
+	     {
+     	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii, &readVal);
+	       ((epicsUInt8*)msgptr.pi2cData)[ii] = (epicsUInt8)readVal;
+	     }
      	   break;
      	 
      	 case 2:     /* 2 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-     	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2, &((epicsUInt16*)msgptr.pi2cData)[ii]); 
+	     {
+     	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2, &readVal);
+	       ((epicsUInt16*)msgptr.pi2cData)[ii] = (epicsUInt16)readVal;
+	     }
      	   break;
      	 
      	 case 4:     /* 4 Byte */
      	   for (ii=0; ii<msgptr.nelem; ii++)
-     	      status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4, &((epicsUInt32*)msgptr.pi2cData)[ii]);
+	     {
+     	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4, &readVal);
+	       ((epicsUInt32*)msgptr.pi2cData)[ii] = (epicsUInt32)readVal;
+	     }
      	   break;
        }       
        if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
@@ -391,7 +401,7 @@ epicsThreadId pevDmaThreadId;
       return -1;
     }
 
-  pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityMedium,
+  pevDmaThreadId = epicsThreadCreate("pevI2cReqServer",epicsThreadPriorityMedium,
                                       epicsThreadGetStackSize(epicsThreadStackMedium),
                                       (EPICSTHREADFUNC)pev_i2cRequetServer,(int*)&crate);
 
