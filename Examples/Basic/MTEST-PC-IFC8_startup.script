@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/MTEST-PC-IFC8_startup.script,v $
-# $Date: 2012/08/31 08:53:18 $
-# $Revision: 1.1 $
+# $Date: 2012/09/06 12:31:52 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -23,14 +23,22 @@
 
 
 #######################################################################
+# EPICS specific environment variablees
+putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
+
+
+
+#######################################################################
 # load EPICS specific drivers
 
 # load regDev and pev (=TOSCA-II) drivers
 require "regDev","test"
-require "pev","test"
+require "pev"
 
 # load G_IFCMON hardware monitoring application for IFC1210 card
 #require "ifcmon"
+
+
 
 #######################################################################
 # define access to TOSCA-II CENTRAL FPGA ressources
@@ -47,61 +55,47 @@ require "pev","test"
 #
 # This area is intended to read / write single 32-bit registers using single r/w access
 #
-pevAsynConfigure(0,"Usr1StdIOCUserRegisters"          ,"USR1"   , 0x100  , "DS"      , 0 , 0x58       )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT1"      ,"USR1"   , 0x158  , "DS"      , 1 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT2"      ,"USR1"   , 0x160  , "DS"      , 2 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT3"      ,"USR1"   , 0x168  , "DS"      , 3 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT4"      ,"USR1"   , 0x170  , "DS"      , 4 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT5"      ,"USR1"   , 0x178  , "DS"      , 5 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT6"      ,"USR1"   , 0x180  , "DS"      , 6 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT7"      ,"USR1"   , 0x188  , "DS"      , 7 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT8"      ,"USR1"   , 0x190  , "DS"      , 8 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT9"      ,"USR1"   , 0x198  , "DS"      , 9 , 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT10"     ,"USR1"   , 0x1A0  , "DS"      , 10, 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT11"     ,"USR1"   , 0x1A8  , "DS"      , 11, 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT12"     ,"USR1"   , 0x1B0  , "DS"      , 12, 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT13"     ,"USR1"   , 0x1B8  , "DS"      , 13, 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT14"     ,"USR1"   , 0x1C0  , "DS"      , 14, 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT15"     ,"USR1"   , 0x1C8  , "DS"      , 15, 8          )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT16"     ,"USR1"   , 0x1D0  , "DS"      , 16, 8          )
+pevAsynConfigure(0,"Usr1StdIOCUserRegisters"            ,"USR1"   , 0x100   , "DS"      , 0              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT1"        ,"USR1"   , 0x158   , "DS"      , 1              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT2"        ,"USR1"   , 0x160   , "DS"      , 2              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT3"        ,"USR1"   , 0x168   , "DS"      , 3              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT4"        ,"USR1"   , 0x170   , "DS"      , 4              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT5"        ,"USR1"   , 0x178   , "DS"      , 5              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT6"        ,"USR1"   , 0x180   , "DS"      , 6              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT7"        ,"USR1"   , 0x188   , "DS"      , 7              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT8"        ,"USR1"   , 0x190   , "DS"      , 8              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT9"        ,"USR1"   , 0x198   , "DS"      , 9              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT10"       ,"USR1"   , 0x1A0   , "DS"      , 10             )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT11"       ,"USR1"   , 0x1A8   , "DS"      , 11             )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT12"       ,"USR1"   , 0x1B0   , "DS"      , 12             )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT13"       ,"USR1"   , 0x1B8   , "DS"      , 13             )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT14"       ,"USR1"   , 0x1C0   , "DS"      , 14             )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT15"       ,"USR1"   , 0x1C8   , "DS"      , 15             )
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT16"       ,"USR1"   , 0x1D0   , "DS"      , 16             )
 
 # set up a data block in USER block of length 256 bytes starting at offset 256 bytes with 32-bit 
-# swapping option and block read-out with DMA, listening to interrupt vector 12 from USER block
+# swapping option and block read-out with DMA, not listening to interrupt
 #
-# This area is intended to read / write with 2048 elements x 32 bit = 8192 bytes DMA block transfer
+# This area is intended to read / write the aai/aao ramp in/out records in USER template
 #
-pevAsynConfigure(0,"Usr1StdIOCUserRamp"               ,"USR1"   , 0x10000, "DS"      , 12 , 8192      )
+pevAsynConfigure(0,"Usr1StdIOCUserRamp"                 ,"USR1"   , 0x10000 , "DS"      , 0               )
 
 
-# set up a data block in SHARED MEMORY of length 1MB starting at offset 0 bytes with 32-bit 
+# set up a data block in SHARED MEMORY of length 131 kByte starting at offset 0 bytes with 32-bit 
 # swapping option and block read-out with DMA, not listening to interrupts
 #
 # ==> read / write from and to SH_MEM is only possible with block (DMA) transfers, no single access.
 #     even if you have only a single 32-bit register to read.
 #
-pevConfigure(    0,"SharedMemoryExampleBasicDataBlock","SH_MEM" , 0      , "DS"      , 0 , 0x100000, 1)
+# block read:
+pevConfigure(    0,"SharedMemoryExampleBasicDataBlock_R","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1)
+# block write (register example)
+pevAsynConfigure(0,"SharedMemoryExampleBasicDataBlock_W","SH_MEM" , 0x20000 , "DS"      , 0 ,             )
 
-
+# slot-1 system / VME_master interface
 # set up a data area in VME A32 address space of length 1NB starting at offset 0 bytes with no 
 # swapping, VME speed = fastest, and Asyn read-out with DMA for aai/aao bigger than 100 elements, else without DMA
-#pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0      , "2eSST320", 0 , 0x100000, 0)
+pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0      , "2eSST320", 0                  )
 
-
-
-
-
-#######################################################################
-#Event Receiver configuration
-#1. Card number (slot number)
-#2. Base address
-#3. IRQ Vector
-#4. IRQ Level
-#5. 0
-#6. 0x098E8166 -> 125 MHz (WLHA)
- 
-# 250 MeV injector
-# new (since 26.02.2010 in WHLA)
-#ErConfigure(4,0x100000,0xC2,5,0,0x098E8166)
-
-# Event Generator
-#ErConfigure(4,0x100000,0xC2,5,0,0x098E8166)
+# VME_slave interface mapping (not mandatory for slot-1 system, but for all other systems it is)
+# ==> currently missing, to be completed here

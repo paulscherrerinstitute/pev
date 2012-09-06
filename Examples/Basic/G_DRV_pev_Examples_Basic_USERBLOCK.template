@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_USERBLOCK.template,v $
-# $Date: 2012/08/31 08:53:18 $
-# $Revision: 1.1 $
+# $Date: 2012/09/06 12:31:52 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -52,11 +52,11 @@ record(ao,"$(IOC):USER-TCSR-TESTREG-W")
 
 record(ao,"$(IOC):USER-TCSR-INTMOD")
 {
-    field(DESC, "int mode lvl/edge") # 0 = level / 1 = edge
+    field(DESC, "int mode lvl/edge") # each bit: 0 = level / 1 = edge
     field(DTYP, "ifc1210")
     field(OUT , "#C S0x1008 @PIO")
     field(PINI, "YES")  
-    field(VAL,  "65535") # set all 16 to edge
+    field(VAL,  "65535") # set all 16 interrupts to edge
 }
 
 record(ao,"$(IOC):USER-TCSR-INTREQ")
@@ -68,6 +68,32 @@ record(ao,"$(IOC):USER-TCSR-INTREQ")
     field(VAL,  "0") # disable all 16 interrupts, set to 1 to activate
 }
 
+record(ao,"$(IOC):USER-TCSR-INTCSR")
+{
+    field(DESC, "int csr")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1084 @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "3") # clear all pending interrupts once at startup, enable INT16 ITC
+}
+
+record(ao,"$(IOC):USER-TCSR-INTIMC")
+{
+    field(DESC, "int IMC")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1088 @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "0x800") # clear intr mask 12 (0x800)
+}
+
+record(ao,"$(IOC):USER-TCSR-INTIMS")
+{
+    field(DESC, "int IMS")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x108C @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "0x0") # do not mask any interrupt
+}
 
 
 ######################################################################
@@ -112,19 +138,21 @@ record(ao,"$(IOC):USER-INTLENGTH")
 {
    field(DTYP, "regDevAsyn")
    field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x10 T=UINT32")
-   field(VAL,  "0")
+   field(VAL,  "1")
    field(PINI, "YES")
    field(EGU,  "x 10ns")
 }
 
 record(ao,"$(IOC):USER-INTRST")
 {
+   field(DESC, "reset int counters")
    field(DTYP, "regDevAsyn")
    field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x14 T=UINT32")
    field(VAL,  "0")
 }
 
 #some status, periodic asynchronous scanning
+#the interrupt counters for each of 16 possible interrupts
 record(ai,"$(IOC):USER-INTID1")
 {
    field(DTYP, "regDevAsyn")
@@ -222,7 +250,11 @@ record(ai,"$(IOC):USER-INTID16")
    field(INP,  "#C S @Usr1StdIOCUserRegisters/0x54 T=UINT32")
 }
 
-#readout of INT_TIM_x timer status register to measure interrupt latency from CENTRAL/USER --> P2020 CPU
+#readout of INT_TIM_x timer status register to measure interrupt latency of USR1 interrupts
+#
+#The timer of corresponding interrupt is started at time if INTREQ (interrupt request) and can
+#be stopped at any time by software, e.g. via EPICS after a complete processing cycle of 
+#application finished.
 record(ao,"$(IOC):USER-INTTIM1-STOP")
 {
    field(DTYP, "regDevAsyn")
@@ -380,7 +412,7 @@ record(ai,"$(IOC):USER-INTTIM11")
 record(ao,"$(IOC):USER-INTTIM12-STOP")
 {
    field(DTYP, "regDevAsyn")
-   field(SCAN, "I/O Intr")
+#   field(SCAN, "I/O Intr")  # commented out since we kick stop of timer measurement with FLNK after we finish our sample application
    field(OUT,  "#C S @Usr1StdIOCUserRegistersINT12/0 T=UINT32")
    field(VAL,  "0") # according doc, a write stops the timer
    field(FLNK, "$(IOC):USER-INTTIM12")
@@ -447,20 +479,50 @@ record(ai,"$(IOC):USER-INTTIM16")
    field(INP,  "#C S @Usr1StdIOCUserRegistersINT16/0 T=UINT32")
 }
 
-
-
 ######################################################################
+# Listen to USER interrupt 12 an fire an EPICS soft event with nr. 12
 
-#the ramp waveform, readout interrupted with INT 12 with DMA transfer
-#(see startup.script for definition)
-record(aai,"$(IOC):USER-RAMP")
+# Here we make ai from offset 0x0, but this has no influence where we read.
+# It is important we listen to I/O Intr of correct virtual device.
+# This is some small overhead of one 32-bit read access before firing EPICS soft-event 12.
+record(ai,"$(IOC):USER-INTEVT-12-RX")
 {
    field(DTYP, "regDevAsyn")
    field(SCAN, "I/O Intr")
-   field(INP,  "#C S @Usr1StdIOCUserRamp/0x0 T=UINT32")
-   field(NELM, "2048")
-   field(FTVL, "LONG")
-   field(FLNK, "$(IOC):SHMEM-ReadInitiator") # kick shared memory readout
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT12/0x0 T=UINT32") 
+   field(FLNK, "$(IOC):USER-INTEVT-12")
+}
+record(event,"$(IOC):USER-INTEVT-12")
+{
+    field(DESC,"user intr. 12")
+    field(DTYP,"Soft Channel")
+    field(VAL ,"12")
 }
 
+
+######################################################################
+######################################################################
+# here the application itself starts, we read some ramp data
+
+# the ramp waveform, readout with EPICS soft-event 12
+# (see startup.script for virtual device definition)
+record(aai,"$(IOC):USER-RAMP-IN")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "Event")
+   field(EVNT, "12")
+   field(INP,  "#C S @Usr1StdIOCUserRamp/0x0 T=UINT32")
+   field(NELM, "20000")
+   field(FTVL, "ULONG")
+   field(FLNK, "$(IOC):USER-RAMP-OUT")
+}
+
+record(aao,"$(IOC):USER-RAMP-OUT")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @Usr1StdIOCUserRamp/0x2000 T=UINT32")
+   field(NELM, "2048")
+   field(FTVL, "ULONG")
+   field(FLNK, "$(IOC):USER-INTTIM12-STOP")  # SMEM-ReadInitiator") # kick shared memory readout
+}
 

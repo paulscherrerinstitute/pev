@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_VME.template,v $
-# $Date: 2012/08/31 08:53:18 $
-# $Revision: 1.1 $
+# $Date: 2012/09/06 12:31:52 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -18,10 +18,41 @@
 #           * VME64x-bridge in Virtex-6 CENTRAL FPGA
 #
 # Purpose of this file:
-#           * access to VME 64x bus connected to Virtex-6 CENTRAL FPGA
+#           * access with VME_master to VME64x bus A32 space, connected to Virtex-6 CENTRAL FPGA
+
+# Hint:
+# Below records access the VME_master port of a slot-1 system. If you have
+# set up the VME_slave_A32 window of this card at offset 0 and set up the
+# MMU of VME64x_Agent_Sw such that offset 0 inside the slave window targets
+# the shared memory, you can verify your r/w commands e.g. using XprsMon
+# displaying shared memory content with command: ds1.ws 0
+
+record(ao,"$(IOC):VME-REG0")
+{
+    field(DESC, "test reg")
+    field(DTYP, "regDevAsyn")
+    field(OUT,  "#C S @VMEA32ExampleBasicData/0x0 T=UINT32")
+}
 
 
+record(ao,"$(IOC):VME-REG4")
+{
+    field(DESC, "test reg")
+    field(DTYP, "regDevAsyn")
+    field(OUT,  "#C S @VMEA32ExampleBasicData/0x4 T=UINT32")
+}
 
+record(ai,"$(IOC):VME-REG8-R")
+{
+    field(DESC, "test reg")
+    field(DTYP, "regDevAsyn")
+    field(INP,  "#C S @VMEA32ExampleBasicData/0x8 T=UINT32")
+}
 
-
+record(ao,"$(IOC):VME-REG8-W")
+{
+    field(DESC, "test reg")
+    field(DTYP, "regDevAsyn")
+    field(OUT,  "#C S @VMEA32ExampleBasicData/0x8 T=UINT32")
+}
 

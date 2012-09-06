@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_SHAREDMEM.template,v $
-# $Date: 2012/08/31 08:53:18 $
-# $Revision: 1.1 $
+# $Date: 2012/09/06 12:31:52 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -21,12 +21,25 @@
 #           * access to 512 MB shared memory connected to Virtex-6 CENTRAL FPGA
 
 
+######################################################################
+# SHMEM read block with DMA and then distribute to individual records
+#
+# This block-read using pevConfigure is one of possible options. This
+# is used to read a big block of data and then distribute to several
+# recrods.
+# The other possibility using pevAsynConfigure can be uswd directly
+# with ai or aai records and issues every time a DMA transfer, even
+# if only a ai UINT32 = 4 byte is processed. This is a limitation
+# since we have PMEM windows of TOSCA-II reserved for VME_A32 access
+# and not to SHARED-MEMORY.
+######################################################################
 
-# kick the 1MB block readout (this is kicked from USER Interrupt 12->USER Ramp read)
-record(bi,"$(IOC):SHMEM-ReadInitiator")
+# kick the 131 kByte block readout
+# (this is kicked from USER Interrupt 12->EPICS soft-evt 12->USER Ramp read)
+record(bi,"$(IOC):SMEM-ReadInitiator")
 {
     field(DTYP, "regDev")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock/0")
+    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0")
     field(PRIO, "HIGH")
     field(FLNK, "$(IOC):SMEM-TESTREG1")
 }
@@ -37,7 +50,7 @@ record(ai,"$(IOC):SMEM-TESTREG1")
 {
     field(DESC, "a register")
     field(DTYP, "regDev")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock/0x0 T=UINT32")
+    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x0 T=UINT32")
     field(FLNK, "$(IOC):SMEM-TESTREG2")
 }
 
@@ -45,15 +58,43 @@ record(ai,"$(IOC):SMEM-TESTREG2")
 {
     field(DESC, "a register")
     field(DTYP, "regDev")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock/0x4 T=UINT32")
-    field(FLNK, "$(IOC):SMEM-WAVEFORM")
+    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x4 T=UINT32")
+    field(FLNK, "$(IOC):SMEM-WAVEFORM-R")
 }
 
-record(aai,"$(IOC):SMEM-WAVEFORM")
+record(aai,"$(IOC):SMEM-WAVEFORM-R")
 {
    field(DTYP, "regDev")
-   field(INP,  "#C S @SharedMemoryExampleBasicDataBlock/0x100 T=UINT32")
+   field(INP,  "#C S @SharedMemoryExampleBasicDataBlock_R/0x100 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "LONG")
+   field(FLNK, "$(IOC):SMEM-WAVEFORM-W")
+}
+
+
+
+######################################################################
+# SHMEM write with DMA
+# Write is possibly only with pevAsynConfigure and issues for ao or
+# aao records independant of data size every time a DMA transfer.
+# This is a limitation since we have PMEM windows of TOSCA-II
+# reserved for VME_A32 access and not to SHARED-MEMORY.
+######################################################################
+
+
+record(aao,"$(IOC):SMEM-WAVEFORM-W")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x100 T=UINT32")
+   field(NELM, "2048")
+   field(FTVL, "LONG")
+   field(FLNK, "$(IOC):SMEM-REG-W")
+}
+
+record(ao,"$(IOC):SMEM-REG-W")
+{
+   field(DTYP, "regDevAsyn")
+   field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x0 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # now stop the INT12 latency measurement timer
 }
 
