@@ -38,8 +38,11 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.15  2012/09/06 13:31:01  kalantari
- * patch received from JFG
+ * Revision 1.16  2012/09/06 14:13:49  kalantari
+ * reversed back to 4.18 version
+ *
+ * Revision 1.14  2012/09/04 07:34:33  kalantari
+ * added tosca driver 4.18 from ioxos
  *
  * Revision 1.51  2012/08/28 13:36:49  ioxos
  * update i2c status + rest + workaround for elb vme csr access in short IO [JFG]
@@ -1157,8 +1160,6 @@ pev_map_clear(struct pev_dev *pev,
 
 
 
-/* declare semaphore to perform delay */
-struct semaphore pev_i2c_sem;
 
 static ulong
 pev_i2c_set_reg( struct pev_dev *pev,
@@ -1196,19 +1197,12 @@ pev_i2c_dev_cmd(struct pev_dev *pev,
 {
   ulong reg_p;
   int elbc;
-  uint sts;
 
   elbc = i2c_para_p->device & 0x80;
   i2c_para_p->device &= ~0x80;
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_cmd(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  if( i2c_para_p->device & 0x8000)
-  {
-    /* make sure I2C is quiet... */
-    sema_init( &pev_i2c_sem, 0);
-    sts = down_timeout( &pev_i2c_sem, 2);
-  }
-  sts = i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
+  i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
   i2c_para_p->status = i2c_wait( reg_p, 100000);
   //printk("i2c cmd sts = %08x\n", sts);
   return;
@@ -1226,13 +1220,6 @@ pev_i2c_dev_read(struct pev_dev *pev,
   i2c_para_p->device &= ~0x80;
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_read(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
-
-  if( i2c_para_p->device & 0x8000)
-  {
-    /* make sure I2C is quiet... */
-    sema_init( &pev_i2c_sem, 0);
-    sts = down_timeout( &pev_i2c_sem, 2);
-  }
   i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
   sts = i2c_wait( reg_p, 100000);
   //printk("i2c cmd sts = %08x\n", sts);
@@ -1250,19 +1237,12 @@ pev_i2c_dev_write(struct pev_dev *pev,
 {
   ulong reg_p;
   int elbc;
-  uint sts;
 
   elbc = i2c_para_p->device & 0x80;
   i2c_para_p->device &= ~0x80;
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_write(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  if( i2c_para_p->device & 0x8000)
-  {
-    /* make sure I2C is quiet... */
-    sema_init( &pev_i2c_sem, 0);
-    sts = down_timeout( &pev_i2c_sem, 2);
-  }
-  sts = i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
+  i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
   i2c_para_p->status = i2c_wait( reg_p, 100000);
 
   return;
