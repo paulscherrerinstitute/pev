@@ -1,0 +1,1 @@
+medm -macro IOC=MTEST-PC-IFC8 -x G_DRV_pev_Examples_Basic_Mainwindow.adl
