@@ -1,0 +1,52 @@
+# $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_SOFT.template,v $
+# $Date: 2012/09/07 07:20:15 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            28.08.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: Basic Example for accessing TOSCA-II
+#           * USERBLOCK in Virtex-6 CENTRAL FPGA
+#           * 512 MB shared memory connected to Virtex-6 CENTRAL FPGA
+#           * VME64x-bridge in Virtex-6 CENTRAL FPGA
+#
+# Purpose of this file:
+#           * define some soft-records in EPICS
+
+
+
+
+######################################################################
+# Soft records for counting the USER interrupts.
+# Reason is to compare both counters from EPICS and from CENTRAL
+######################################################################
+
+record(calcout,"$(IOC):SOFT-INTCNT12-CALC") 
+{ 
+        field(DESC,"calc. intr counter")
+        field(INPA,"$(IOC):SOFT-INTCNT12.VAL NPP")
+        field(SCAN,"Event")
+        field(EVNT,"12")
+        field(PRIO,"LOW")
+        field(CALC,"A+1")
+        field(OOPT,"Every Time")
+        field(DOPT,"Use CALC")
+        field(OUT,"$(IOC):SOFT-INTCNT12 PP")
+}
+
+record(ai,"$(IOC):SOFT-INTCNT12") 
+{ 
+        field(DESC,"intr. event counter")
+        field(HOPR,"4294967295")
+        field(LOPR,"0")
+        field(PREC,"0")
+}
+
+
