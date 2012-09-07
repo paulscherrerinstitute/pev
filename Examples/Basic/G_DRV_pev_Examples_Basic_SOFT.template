@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_SOFT.template,v $
-# $Date: 2012/09/07 07:20:15 $
-# $Revision: 1.1 $
+# $Date: 2012/09/07 07:22:56 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -28,20 +28,20 @@
 # Reason is to compare both counters from EPICS and from CENTRAL
 ######################################################################
 
-record(calcout,"$(IOC):SOFT-INTCNT12-CALC") 
+record(calcout,"$(IOC):SOFT-INTID12-CALC") 
 { 
         field(DESC,"calc. intr counter")
-        field(INPA,"$(IOC):SOFT-INTCNT12.VAL NPP")
+        field(INPA,"$(IOC):SOFT-INTID12.VAL NPP")
         field(SCAN,"Event")
         field(EVNT,"12")
         field(PRIO,"LOW")
         field(CALC,"A+1")
         field(OOPT,"Every Time")
         field(DOPT,"Use CALC")
-        field(OUT,"$(IOC):SOFT-INTCNT12 PP")
+        field(OUT,"$(IOC):SOFT-INTID12 PP")
 }
 
-record(ai,"$(IOC):SOFT-INTCNT12") 
+record(ai,"$(IOC):SOFT-INTID12") 
 { 
         field(DESC,"intr. event counter")
         field(HOPR,"4294967295")

@@ -1,12 +1,12 @@
 
 file {
-	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Basic/App/config/medm/./G_DRV_pev_Examples_Basic_Mainwindow.adl"
+	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Basic/./App/config/medm/G_DRV_pev_Examples_Basic_Mainwindow.adl"
 	version=030104
 }
 display {
 	object {
-		x=692
-		y=226
+		x=477
+		y=206
 		width=1034
 		height=526
 	}
@@ -1041,7 +1041,7 @@ text {
 	object {
 		x=473
 		y=429
-		width=177
+		width=80
 		height=14
 	}
 	monitor {
@@ -1540,4 +1540,19 @@ text {
 	clr=14
 	bclr=2
 	label="-IFCMON"
+}
+"text update" {
+	object {
+		x=570
+		y=429
+		width=80
+		height=14
+	}
+	monitor {
+		chan="$(IOC):SOFT-INTID12"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
 }
