@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.22 2012/09/05 08:33:08 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.23 2012/09/12 11:26:58 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -66,11 +66,15 @@ static int pevIntrRegister(int mapMode);
 static void pevIntrHandler(int sig);
 static int pevIntrHanlder_init();
 epicsMessageQueueId pevDmaMsgQueueId = 0;
+epicsMutexId pevDmaReqLock = 0;
 epicsBoolean initHookregDone = epicsFalse;
 static epicsBoolean pevIntrHandlerInitialized = epicsFalse;
 static IOSCANPVT* pevIntrTable = 0; 
 static struct pev_ioctl_evt *pevIntrEvent;
-
+int pevExpertReport(int, int);
+static int pevDrvDebug = 0;
+static int dmaServerDebug = 0;
+static unsigned int dmaLastTransferStat = 0;
 
 typedef struct pevDmaReqMsg {
     struct pev_ioctl_dma_req pev_dmaReq; 
@@ -80,6 +84,8 @@ typedef struct pevDmaReqMsg {
     void *pdata;
     int swap;
     ulong pev_dmaBuf_usr;
+    epicsBoolean readReq;
+    int* reqStatus;
 } pevDmaReqMsg;
 
 struct regDevice {
@@ -396,19 +402,20 @@ int pevAsynRead(
     if(device->dmaSpace == NO_DMA_SPACE && !cbStruct) 
     	printf("pevAsynRead(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
     else
-    {	        
+    {	
+      epicsMutexLock(pevDmaReqLock);       
       device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
      /*  device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;      	des bus address */
       device->pev_dmaReq.des_addr = (ulong)pdata;       			 /*  des bus address */
-      device->pev_dmaReq.size = nelem*dlen;              				
+      device->pev_dmaReq.size = nelem*dlen | DMA_SIZE_PKT_1K;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
-      device->pev_dmaReq.src_mode = srcMode;
-      device->pev_dmaReq.des_mode = 0;
+      device->pev_dmaReq.src_mode = srcMode | DMA_PCIE_RR2;
+      device->pev_dmaReq.des_mode = DMA_PCIE_RR2;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (1<<4);
       
       pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
       pevDmaRequest.pCallBack = cbStruct;
@@ -416,7 +423,10 @@ int pevAsynRead(
       pevDmaRequest.nelem = nelem;
       pevDmaRequest.pdata = pdata;
       pevDmaRequest.swap = swap;
+      pevDmaRequest.readReq = epicsTrue;
+      pevDmaRequest.reqStatus = rdStat;
       pevDmaRequest.pev_dmaBuf_usr = (ulong)device->pev_dmaBuf.u_addr;
+      epicsMutexUnlock(pevDmaReqLock);       
       
       if( !epicsMessageQueueSend(pevDmaMsgQueueId, (void*)&pevDmaRequest, sizeof(pevDmaReqMsg)) )
          return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
@@ -439,7 +449,8 @@ int pevAsynWrite(
     void* pdata,
     CALLBACK* cbStruct,
     void* pmask,
-    int priority)
+    int priority,
+    int* wrStat)
 {
   int swap = 0;
   unsigned short destMode = 0;
@@ -493,6 +504,7 @@ int pevAsynWrite(
       ***/
 
        /* device->pev_dmaReq.src_addr = (ulong)device->pev_dmaBuf.b_addr;   */                   
+      epicsMutexLock(pevDmaReqLock);       
       device->pev_dmaReq.src_addr = (ulong)pdata;                   
       device->pev_dmaReq.des_addr = device->baseOffset + offset;       /* (ulong)pdata destination is DMA buffer    */
       device->pev_dmaReq.size = nelem*dlen;                  
@@ -511,7 +523,10 @@ int pevAsynWrite(
       pevDmaRequest.nelem = nelem;
       pevDmaRequest.pdata = pdata;
       pevDmaRequest.swap = swap;
+      pevDmaRequest.reqStatus = wrStat;
+      pevDmaRequest.readReq = epicsFalse;
       pevDmaRequest.pev_dmaBuf_usr = (ulong)device->pev_dmaBuf.u_addr;
+      epicsMutexUnlock(pevDmaReqLock);       
       
       if( !epicsMessageQueueSend(pevDmaMsgQueueId, (void*)&pevDmaRequest, sizeof(pevDmaReqMsg)) )
          return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
@@ -532,7 +547,7 @@ void pevAsynReport(
 {
     if (device && device->magic == MAGIC)
     {
-        printf("pev driver: for resource \"%s\" \n",
+        printf("pevAsyn driver: for resource \"%s\" \n",
             device->resource);
     }
 }
@@ -1405,32 +1420,37 @@ void *pev_dmaRequetServer(int *crate)
   
    while(1)
    {
+     dmaServerDebug = 4;
      numByteRecvd = epicsMessageQueueReceive(pevDmaMsgQueueId, (pevDmaReqMsg*)&msgptr, sizeof(pevDmaReqMsg));
+     if(pevDrvDebug)
+       {
+         printf("pev_dmaRequetServer(): msgptr.pCallBack = %p \n", (CALLBACK*)msgptr.pCallBack);
+       }
      if (numByteRecvd <= 0)
        {
-         printf("pev_dmaRequetServer(): epicsMessageQueueReceive Failed! msg_size = %d \n",numByteRecvd);
+         printf("pev_dmaRequetServer(): WARNING: received empty message, size = %d \n",numByteRecvd);
 	 continue;
        }
-
-     if( pev_dma_move(&msgptr.pev_dmaReq) )
+     dmaServerDebug = 1;
+     usleep(1); 
+     if( (*(msgptr.reqStatus) = pev_dma_move(&msgptr.pev_dmaReq)) )
        {
-     	 printf("pev_dmaRequetServer(): Invalid DMA transfer parameters! do normal transfer\n");
+     	 printf("pev_dmaRequetServer(): Invalid DMA transfer parameters or Timeout! dma status = 0x%x\n",
+	 msgptr.pev_dmaReq.dma_status);
        }
-     else 
+     else
        {
+        dmaServerDebug = 2;
         dmaStatRet = pev_dma_status( &dmaStatus );
         if( dmaStatRet < 0 )
      	  { 
-	    printf("pev_dmaRequetServer(): DMA transfer failed! do normal transfer; dma stat = 0x%x\n", dmaStatRet);
-	    /**  
-	    	TODO: DO NORMAL TRANSFER **/
+	    printf("pev_dmaRequetServer(): DMA transfer failed! dma status = 0x%x\n", dmaStatRet);
 	  }
-        else
-          {
-     	    /** regDevCopy(msgptr.dlen, msgptr.nelem, (void*)msgptr.pev_dmaBuf_usr, msgptr.pdata, NULL, msgptr.swap); **/
-	    callbackRequest((CALLBACK*)msgptr.pCallBack);
-          }
-       }     
+       }
+
+     dmaLastTransferStat = msgptr.pev_dmaReq.dma_status;
+     dmaServerDebug = 3;
+     callbackRequest((CALLBACK*)msgptr.pCallBack);
    } /* endWhile */
    
    free(&msgptr);
@@ -1447,7 +1467,14 @@ epicsThreadId pevDmaThreadId;
   * create a message queue to listen to this pev
   * and check for correct creation??????????
   */
-  
+ pevDmaReqLock = epicsMutexCreate();
+ if( !pevDmaReqLock )
+    {
+      printf("ERROR; epicsMutexCreate for pevDmaReqLock failed\n");
+      return -1;
+    }
+ 
+ 
  pevDmaMsgQueueId = epicsMessageQueueCreate( DMA_Q_SIZE, sizeof(pevDmaReqMsg));
  if( !pevDmaMsgQueueId )
     {
@@ -1455,7 +1482,7 @@ epicsThreadId pevDmaThreadId;
       return -1;
     }
 
-  pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityMedium,
+  pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityHigh,
                                       epicsThreadGetStackSize(epicsThreadStackMedium),
                                       (EPICSTHREADFUNC)pev_dmaRequetServer,(int*)&crate);
 
@@ -1466,6 +1493,37 @@ epicsThreadId pevDmaThreadId;
     }
    
 return 0;
+}
+
+/**
+*
+* EPICS shell debug utility
+*
+**/
+int pevExpertReport(int level, int debug)
+{
+ int dummyMsg = 0;
+ struct pev_ioctl_dma_sts dmaStatus;
+ 
+ printf("pevExpertReport:\t\n");
+ printf("\t dmaMessageQueue: ");
+ epicsMessageQueueShow(pevDmaMsgQueueId, level);
+ pevDrvDebug = debug;
+ pev_dma_status( &dmaStatus );
+ if(pevDrvDebug>2)
+ {
+   printf("\n sending an emty message to dmaMessageQueue...: ");
+   epicsMessageQueueSend(pevDmaMsgQueueId, &dummyMsg, 0); 
+ }
+ printf("\n\t dmaServerDebug = %d dmaStat = %d\n",dmaServerDebug, pev_dma_status( &dmaStatus ));
+ printf("\n\t Last DMA transfer Status : 0x%x = ", dmaLastTransferStat);
+ if(dmaLastTransferStat & DMA_STATUS_WAITING) printf(" START_WAITING, ");
+ if(dmaLastTransferStat & DMA_STATUS_TMO) printf("TIMEOUT, ");
+ if(dmaLastTransferStat & DMA_STATUS_ENDED) printf("ENDED_WAITING, ");
+ if(dmaLastTransferStat & DMA_STATUS_DONE) printf("DONE, ");
+ printf("\n");
+
+ return 0;
 }
  
 /**
@@ -1620,5 +1678,30 @@ static void pevAsynRegistrar ()
 }
 
 epicsExportRegistrar(pevAsynRegistrar);
+
+static const iocshArg pevExpertReportArg0 = { "level", iocshArgInt };
+static const iocshArg pevExpertReportArg1 = { "debug", iocshArgInt };
+
+static const iocshArg * const pevExpertReportArgs[] = {
+    &pevExpertReportArg0,
+    &pevExpertReportArg1,
+};
+
+static const iocshFuncDef pevExpertReportDef =
+    { "pevExpertReport", 2, pevExpertReportArgs };
+    
+static void pevExpertReportFunc (const iocshArgBuf *args)
+{
+    int status = pevExpertReport(
+        args[0].ival, args[1].ival);
+    if (status != 0) epicsExit(1);
+}
+
+static void pevExpertReportRegistrar ()
+{
+    iocshRegister(&pevExpertReportDef, pevExpertReportFunc);
+}
+
+epicsExportRegistrar(pevExpertReportRegistrar);
 
 #endif

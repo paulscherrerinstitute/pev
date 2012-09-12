@@ -1,2 +1,3 @@
 registrar(pevRegistrar)
 registrar(pevAsynRegistrar)
+registrar(pevExpertReportRegistrar)

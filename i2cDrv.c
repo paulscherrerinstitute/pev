@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.8 2012/09/05 09:57:32 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.9 2012/09/12 11:26:58 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -130,7 +130,8 @@ int pevI2cAsynWrite(
     void* pdata,
     CALLBACK* cbStruct,
     void* pmask,
-    int priority)
+    int priority,
+    int* wrStatus)
 {
   pevI2cReqMsg pevI2cRequest;
    	
@@ -149,6 +150,7 @@ int pevI2cAsynWrite(
     pevI2cRequest.i2cCmd = offset;		/* reg address within an i2c device */
     pevI2cRequest.readOperation = epicsFalse;
     pevI2cRequest.cmndOperation = device->command;
+    pevI2cRequest.opStat = wrStatus;
         
     if( !epicsMessageQueueSend(pevI2cMsgQueueId, (void*)&pevI2cRequest, sizeof(pevI2cReqMsg)) )
        return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */

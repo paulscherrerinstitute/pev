@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/09/05 08:33:08 $*/
-/*$Revision: 1.8 $*/
+/*$Date: 2012/09/12 11:26:58 $*/
+/*$Revision: 1.9 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -115,11 +115,9 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
 
 long devIfc1210AiInitRecord(aiRecord* record)
 {
-   ifcPrivate* p;
    int status=0;
    status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
    if (status != 0) return status; 
-   p = record->dpvt;
    record->udf = 0;
    return 0;
 }
@@ -154,6 +152,8 @@ long devIfc1210AiRead(aiRecord* record)
             recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
             return -1;	  
 	  }
+        record->val = (unsigned short)rval;
+	return 2;
       }
     else
     if(p->devType == BMR_11U)
@@ -256,7 +256,7 @@ long devIfc1210AoWrite(aoRecord* record)
     	pev_csr_wr( p->address | 0x80000000, (unsigned int)record->val);
     else
     if(p->devType == BMR) 
-    	pev_bmr_write(p->card, p->address, (unsigned int)record->val, p->count);
+        pev_bmr_write(p->card, p->address, (unsigned int)record->val, p->count);
 	
     return 0; 
 }
