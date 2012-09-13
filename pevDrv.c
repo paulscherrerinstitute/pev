@@ -33,13 +33,13 @@
 
 
 #define MAGIC 		1100 		/*  pev1100 */
-#define SHMEM_MAP_SIZE 	0x8000000     	/* 128 MB DDR2 shared memory in PMEM */
-#define VME32_MAP_SIZE 	0x800000      	/* 8 MB A32 */
-#define VME24_MAP_SIZE 	0x800000      	/* 8 MB A24 */
-#define VMECR_MAP_SIZE 	0x800000	/* 8 MB CR/CSR */
-#define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 */
-#define USR1_MAP_SIZE 	0x100000	/* 1 MB  */
-#define USR2_MAP_SIZE 	0x100000	/* 1 MB  */
+#define SHMEM_MAP_SIZE 	0     		/* All SHMEM through DMA */
+#define VME32_MAP_SIZE 	0x40000000      /* 1024 MB A32 - fixed via PMEM */
+#define VME24_MAP_SIZE 	0x1000000      	/* 8 MB A24 - fixed */
+#define VMECR_MAP_SIZE 	0x1000000	/* 8 MB CR/CSR - fixed */
+#define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 - fixed */
+#define USR1_MAP_SIZE 	0x100000	/* 1 MB - fixed  */
+#define USR2_MAP_SIZE 	0x100000	/* 1 MB - fixed  */
 #define PCIE_MAP_SIZE  	0x1000		/* ????????? */
 #define DMA_BUF_SIZE   	0x100
 #define NO_DMA_SPACE	0xFF		/* DMA space not specified */
@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.23 2012/09/12 11:26:58 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.24 2012/09/13 14:03:45 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -170,14 +170,14 @@ int pevRead(
             "pevRead: illegal device handle\n");
         return -1;
     }
-    if (offset > device->pev_rmArea_map.win_size)
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevRead %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -190,10 +190,10 @@ int pevRead(
     {
 #ifdef powerpc
       srcMode = DMA_SWAP;
-      swap = 1;
+      swap = 0;
 #else
       srcMode = 0;
-      swap = 0;
+      swap = 1;
 #endif
     }
     if( device->pev_rmArea_map.mode & MAP_SPACE_USR1)
@@ -205,11 +205,18 @@ int pevRead(
     	printf("pevRead(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
     else
     {
-      device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
-      device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;       	/* des bus address */
-      device->pev_dmaReq.size = nelem*dlen;              				
       if(device->flags==FLAG_BLKMD)
-        device->pev_dmaReq.size = device->pev_dmaBuf.size;
+        {
+          device->pev_dmaReq.size = device->pev_dmaBuf.size;
+          device->pev_dmaReq.src_addr = device->baseOffset;  		
+	  device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr; 
+	}
+      else
+        {
+          device->pev_dmaReq.size = nelem*dlen;              				
+          device->pev_dmaReq.src_addr = device->baseOffset + offset;  		
+          device->pev_dmaReq.des_addr = (ulong)pdata;       	
+	}
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.src_mode = srcMode;
@@ -220,18 +227,20 @@ int pevRead(
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
       if( pev_dma_move(&device->pev_dmaReq) )
         {
-          printf("pevRead(): Invalid DMA transfer parameters! do normal transfer\n");
+	  printf("pevRead(): DMA transfer failed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
+          return -1;
 	}
       else 
         {
 	 if( !(device->pev_dmaReq.dma_status & DMA_STATUS_ENDED) )
-           printf("pevRead(): DMA transfer failed (STATUS=0x%x)! do normal transfer \n", device->pev_dmaReq.dma_status);
+	   {
+             printf("pevRead(): DMA transfer not completed! status = 0x%x\n", device->pev_dmaReq.dma_status);
+	     return -1;
+	   }
 	 else
 	  {
              if( device->flags==FLAG_BLKMD ) 
 	       scanIoRequest(device->ioscanpvt);
-	     else
-	       regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, 0);
              return 0;
 	  }
         }
@@ -241,7 +250,7 @@ int pevRead(
     if( device->flags==FLAG_BLKMD )
       regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr + offset, pdata, NULL, 0);
     else
-      regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap); 
+      regDevCopy(dlen, nelem, device->uPtrMapRes + device->baseOffset + offset, pdata, NULL, swap); 
     return 0;
 
 }
@@ -265,14 +274,14 @@ int pevWrite(
         return -1;
     }
 
-    if (offset > device->pev_rmArea_map.win_size)
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevWrite %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevWrite %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -284,30 +293,35 @@ int pevWrite(
     {
 #ifdef powerpc
       destMode = DMA_SWAP;
-      swap = 1;
+      swap = 0;
 #else
       destMode = 0;
-      swap = 0;
+      swap = 1;
 #endif
     }
     if( device->pev_rmArea_map.mode & MAP_SPACE_USR1)
       swap = 1;
       
     
-    if(nelem > 100)
+    if( (nelem>100 && device->flags!=FLAG_BLKMD ) || (device->flags==FLAG_BLKMD && priority==2) ) 	/* do DMA, prio_2=HIGH */
     {
     if(device->dmaSpace == NO_DMA_SPACE) 
     	printf("pevWrite(): \"%s\" DMA SPACE not specified! continue with normal transfer \n", device->name);
     else
      {	
-      /****
-      * 	workaround: first copy the src data to kernel allocated buffer  
-      ***/
-      regDevCopy(dlen, nelem, pdata, device->pev_dmaBuf.u_addr, NULL, swap); 
 
-      device->pev_dmaReq.src_addr = (ulong)device->pev_dmaBuf.b_addr;                   
-      device->pev_dmaReq.des_addr = device->baseOffset + offset;       /* (ulong)pdata destination is DMA buffer    */
-      device->pev_dmaReq.size = nelem*dlen;                  
+      if(device->flags==FLAG_BLKMD)
+        {
+          device->pev_dmaReq.size = device->pev_dmaBuf.size;
+          device->pev_dmaReq.src_addr = (ulong)device->pev_dmaBuf.b_addr;                   
+          device->pev_dmaReq.des_addr = device->baseOffset;       	
+	}
+      else
+        {
+          device->pev_dmaReq.src_addr = (ulong)pdata;
+          device->pev_dmaReq.size = nelem*dlen;                  
+          device->pev_dmaReq.des_addr = device->baseOffset + offset;      
+	}
       device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.des_space = device->dmaSpace;
       device->pev_dmaReq.src_mode = 0;
@@ -318,23 +332,26 @@ int pevWrite(
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
       if( pev_dma_move(&device->pev_dmaReq) )
         {
-          printf("pevWrite(): Invalid DMA transfer parameters! do normal transfer\n");
+	  printf("pevWrite(): DMA transfer failed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
+          return -1;
 	}
       else 
         {
-	 if( device->pev_dmaReq.dma_status )
-           printf("pevWrite(): DMA transfer failed! do normal transfer\n");
-	 else
-	  {
-             regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr, pdata, NULL, swap);
-	     printf("pevWrite():Dma Done!!!!!! \n");
-             return 0;
+	 if( !(device->pev_dmaReq.dma_status & DMA_STATUS_ENDED) )
+           {
+	     printf("pevWrite(): DMA transfer not completed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
+             return -1;
 	   }
+	 else
+          return 0;
         }
      }
     }
-      
-    regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + offset, NULL, swap); 
+
+    if( device->flags==FLAG_BLKMD )
+      regDevCopy(dlen, nelem, pdata, device->pev_dmaBuf.u_addr + offset, NULL, 0); 
+    else  
+      regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + device->baseOffset + offset, NULL, swap); 
     return 0;
 }
 	
@@ -368,14 +385,14 @@ int pevAsynRead(
             "pevAsynRead: illegal device handle\n");
         return -1;
     }
-    if (offset > device->pev_rmArea_map.win_size)
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynRead %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -405,7 +422,6 @@ int pevAsynRead(
     {	
       epicsMutexLock(pevDmaReqLock);       
       device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
-     /*  device->pev_dmaReq.des_addr = (ulong)device->pev_dmaBuf.b_addr;      	des bus address */
       device->pev_dmaReq.des_addr = (ulong)pdata;       			 /*  des bus address */
       device->pev_dmaReq.size = nelem*dlen | DMA_SIZE_PKT_1K;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
@@ -436,8 +452,13 @@ int pevAsynRead(
 	}
       }
     }
-    
-    regDevCopy(dlen, nelem, device->uPtrMapRes + offset, pdata, NULL, swap);        
+    if( device->dmaSpace & DMA_SPACE_SHM )	/* this is SH_MEM */
+    {
+      printf("pevAsynRead(): not allowed to do normal transfer for SH_MEM\n");
+      return -1;
+    }
+      
+    regDevCopy(dlen, nelem, device->uPtrMapRes + device->baseOffset + offset, pdata, NULL, swap);        
     return 0;
 }
 
@@ -463,14 +484,14 @@ int pevAsynWrite(
         return -1;
     }
 
-    if (offset > device->pev_rmArea_map.win_size)
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynWrite %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size)
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynWrite %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -536,8 +557,13 @@ int pevAsynWrite(
 	}
      }
     }
+    if( device->dmaSpace & DMA_SPACE_SHM )	/* this is SH_MEM */
+    {
+      printf("pevAsynWrite(): not allowed to do normal transfer for SH_MEM\n");
+      return -1;
+    }
       
-    regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + offset, NULL, swap); 
+    regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + device->baseOffset + offset, NULL, swap); 
     return 0;
 }
 
@@ -608,7 +634,7 @@ static struct pev_ioctl_map_pg null_pev_rmArea_map = {0,0,0,0,0,0,0,0,0,0,0,0};
 *
 *****/
 static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const char* resource, 
-							epicsBoolean* mapStat, long* baseOffset, epicsBoolean clearAll) {
+							epicsBoolean* mapStat, long* baseOffset, char** uPtr, epicsBoolean clearAll) {
   regDevice* device;    
   regDeviceAsyn* asdevice;    
   struct pev_ioctl_map_ctl pev_ctl; 
@@ -629,6 +655,7 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
   	   /* pev_rmArea_map = device->pev_rmArea_map*/;
 	   *mapStat = epicsTrue;
 	   *baseOffset = device->baseOffset;
+	   *uPtr = device->uPtrMapRes;
            printf ("findMappedPevResource(): resource \"%s\" already mapped.. continue\n", device->resource);
   	   return(device->pev_rmArea_map);
        }
@@ -651,6 +678,7 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
   	   /* pev_rmArea_map = device->pev_rmArea_map*/;
 	   *mapStat = epicsTrue; 
 	   *baseOffset = asdevice->baseOffset;
+	   *uPtr = asdevice->uPtrMapRes;
            printf ("findMappedPevResource(): resource \"%s\" already mapped.. continue\n", asdevice->resource);
   	   return(asdevice->pev_rmArea_map);
        }
@@ -663,10 +691,8 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
 
 static void pevDrvAtexit(regDevice* device)
 {
-  struct pev_ioctl_map_ctl pev_ctl; 
   int i=0;
   struct pev_node* pev;    
-  pev_ctl.sg_id = device->pev_rmArea_map.sg_id; 
   printf("pevDrvAtexit(): we are at ioc exit**********\n");
   pev_evt_queue_disable(pevIntrEvent);
   pev_evt_queue_free(pevIntrEvent);
@@ -676,7 +702,7 @@ static void pevDrvAtexit(regDevice* device)
   {
      pev = pev_init(i);
      if( pev ) 
-     	findMappedPevResource(pev, 0, 0, 0, epicsTrue);
+     	findMappedPevResource(pev, 0, 0, 0, 0, epicsTrue);
   }
   
   if(!device->dmaAllocFailed) 
@@ -726,6 +752,7 @@ int pevConfigure(
   struct pev_ioctl_map_pg pev_rmArea_map = null_pev_rmArea_map;
   epicsBoolean mapExists = epicsFalse;
   long otherBaseOffset;
+  char* usrMappedResource = 0;
    
   if(  regDevAsynFind(name) ) 
   {
@@ -759,7 +786,7 @@ int pevConfigure(
   if( !ellFirst(&pevRegDevList) )
     ellInit (&pevRegDevList);
 
-  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset, epicsFalse);  
+  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset, &usrMappedResource, epicsFalse);  
   if( mapExists == epicsTrue && otherBaseOffset == offset)
   {
     printf("pevConfigure: Another device for the same recource (%s) with the same offset (0x%x) exists!\n", resource, offset);
@@ -803,13 +830,6 @@ int pevConfigure(
     printf(" -> disabled\n");
   }
   
-  if( mapExists )
-    {
-      device->pev_rmArea_map = pev_rmArea_map;
-      printf ("pevConfigure: skip mapping...\n");
-      goto SKIP_PEV_RESMAP;
-    }
-      
   epicsAtExit((void*)pevDrvAtexit, device);
   
   if( device->flags == FLAG_BLKMD )	/* use blockMode */
@@ -825,6 +845,14 @@ int pevConfigure(
       device->dmaAllocFailed = epicsFalse;
    }
   
+  if( mapExists && strcmp(resource, "SH_MEM"))
+    {
+      device->pev_rmArea_map = pev_rmArea_map;
+      device->uPtrMapRes = usrMappedResource;
+      printf ("pevConfigure: skip mapping...\n");
+      goto SKIP_PEV_RESMAP;
+    }
+      
   
   /* create an address translation window in the VME slave port */
   /* pointing to the PEV1100 Shared Memory in PMEM              */
@@ -832,16 +860,9 @@ int pevConfigure(
  /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
    if( strcmp(resource, "SH_MEM")==0 ) 
      {
-  	device->pev_rmArea_map.mode = MAP_SPACE_SHM;
-  	device->pev_rmArea_map.sg_id = MAP_MASTER_64;
-  	device->pev_rmArea_map.rem_addr = 0x000000; 	/* shared memory base address */
-  	device->pev_rmArea_map.size = SHMEM_MAP_SIZE;
-	if( offset > SHMEM_MAP_SIZE) 
-	  {
-	    printf("pevConfigure: ERROR, too big offset\n");
-      	    exit(0);
-	  }
 	device->dmaSpace = DMA_SPACE_SHM;
+	device->flags = FLAG_BLKMD;	/* only DMA access */
+        goto TESTJUMP;
      }
    else
    if( strcmp(resource, "PCIE")==0 ) 
@@ -915,7 +936,7 @@ int pevConfigure(
    if( strcmp(resource, "VME_A32")==0 ) 
      {
   	device->pev_rmArea_map.mode = MAP_SPACE_VME|MAP_VME_A32;
-  	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.sg_id = MAP_MASTER_64;		/* PMEM window */
   	device->pev_rmArea_map.rem_addr = 0x000000; 		/* VME space */
   	device->pev_rmArea_map.size = VME32_MAP_SIZE;
 	if( offset > VME32_MAP_SIZE) 
@@ -932,11 +953,10 @@ int pevConfigure(
    
   device->pev_rmArea_map.mode |= MAP_ENABLE|MAP_ENABLE_WR;
   device->pev_rmArea_map.flag = 0x0;
+  
   pev_map_alloc( &device->pev_rmArea_map);
   printf("offset in PCI MEM window to access %s @ 0x%08X size: 0x%08x\n", resource, (uint)device->pev_rmArea_map.loc_addr, device->pev_rmArea_map.win_size);
   printf("perform the mapping in user's space : ");
-
-SKIP_PEV_RESMAP:
 
   device->uPtrMapRes  = (char*)pev_mmap( &device->pev_rmArea_map);
   printf("%p", device->uPtrMapRes);
@@ -946,10 +966,10 @@ SKIP_PEV_RESMAP:
     exit(0);
   }
   printf(" -> Done\n");
-  
-  device->uPtrMapRes += offset;
-  device->baseOffset = offset;
-  
+  /* device->uPtrMapRes += offset; */ /** uPtrMapRes for each space is fixed, baseoffset must be added for each device **/
+
+SKIP_PEV_RESMAP:
+
   /* goto TESTJUMP;
    set VME block transfer protocol*/
   if(!vmeProtocol)  
@@ -979,6 +999,8 @@ SKIP_PEV_RESMAP:
   {
     device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
   }
+
+TESTJUMP: 
   if( strcmp(resource, "USR1")==0 || strcmp(resource, "SH_MEM")==0 )
   {
     if( strcmp(vmeProtocol, "WS")==0 )
@@ -989,8 +1011,7 @@ SKIP_PEV_RESMAP:
       device->dmaSpace |= DMA_SPACE_QS;
   }
 
-TESTJUMP: 
-
+  device->baseOffset = offset;
   if( intrVec )
   {
     if( intrVec<0 || intrVec>255 || 
@@ -1073,6 +1094,7 @@ int pevAsynConfigure(
   struct pev_ioctl_map_pg pev_rmArea_map = null_pev_rmArea_map;
   epicsBoolean mapExists = epicsFalse;
   long otherBaseOffset;
+  char* usrMappedResource = 0;
    
   if( regDevFind(name) ) 
   {
@@ -1106,7 +1128,7 @@ int pevAsynConfigure(
   if( !ellFirst(&pevRegDevAsynList) )
     ellInit (&pevRegDevAsynList);
 
-  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset, epicsFalse);
+  pev_rmArea_map = findMappedPevResource(pev, resource, &mapExists, &otherBaseOffset, &usrMappedResource, epicsFalse);
   if( mapExists == epicsTrue && otherBaseOffset == offset)
   {
     printf("pevAsynConfigure: Another device for the same recource (%s) with the same offset (0x%x) exists!\n", resource, offset);
@@ -1144,14 +1166,13 @@ int pevAsynConfigure(
     printf(" -> disabled\n");
   }
 
-/*  
   if( mapExists )
     {
       device->pev_rmArea_map = pev_rmArea_map;
+      device->uPtrMapRes = usrMappedResource;
       printf ("pevAsynConfigure: skip mapping...\n");
       goto SKIP_PEV_RESMAP;
     }
-*/
      
   epicsAtExit((void*)pevDrvAtexit, device);
   
@@ -1172,16 +1193,8 @@ int pevAsynConfigure(
  /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
    if( strcmp(resource, "SH_MEM")==0 ) 
      {
-  	device->pev_rmArea_map.mode = MAP_SPACE_SHM;
-  	device->pev_rmArea_map.sg_id = MAP_MASTER_64;
-  	device->pev_rmArea_map.rem_addr = 0x000000; 	/* shared memory base address */
-  	device->pev_rmArea_map.size = SHMEM_MAP_SIZE;
-	if( offset > SHMEM_MAP_SIZE) 
-	  {
-	    printf("pevAsynConfigure: ERROR, too big offset\n");
-      	    exit(0);
-	  }
 	device->dmaSpace = DMA_SPACE_SHM;
+	goto TESTJUMP;
      }
    else
    if( strcmp(resource, "PCIE")==0 ) 
@@ -1255,7 +1268,7 @@ int pevAsynConfigure(
    if( strcmp(resource, "VME_A32")==0 ) 
      {
   	device->pev_rmArea_map.mode = MAP_SPACE_VME|MAP_VME_A32;
-  	device->pev_rmArea_map.sg_id = MAP_MASTER_32;
+  	device->pev_rmArea_map.sg_id = MAP_MASTER_64;
   	device->pev_rmArea_map.rem_addr = 0x000000; 		/* VME space */
   	device->pev_rmArea_map.size = VME32_MAP_SIZE;
 	if( offset > VME32_MAP_SIZE) 
@@ -1276,8 +1289,6 @@ int pevAsynConfigure(
   printf("pevAsynConfigure: offset in PCI MEM window to access %s @ 0x%08X size: 0x%08x\n", resource, (uint)device->pev_rmArea_map.loc_addr, device->pev_rmArea_map.win_size);
   printf("pevAsynConfigure: perform the mapping in user's space : ");
 
-SKIP_PEV_RESMAP:
-
   device->uPtrMapRes  = (char*)pev_mmap( &device->pev_rmArea_map);
   printf("%p", device->uPtrMapRes);
   if( device->uPtrMapRes == MAP_FAILED)
@@ -1287,8 +1298,9 @@ SKIP_PEV_RESMAP:
   }
   printf(" -> Done\n");
   
-  device->uPtrMapRes += offset;
-  device->baseOffset = offset;
+  /* device->uPtrMapRes += offset; */ /** uPtrMapRes for each space is fixed, baseoffset must be added for each device **/
+
+SKIP_PEV_RESMAP:
     
   /* set up VME block transfer protocol*/
   if(!vmeProtocol)  
@@ -1318,6 +1330,8 @@ SKIP_PEV_RESMAP:
   {
     device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
   }
+  
+TESTJUMP: 
   if( strcmp(resource, "USR1")==0 || strcmp(resource, "SH_MEM")==0 )
   {
     if( strcmp(vmeProtocol, "WS")==0 )
@@ -1327,9 +1341,8 @@ SKIP_PEV_RESMAP:
     if( strcmp(vmeProtocol, "QS")==0 )
       device->dmaSpace |= DMA_SPACE_QS;
   }
-  
-TESTJUMP: 
 
+  device->baseOffset = offset;
   if( initHookregDone == epicsFalse )
   {
     initHookRegister((initHookFunction)pevHookFunc);
@@ -1435,7 +1448,7 @@ void *pev_dmaRequetServer(int *crate)
      usleep(1); 
      if( (*(msgptr.reqStatus) = pev_dma_move(&msgptr.pev_dmaReq)) )
        {
-     	 printf("pev_dmaRequetServer(): Invalid DMA transfer parameters or Timeout! dma status = 0x%x\n",
+     	 printf("pev_dmaRequetServer(): DMA failure or Timeout! dma status = 0x%x\n",
 	 msgptr.pev_dmaReq.dma_status);
        }
      else
