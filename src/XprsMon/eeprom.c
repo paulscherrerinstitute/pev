@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: eeprom.c,v $
- * Revision 1.7  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.8  2012/09/26 07:38:37  kalt_r
+ * received XprsMon IDT EEPROM write update with verify
+ *
+ * Revision 1.4  2012/09/25 09:10:42  ioxos
+ * add verify in load command + verify command [JFG]
  *
  * Revision 1.3  2012/06/01 13:59:43  ioxos
  * -Wall cleanup [JFG]
@@ -42,7 +45,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: eeprom.c,v 1.7 2012/09/04 07:34:33 kalantari Exp $";
+static char *rcsid = "$Id: eeprom.c,v 1.8 2012/09/26 07:38:37 kalt_r Exp $";
 #endif
 
 #include <sys/types.h>
@@ -64,9 +67,9 @@ eeprom_rcsid()
 int 
 xprs_eeprom( struct cli_cmd_para *c)
 {
-  uint i, j;
+  uint i, j, err;
   uint offset, cnt;
-  char *buf, *p;
+  char *buf, *p, *cmp;
   FILE *file;
 
   if( c->cnt < 3)
@@ -144,6 +147,61 @@ xprs_eeprom( struct cli_cmd_para *c)
     fclose( file);
     pev_eeprom_wr( offset, buf, cnt);
     printf(" -> done\n");
+    printf("Verifying ...");
+    cmp = (char *)malloc( cnt);
+    pev_eeprom_rd( offset, cmp, cnt);
+    err = 0;
+    for( i = 0; i < cnt; i++)
+    {
+      if( buf[i] != cmp[i])
+      {
+	printf(" -> compare error at offset %d [%02x != %02x]\n", i, buf[i], cmp[i]);
+	err = 1;
+	break;
+      }
+    }
+    if( !err)
+    {
+      printf(" -> OK\n");
+    }
+    free( buf);
+  }
+  if( !strcmp( "verify", c->para[0]))
+  {
+    if( sscanf( c->para[1],"%x", &offset) != 1)
+    {
+      printf("wrong offset value\n");
+      return(-1);
+    }
+    file = fopen( c->para[2], "r");
+    if( !file)
+    {
+      printf("\nFile %s doesn't exist\n", c->para[2]);
+      return( -1);
+    }
+    fseek( file, 0, SEEK_END);
+    cnt = ftell( file);
+    printf("Verifying EEPROM from file %s at offset %x [size %x] ...", c->para[2], offset, cnt);
+    buf = (char *)malloc( cnt);
+    fseek( file, 0, SEEK_SET);
+    fread( buf, 1, cnt, file);
+    fclose( file);
+    cmp = (char *)malloc( cnt);
+    pev_eeprom_rd( offset, cmp, cnt);
+    err = 0;
+    for( i = 0; i < cnt; i++)
+    {
+      if( buf[i] != cmp[i])
+      {
+	printf(" -> compare error at offset %d [%02x != %02x]\n", i, buf[i], cmp[i]);
+	err = 1;
+	break;
+      }
+    }
+    if( !err)
+    {
+      printf(" -> OK\n");
+    }
     free( buf);
   }
   return(0);
