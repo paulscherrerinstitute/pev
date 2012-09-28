@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_USERBLOCK.template,v $
-# $Date: 2012/09/06 12:31:52 $
-# $Revision: 1.2 $
+# $Date: 2012/09/28 13:26:02 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -523,6 +523,6 @@ record(aao,"$(IOC):USER-RAMP-OUT")
    field(OUT,  "#C S @Usr1StdIOCUserRamp/0x2000 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "ULONG")
-   field(FLNK, "$(IOC):USER-INTTIM12-STOP")  # SMEM-ReadInitiator") # kick shared memory readout
+   field(FLNK, "$(IOC):USER-INTTIM12-STOP")  # USER-INTTIM12-STOP or SMEM-ReadInitiator") # kick shared memory readout
 }
 
