@@ -132,23 +132,33 @@ i2c_read_io(  ulong reg_p)
   return( data);
 }
 
+struct semaphore i2c_sem;
+
 uint
 i2c_wait( uint io_base,
 	  uint tmo)
 {
   uint ctl;
-  int iex;
-
+  uint sts;
+  uint sem;
 
   ctl = i2c_read_io( io_base + I2C_CTL_OFFSET);
-  
+  sem = tmo & 0x80000000;
+  tmo &= ~0x80000000;
   while( !(ctl & 0x300000))
   {
     ctl = i2c_read_io( io_base + I2C_CTL_OFFSET);
-    if( !tmo--) break;
+    if( !tmo--)
+    {
+      printk(" I2C timeout\n");
+      break;
+    }
+    if( sem)
+    {
+      sema_init( &i2c_sem, 0);
+      sts = down_timeout( &i2c_sem, 1);
+    }
   }
-  //iex = 10;
-  //while(iex--)i2c_read_io( io_base + I2C_CTL_OFFSET);
   return( ctl);
 }
 uint
@@ -168,7 +178,8 @@ i2c_cmd( uint io_base,
 uint
 i2c_read( uint io_base,
 	  uint dev,
-	  uint *sts_p)
+	  uint *sts_p,
+	  uint tmo)
 {
 
 
@@ -177,7 +188,7 @@ i2c_read( uint io_base,
   /* trig read cycle */
   i2c_write_io( (~I2C_CTL_MASK & dev), io_base + I2C_CTL_OFFSET);
   i2c_write_io( (I2C_CTL_READ | dev), io_base + I2C_CTL_OFFSET);
-  *sts_p = i2c_wait( io_base, 10000);
+  *sts_p = i2c_wait( io_base, tmo);
   /* get data */
   data = i2c_read_io( io_base + I2C_READ_OFFSET);
 

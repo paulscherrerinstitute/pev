@@ -28,8 +28,8 @@
  *  Change History
  *  
  * $Log: fsm2bin.c,v $
- * Revision 1.9  2012/09/04 07:34:34  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.10  2012/10/01 14:56:50  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
  *
  * Revision 1.3  2008/09/17 13:19:31  ioxos
  * cleanup (remove debug info) [JFG]
@@ -44,7 +44,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: fsm2bin.c,v 1.9 2012/09/04 07:34:34 kalantari Exp $";
+static char *rcsid = "$Id: fsm2bin.c,v 1.10 2012/10/01 14:56:50 kalantari Exp $";
 #endif
 
 #include <stdlib.h>

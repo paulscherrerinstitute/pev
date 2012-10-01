@@ -27,8 +27,8 @@
  *  Change History
  *  
  *  $Log: rdwrlib.c,v $
- *  Revision 1.11  2012/09/04 07:34:33  kalantari
- *  added tosca driver 4.18 from ioxos
+ *  Revision 1.12  2012/10/01 14:56:49  kalantari
+ *  added verion 4.20 of tosca-driver from IoxoS
  *
  *  Revision 1.8  2012/03/21 14:42:33  ioxos
  *  correct memory leek in rdwr_rd_blk() [JFG]

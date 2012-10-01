@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.41  2012/09/27 09:54:13  ioxos
+ * define DMA_STATUS_ERR [JFG]
+ *
+ * Revision 1.40  2012/09/04 13:18:59  ioxos
+ * new function to map system memory statically allocated [JFG]
  *
  * Revision 1.39  2012/08/28 13:53:43  ioxos
  * cleanup + update i2c status + reset [JFG]
@@ -387,6 +393,8 @@ struct pev_reg_remap
 #define PEV_IOCTL_BUF             0x00090000
 #define PEV_IOCTL_BUF_ALLOC       0x00090011
 #define PEV_IOCTL_BUF_FREE        0x00090012
+#define PEV_IOCTL_BUF_MAP         0x00090013
+#define PEV_IOCTL_BUF_UNMAP       0x00090014
 
 #define PEV_IOCTL_EEPROM          0x000a0000
 #define PEV_IOCTL_EEPROM_RD       0x000a0100
@@ -715,6 +723,7 @@ struct pev_ioctl_buf
 #define DMA_PCIE_BADDR    0x00
 #define DMA_PCIE_KADDR    0x10
 #define DMA_PCIE_UADDR    0x20
+#define DMA_PCIE_BUF      0x08
 #define DMA_SPACE_VME     0x01
 #define DMA_SPACE_SHM     0x02
 #define DMA_SPACE_SHM1    0x02
@@ -778,9 +787,10 @@ struct pev_ioctl_buf
 #define DMA_STATUS_RUN_WR0             0x04
 #define DMA_STATUS_RUN_WR1             0x08
 #define DMA_STATUS_DONE                0x10
-#define DMA_STATUS_WAITING             0x100
+#define DMA_STATUS_WAITING             0x000
 #define DMA_STATUS_ENDED               0x100
 #define DMA_STATUS_TMO                 0x80
+#define DMA_STATUS_ERR                 0x40
 
 struct pev_ioctl_dma_req
 {

@@ -69,13 +69,14 @@ char *dma_msg[] =
 {
   "data transfer using DMA",
   "dma start <des_start>:<des_space>[.s] <src_start>:<src_space>[.s] <size>",
-  "     where <space> =  0 -> PCIe",
+  "     where <space> =  0 -> PCIe bus address",
   "                      2 -> Shared Memory (on PEV1100, IPV1102, VCC1104, IFC1210)",
   "                      2 -> Shared Memory #1 (on MPC1200)",
   "                      3 -> Shared Memory #2 (on MPC1200)",
   "                      3 -> FPGA user area (on PEV1100, IPV1102, VCC1104)",
   "                      4 -> FPGA user area #1 (on IFC1210, MPC1210)",
   "                      5 -> FPGA user area #2 (on IFC1210, MPC1210)",
+  "                      8 -> test buffer allocated in system memory",
   "                     31 -> VME SLT",
   "                     41 -> VME BLT",
   "                     51 -> VME MBLT",
@@ -142,6 +143,11 @@ char *eeprom_msg[] =
 { 
   "eeprom access ",
   "eeprom dump <offset> <count> ",
+  "       load <offset> <file> ",
+  "       verify <offset> <file> ",
+  "              where <offset> = byte offset in EEPROM",
+  "                    <cnt> = number of bytes to dump",
+  "                    <file> = data file name for load/verify operation",
 0};
 
 char *evt_msg[] = 

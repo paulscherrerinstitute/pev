@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: evtlib.h,v $
- * Revision 1.6  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.7  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
  *
  * Revision 1.2  2012/06/28 12:06:16  ioxos
  * support up to 8 ITC [JFG]

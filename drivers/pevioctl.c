@@ -29,8 +29,11 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.22  2012/09/04 13:21:12  ioxos
+ * new function to map system memory statically allocated [JFG]
  *
  * Revision 1.21  2012/08/28 13:34:14  ioxos
  * update i2c status + reset [JFG]
@@ -183,6 +186,28 @@ pev_ioctl_buf( struct pev_dev *pev,
 
       break;
     }
+    case PEV_IOCTL_BUF_MAP:
+    {
+      struct pev_ioctl_buf buf;
+
+      if( copy_from_user(&buf, (void *)arg, sizeof(buf)))
+      {
+	return( -EFAULT);
+      }
+      order = get_order( buf.size); 
+      buf.k_addr = (void *)ioremap( (ulong)buf.b_addr, buf.size);
+      debugk(( KERN_ALERT "map buffer : %p - %p [%x] %lx\n", buf.k_addr, buf.b_addr, buf.size, virt_to_phys(buf.k_addr)));
+      if( !buf.k_addr)
+      {
+        return( -EFAULT);
+      }
+      if( copy_to_user( (void *)arg, &buf, sizeof( buf)))
+      {
+	return -EFAULT;
+      }
+
+      break;
+    }
     case PEV_IOCTL_BUF_FREE:
     {
       struct pev_ioctl_buf buf;
@@ -195,6 +220,18 @@ pev_ioctl_buf( struct pev_dev *pev,
       dma_unmap_single( &pev->dev->dev, (dma_addr_t)buf.b_addr, buf.size, DMA_BIDIRECTIONAL);
       order = get_order( buf.size); 
       free_pages( (unsigned long)buf.k_addr, order);
+      break;
+    }
+    case PEV_IOCTL_BUF_UNMAP:
+    {
+      struct pev_ioctl_buf buf;
+
+      if( copy_from_user(&buf, (void *)arg, sizeof(buf)))
+      {
+        return( -EFAULT);
+      }
+      debugk(( KERN_ALERT "unmap buffer : %p - %p [%x]\n", buf.k_addr, buf.b_addr, buf.size));
+      iounmap( buf.k_addr);
       break;
     }
     default:

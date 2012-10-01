@@ -43,8 +43,17 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.68  2012/09/27 11:49:18  ioxos
+ * tagging 4.20 [JFG]
+ *
+ * Revision 1.67  2012/09/04 13:33:15  ioxos
+ * release 4.19 [JFG]
+ *
+ * Revision 1.66  2012/09/04 13:22:38  ioxos
+ * cleanup mmap + alloc 1 GB for PCI slave [JFG]
  *
  * Revision 1.65  2012/09/03 13:54:31  ioxos
  * tagging release 4.18 [JFG]
@@ -291,7 +300,7 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.18"
+#define DRIVER_VERSION "4.20"
 char *pev_version=DRIVER_VERSION;
 int pev_local_crate=0;
 
@@ -473,9 +482,8 @@ pev_mmap( struct file *filp,
   size = vma->vm_end - vma->vm_start;
   off = vma->vm_pgoff << PAGE_SHIFT;
 #if defined(PPC) || defined(X86_32)
-  if( off < 0x80000000)
+  if( !(off & 0x80000000))
   {
-    off &= 0xffffffff;
     remap_pfn_range( vma, 
 		     vma->vm_start,
 		     off >> PAGE_SHIFT,
@@ -551,16 +559,19 @@ pev_mmap( struct file *filp,
     }
   }
 #else
-  if( off < (ulong)pev->mem_len)
+  if( off & 0x200000000)
   {
-    remap_pfn_range( vma, 
-		     vma->vm_start,
-		     ((ulong)pev->mem_base >> PAGE_SHIFT) + vma->vm_pgoff,
-		     size,
-		     vma->vm_page_prot); 
-    return( 0);
+    off &= 0xffffffff;
+    if( off < (ulong)pev->mem_len)
+    {
+      remap_pfn_range( vma, 
+		       vma->vm_start,
+		       ((ulong)pev->mem_base >> PAGE_SHIFT) + vma->vm_pgoff,
+		       size,
+		       vma->vm_page_prot); 
+      return( 0);
+    }
   }
-
   if( off & 0x100000000)
   {
     off &= 0xffffffff;
@@ -574,7 +585,7 @@ pev_mmap( struct file *filp,
       return( 0);
     }
   }
-  if( off & 0x200000000)
+  if( !(off & 0x300000000))
   {
     off &= 0xffffffff;
     remap_pfn_range( vma, 
@@ -1224,9 +1235,20 @@ pev_probe( struct pev_dev *pev)
       ( pev->board == PEV_BOARD_IPV1102)    )
   {
     /* interrupt controller registers don't work through CSR space on IPV and PEV !! */
-    printk("workaround for PEV and IPV: map CSR in IO space...");
+    printk("workaround for PEV and IPV: map CSR in IO space...\n");
     pev->csr_remap = 0;
   }
+
+  printk("Adjust PCI slave window size to 1 GBytes...");
+  {
+     char *reg_p;
+     uint val;
+     reg_p = ioremap( 0xffe00000, 0x100000);
+     val = *(uint *)(reg_p + 0xadf0);
+     *(uint *)(reg_p + 0xadf0) = (val & 0xffffff00) | 0x1d;
+     iounmap( reg_p);
+  }
+  printk("done\n");
 
   printk("initialize VME slave...");
   /* initialize VME CSR */

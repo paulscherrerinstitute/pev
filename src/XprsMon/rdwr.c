@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.9  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.10  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.30  2012/09/04 13:17:42  ioxos
+ * allow dma to PCIe bus addresses [JFG]
  *
  * Revision 1.29  2012/09/03 13:19:06  ioxos
  * adapt pec_i2c_xx(), pev_pex_xx() and pev_bmr_xx() to new FPGA and library [JFG]
@@ -121,7 +124,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.9 2012/09/04 07:34:33 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -2396,11 +2399,17 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
 
       if( (dma_req.des_space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
       {
-	dma_req.des_addr += (ulong)dma_buf.b_addr;       /* add buffer base address */
+	if( dma_req.des_space & DMA_PCIE_BUF)
+	{
+	  dma_req.des_addr += (ulong)dma_buf.b_addr;       /* add buffer base address */
+	}
       }
       if( (dma_req.src_space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
       {
-	dma_req.src_addr += (ulong)dma_buf.b_addr;       /* add buffer base address */
+	if( dma_req.src_space & DMA_PCIE_BUF)
+	{
+	  dma_req.src_addr += (ulong)dma_buf.b_addr;       /* add buffer base address */
+	}
       }
       dma_req.start_mode = DMA_MODE_BLOCK;
       if( c->para[0][6] == 'p')

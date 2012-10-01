@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: eeprom.c,v $
- * Revision 1.8  2012/09/26 07:38:37  kalt_r
- * received XprsMon IDT EEPROM write update with verify
+ * Revision 1.9  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.5  2012/09/27 09:58:49  ioxos
+ * cosmetics [JFG]
  *
  * Revision 1.4  2012/09/25 09:10:42  ioxos
  * add verify in load command + verify command [JFG]
@@ -45,7 +48,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: eeprom.c,v 1.8 2012/09/26 07:38:37 kalt_r Exp $";
+static char *rcsid = "$Id: eeprom.c,v 1.9 2012/10/01 14:56:49 kalantari Exp $";
 #endif
 
 #include <sys/types.h>
@@ -155,7 +158,7 @@ xprs_eeprom( struct cli_cmd_para *c)
     {
       if( buf[i] != cmp[i])
       {
-	printf(" -> compare error at offset %d [%02x != %02x]\n", i, buf[i], cmp[i]);
+	printf(" -> compare error at offset %d [%02x != %02x]\n", offset + i, buf[i], cmp[i]);
 	err = 1;
 	break;
       }

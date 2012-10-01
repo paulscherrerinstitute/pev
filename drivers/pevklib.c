@@ -38,11 +38,11 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.16  2012/09/06 14:13:49  kalantari
- * reversed back to 4.18 version
+ * Revision 1.17  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
  *
- * Revision 1.14  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.52  2012/09/27 09:50:57  ioxos
+ * i2c active timeout + DMA interrupt on error [JFG]
  *
  * Revision 1.51  2012/08/28 13:36:49  ioxos
  * update i2c status + rest + workaround for elb vme csr access in short IO [JFG]
@@ -1160,7 +1160,6 @@ pev_map_clear(struct pev_dev *pev,
 
 
 
-
 static ulong
 pev_i2c_set_reg( struct pev_dev *pev,
 		 int elbc)
@@ -1197,13 +1196,17 @@ pev_i2c_dev_cmd(struct pev_dev *pev,
 {
   ulong reg_p;
   int elbc;
+  uint sts;
+  uint tmo;
 
   elbc = i2c_para_p->device & 0x80;
   i2c_para_p->device &= ~0x80;
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_cmd(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  i2c_para_p->status = i2c_wait( reg_p, 100000);
+  sts = i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
+  tmo = 100000;
+  if( i2c_para_p->device & 0x8000) tmo |= 0x80000000;
+  i2c_para_p->status = i2c_wait( reg_p, tmo);
   //printk("i2c cmd sts = %08x\n", sts);
   return;
 }
@@ -1215,16 +1218,20 @@ pev_i2c_dev_read(struct pev_dev *pev,
   ulong reg_p;
   int elbc;
   uint sts;
+  uint tmo;
 
   elbc = i2c_para_p->device & 0x80;
   i2c_para_p->device &= ~0x80;
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_read(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
+
   i2c_cmd( reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  sts = i2c_wait( reg_p, 100000);
+  tmo = 100000;
+  if( i2c_para_p->device & 0x8000) tmo |= 0x80000000;
+  sts = i2c_wait( reg_p, tmo);
   //printk("i2c cmd sts = %08x\n", sts);
   i2c_para_p->device &= ~0x8000;
-  i2c_para_p->data = i2c_read( reg_p,  i2c_para_p->device, &sts);
+  i2c_para_p->data = i2c_read( reg_p,  i2c_para_p->device, &sts, tmo);
   i2c_para_p->status = sts;
   //sts = i2c_wait( reg_p, 100000);
   //printk("i2c read sts = %08x\n", sts);
@@ -1237,13 +1244,17 @@ pev_i2c_dev_write(struct pev_dev *pev,
 {
   ulong reg_p;
   int elbc;
+  uint sts;
+  uint tmo;
 
   elbc = i2c_para_p->device & 0x80;
   i2c_para_p->device &= ~0x80;
   reg_p = pev_i2c_set_reg( pev, elbc);
   //printk("pev_i2c_dev_write(): %08lx - %08x -%08x\n", reg_p, i2c_para_p->device, i2c_para_p->cmd);
-  i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
-  i2c_para_p->status = i2c_wait( reg_p, 100000);
+  sts = i2c_write( reg_p,  i2c_para_p->device, i2c_para_p->cmd, i2c_para_p->data);
+  tmo = 100000;
+  if( i2c_para_p->device & 0x8000) tmo |= 0x80000000;
+  i2c_para_p->status = i2c_wait( reg_p, tmo);
 
   return;
 }
@@ -1272,7 +1283,7 @@ pev_i2c_pex_read(struct pev_dev *pev,
 
   i2c_cmd( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, i2c_para_p->cmd);
   i2c_wait( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 100000);
-  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, &sts);
+  i2c_para_p->data = i2c_read( pev->io_base + pev->io_remap[pev->csr_remap].iloc_i2c, 0x010f0069, &sts, 100000);
   i2c_para_p->status = sts;
 
   return;
@@ -2290,6 +2301,7 @@ pev_dma_irq( struct pev_dev *pev,
 	     void *arg)
 {
   pev->dma_status |= DMA_STATUS_DONE | (src << 16);
+  if( (src == 0x2500) || (src == 0x2100)) pev->dma_status |= DMA_STATUS_ERR;
 #ifdef XENOMAI
   rtdm_sem_up( &pev->dma_done);
 #else
@@ -2461,13 +2473,13 @@ pev_dma_move_blk( struct pev_dev *pev,
         if( pev->io_remap[pev->csr_remap].short_io)
         {
           pev_outl( pev, PEV_SCSR_SEL_DMA, 0);
-	  pev_outl( pev, 0x8200, pev->io_base + 0xc8);      /* enable read pipe                                 */
-	  pev_outl( pev, 0x80c0, pev->io_base + 0xcc);      /* enable write pipe                                */
+	  pev_outl( pev, 0x8200, 0xc8);      /* enable read pipe                                 */
+	  pev_outl( pev, 0x80c0, 0xcc);      /* enable write pipe                                */
         }
 	else
 	{
-	  pev_outl( pev, 0x8200, pev->io_base + 0x850);      /* enable read pipe                                 */
-	  pev_outl( pev, 0x80c0, pev->io_base + 0x858);      /* enable write pipe                                */
+	  pev_outl( pev, 0x8200, 0x850);      /* enable read pipe                                 */
+	  pev_outl( pev, 0x80c0, 0x858);      /* enable write pipe                                */
 	}
         dma_set_pipe_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->des_space, dma->src_space, mode);
       }
@@ -2479,7 +2491,7 @@ pev_dma_move_blk( struct pev_dev *pev,
         pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
       }
       pev->dma_status = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
-      *irq_p = 0x33;
+      *irq_p = 0x23; /* mask dma OK of write engine */
     }
   }
   return( retval);

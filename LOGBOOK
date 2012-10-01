@@ -362,6 +362,21 @@ September 2, 2012: JFG
    -> tagging release 4.18
       update of I2C and BMR read/write functions to return I2c transaction status 
 
+September 4, 2012: JFG
+   -> tagging release 4.19
+      cleanup mmap
+      allow to allocate system memory statically at boot time
+
+September 27, 2012: JFG
+   -> new functionnalities in XprsMon
+      XprsMon/eeprom.c -> add load verification
+      drivers/i2clib.c -> support for active timeout
+      drivers/dmalib.c -> enable interrupt on error
+      drivers/evtlib.c -> correct locking problem
+      drivers/pevklib.c -> i2c active timeout for BMR access
+                        -> DMA error status
+   -> Tagging 4.2
+
 ===============================< end of file >================================
 
 

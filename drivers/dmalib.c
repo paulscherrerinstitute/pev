@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.25  2012/09/27 09:47:18  ioxos
+ * generate interrupt in case of error when DMA are linked [JFG]
+ *
+ * Revision 1.24  2012/09/05 12:31:54  ioxos
+ * support for transfer to/from FPGA user space [JFG]
  *
  * Revision 1.23  2012/08/13 08:51:19  ioxos
  * correct bug in setting block boundary for VME [JFG]
@@ -275,9 +281,12 @@ dma_set_ctl( uint space,
   ctl |= (mode&0x3ff) << 20;
   if( (space & DMA_SPACE_MASK) == DMA_SPACE_PCIE)
   { 
-
-
     ctl |= 0x80000;
+  }
+  if( ( (space & DMA_SPACE_MASK) == DMA_SPACE_USR1) ||
+      ( (space & DMA_SPACE_MASK) == DMA_SPACE_USR2)     )
+  {
+    ctl |= (mode & 0xc000) << 4;
   }
   if( (space & DMA_SPACE_MASK) == DMA_SPACE_VME)
   { 
@@ -368,17 +377,20 @@ dma_set_wr_desc( int crate,
   dd++;
   dc->wr_chain_cnt = 2;
 
-  trig = 0;
-  intr = 0;
-  if( shm_addr == -1)
+  if( shm_addr == -1) /* rd engine waits for wr engine */
   {
     /* allocate temporary buffer */
     shm_addr = dc->buf_offset;
     /* generate trig out at end of transfer */
     trig = 3;
+    /* generate interrupt in case of error */
+    intr = 3;
+    //intr = 0;
   }
   else
   {
+    /* don't generate trig out at end of transfer */
+    trig = 0;
     /* generate interrupt at end of transfer */
     intr = 2;
   }

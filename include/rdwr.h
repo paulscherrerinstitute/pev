@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: rdwr.h,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
  *
  * Revision 1.3  2012/01/27 13:16:06  ioxos
  * prepare release 4.01 supporting x86 & ppc [JFG]

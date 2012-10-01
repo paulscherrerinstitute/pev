@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: pevrtlib.h,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
  *
  * Revision 1.3  2010/01/13 16:50:55  ioxos
  * add real time support for DMA list [JFG]

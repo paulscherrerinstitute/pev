@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fifolib.h,v $
- * Revision 1.7  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.8  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
  *
  * Revision 1.1  2012/03/27 09:17:39  ioxos
  * add support for FIFOs [JFG]

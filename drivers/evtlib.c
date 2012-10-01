@@ -189,7 +189,6 @@ evt_read( struct evt_queue *q,
   {
     if( &evt_queue[i] == q)
     {
-      retval = down_interruptible( &q->lock);
       if( wait)
       {
 	if( wait == -1)
@@ -205,16 +204,16 @@ evt_read( struct evt_queue *q,
         if( retval)
         {
 	  *evt_id = 0;
-	  up( &q->lock);
 	  return(0);
         }
       }
+      retval = down_interruptible( &q->lock);
       cnt = q->cnt;
       if( cnt)
       {
 	if( !wait)
 	{
-	  /* if cnt != 0 -> q->sem should hve been set by evt_irq()be set -> decrement it*/
+	  /* if cnt != 0 -> q->sem should have been set by evt_irq() -> decrement it*/
 	  retval = down_interruptible( &q->sem);
 	}
 	p = q->queue_ptr;
@@ -279,8 +278,8 @@ evt_irq( int src,
 	send_sig( q->signal, q->task_p, 0);
       }
     }
-    up( &q->sem);
     up( &q->lock);
+    up( &q->sem);
   }
   return;
 }

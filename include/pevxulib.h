@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevxulib.h,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.20  2012/09/04 13:19:49  ioxos
+ * new function to map system memory statically allocated [JFG]
  *
  * Revision 1.19  2012/09/03 13:10:34  ioxos
  * pointer to data as arg of read function and return i2c cycle status [JFG]
@@ -156,6 +159,8 @@ int pevx_timer_stop( uint);
 uint pevx_timer_read( uint, struct pevx_time *);
 void *pevx_buf_alloc( uint, struct pev_ioctl_buf *);
 int pevx_buf_free( uint, struct pev_ioctl_buf *);
+void *pevx_buf_map( uint, struct pev_ioctl_buf *);
+int pevx_buf_unmap( uint, struct pev_ioctl_buf *);
 int pevx_dma_move( uint, struct pev_ioctl_dma_req *);
 int pevx_dma_vme_list_rd( uint, void *, struct pev_ioctl_dma_list *, int);
 int pevx_dma_status( uint, struct pev_ioctl_dma_sts *);

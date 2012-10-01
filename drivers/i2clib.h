@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: i2clib.h,v $
- * Revision 1.11  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.12  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.5  2012/09/27 09:49:24  ioxos
+ * release CPU for 1 tick in wait function [JFG]
  *
  * Revision 1.4  2012/08/28 13:37:46  ioxos
  * cleanup + i2c reset [JFG]
@@ -50,7 +53,7 @@
 
 void i2c_set_elb( uint);
 uint i2c_cmd( uint, uint, uint);
-uint i2c_read( uint, uint, uint *);
+uint i2c_read( uint, uint, uint *, uint);
 uint i2c_write( uint, uint, uint, uint);
 uint i2c_reset( uint, uint);
 uint i2c_wait( uint, uint);

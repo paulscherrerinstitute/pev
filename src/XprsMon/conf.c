@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.9  2012/09/04 07:34:33  kalantari
- * added tosca driver 4.18 from ioxos
+ * Revision 1.10  2012/10/01 14:56:49  kalantari
+ * added verion 4.20 of tosca-driver from IoxoS
+ *
+ * Revision 1.19  2012/09/25 09:13:27  ioxos
+ * cosmetics [JFG]
  *
  * Revision 1.18  2012/09/03 13:19:05  ioxos
  * adapt pec_i2c_xx(), pev_pex_xx() and pev_bmr_xx() to new FPGA and library [JFG]
@@ -88,7 +91,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.9 2012/09/04 07:34:33 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -629,7 +632,7 @@ conf_show_bmr( void)
   printf("   DC-DC Voltage Regulators\n");
   for( i = 0; i < 3; i++)
   {
-    sts = (unsigned short)pev_bmr_read( i, 0x88, &data, 2);/*0x88*/
+    sts = pev_bmr_read( i, 0x88, &data, 2);/*0x88*/
     if( sts & I2C_CTL_ERR)
     {
       printf("      BMR#%d -> readout error [%08x]\n", i,sts);
@@ -646,12 +649,12 @@ conf_show_bmr( void)
       f0 = ((float)l/div);
       f0 = pev_bmr_conv_11bit_u( d0);
       usleep( 10000);
-      sts = (unsigned short)pev_bmr_read( i, 0x8b, &data, 2);
+      sts = pev_bmr_read( i, 0x8b, &data, 2);
       d1 = (unsigned short)data;
       f1 = ((float)d1*0.00012207);
       f1 = pev_bmr_conv_16bit_u( d1);
       usleep( 10000);
-      sts = (unsigned short)pev_bmr_read( i, 0x8c, &data, 2);
+      sts = pev_bmr_read( i, 0x8c, &data, 2);
       d2 = (unsigned short)data;
       l = d2&0x7ff;
       h = d2 >> 11;
@@ -661,7 +664,7 @@ conf_show_bmr( void)
       f2 = ((float)l/div);
       f2 = pev_bmr_conv_11bit_u( d2);
       usleep( 10000);
-      sts = (unsigned short)pev_bmr_read( i, 0x8d, &data, 2);/*0x8d*/
+      sts = pev_bmr_read( i, 0x8d, &data, 2);/*0x8d*/
       d3 = (unsigned short)data;
       f3 = ((float)((short)((d3&0x7ff)<<5))/512);
       f3 = pev_bmr_conv_11bit_s( d3);

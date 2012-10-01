@@ -27,8 +27,17 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.11  2012/09/04 07:34:33  kalantari
- *  added tosca driver 4.18 from ioxos
+ *  Revision 1.12  2012/10/01 14:56:49  kalantari
+ *  added verion 4.20 of tosca-driver from IoxoS
+ *
+ *  Revision 1.65  2012/09/27 11:49:36  ioxos
+ *  tagging 4.20 [JFG]
+ *
+ *  Revision 1.64  2012/09/04 13:33:15  ioxos
+ *  release 4.19 [JFG]
+ *
+ *  Revision 1.63  2012/09/04 13:18:45  ioxos
+ *  new function to map system memory statically allocated [JFG]
  *
  *  Revision 1.62  2012/09/03 13:54:32  ioxos
  *  tagging release 4.18 [JFG]
@@ -220,7 +229,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.11 2012/09/04 07:34:33 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.12 2012/10/01 14:56:49 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -242,7 +251,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.18";
+char pev_lib_version[] = "4.20";
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -605,7 +614,7 @@ pev_mmap( struct pev_ioctl_map_pg *map)
 #if defined(PPC) || defined(X86_32)
     map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0x80000000);
 #else
-    map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr);
+    map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0x200000000);
 #endif
   }
   if( map->sg_id == MAP_PCIE_PMEM)
@@ -613,7 +622,7 @@ pev_mmap( struct pev_ioctl_map_pg *map)
 #if defined(PPC) || defined(X86_32)
     map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0xc0000000);
 #else
-    map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, 0x100000000 | map->loc_addr);
+    map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0x100000000);
 #endif
   }
   if( map->sg_id == MAP_VME_ELB)
@@ -689,11 +698,7 @@ pev_buf_alloc( struct pev_ioctl_buf *db_p)
   if( db_p->k_addr)
   {
     db_p->kmem_fd = pev->fd;
-#if defined(PPC) || defined(X86_32)
     db_p->u_addr = mmap( NULL, db_p->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, (off_t)db_p->b_addr);
-#else
-    db_p->u_addr = mmap( NULL, db_p->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, (off_t)(0x200000000 | (long)db_p->b_addr));
-#endif
   }
   return( db_p->u_addr);
 }
@@ -708,6 +713,32 @@ pev_buf_free( struct pev_ioctl_buf *db_p)
   }
   db_p->kmem_fd = -1;
   return( ioctl( pev->fd, PEV_IOCTL_BUF_FREE, db_p));
+}
+
+void *
+pev_buf_map( struct pev_ioctl_buf *db_p)
+{
+  db_p->kmem_fd = -1;
+  ioctl( pev->fd, PEV_IOCTL_BUF_MAP, db_p);
+  db_p->u_addr = NULL;
+  if( db_p->k_addr)
+  {
+    db_p->kmem_fd = pev->fd;
+    db_p->u_addr = mmap( NULL, db_p->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, (off_t)db_p->b_addr);
+  }
+  return( db_p->u_addr);
+}
+ 
+int
+pev_buf_unmap( struct pev_ioctl_buf *db_p)
+{
+  if( db_p->u_addr)
+  {
+    munmap( db_p->u_addr, db_p->size);
+    db_p->u_addr = NULL;
+  }
+  db_p->kmem_fd = -1;
+  return( ioctl( pev->fd, PEV_IOCTL_BUF_UNMAP, db_p));
 }
 
 int
