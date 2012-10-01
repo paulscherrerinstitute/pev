@@ -9,9 +9,7 @@ extern devLibVirtualOS pevVirtualOS;
 
 int pevDevLibVMEInit ()
 {
-	printf(">>>>>>>>>>>>>>>>> in pevDevLibVMEInit()\n");
-
-	devLibVirtualOS *pdevLibVirtualOSpdevLibVME = &pevVirtualOS;
+	pdevLibVirtualOS = &pevVirtualOS;
 	return 0;
 }
 

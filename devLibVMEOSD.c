@@ -25,6 +25,7 @@
 #include <devLib.h>
 #include <errlog.h>
 #include <epicsInterrupt.h>
+#include <epicsExit.h>
 #include <vmedefs.h>
 #include <drvSup.h>            
 #include <epicsExport.h>
@@ -45,10 +46,12 @@ static struct pev_ioctl_vme_conf vme_conf;
 static struct pev_ioctl_map_pg vme_mas_map_a32;
 static struct pev_ioctl_map_pg vme_mas_map_a24;
 static struct pev_ioctl_map_pg vme_mas_map_a16;
+static struct pev_ioctl_map_pg vme_mas_map_csr;
 
 static void * map_a16_base;
 static void * map_a24_base;
 static void * map_a32_base;
+static void * map_csr_base;
 
 LOCAL myISR *isrFetch(unsigned vectorNumber, void **parg);
 int pevDevLibVMEInit();
@@ -118,12 +121,39 @@ LOCAL long pevDevInit(void);
 /*
  * used by bind in devLib.c
  */
-static devLibVirtualOS pevVirtualOS = {
+devLibVirtualOS pevVirtualOS = {
     pevDevMapAddr, pevDevReadProbe, pevDevWriteProbe, 
     devConnectInterruptVME, devDisconnectInterruptVME,
     devEnableInterruptLevelVME, devDisableInterruptLevelVME,
     devA24Malloc,devA24Free,pevDevInit
 };
+
+
+/* 
+*  clean-up  at epics exit
+ */
+static void pevDevLibAtexit(void)
+{
+  printf(">>>> pevDevLibAtexit exiting....\n");
+  if( vme_mas_map_a32.win_size != 0 )
+    pev_map_free(&vme_mas_map_a32);
+  if( vme_mas_map_a16.win_size != 0 )
+    pev_map_free(&vme_mas_map_a16);
+  if( vme_mas_map_a24.win_size != 0 )
+    pev_map_free(&vme_mas_map_a24);
+  if( vme_mas_map_csr.win_size != 0 )
+    pev_map_free(&vme_mas_map_csr);
+  
+/*
+  if( map_a32_base )
+    pev_map_clear(map_a32_base);
+  if( map_a24_base )
+    pev_map_clear(map_a24_base);
+  if( map_a16_base )
+    pev_map_clear(map_a16_base);
+*/
+  exit(0);
+}
 
 /* PEV1100 specific initialization */
 LOCAL long
@@ -147,48 +177,52 @@ pevDevInit(void)
 
   /* ---> Enter your code here... */
   pev_vme_conf_read( &vme_conf);
-  printf("VME A32 base address = 0x%08x [0x%x]\n", vme_conf.a32_base, vme_conf.a32_size);
-  if( vme_conf.mas_ena)
+  if( vme_conf.mas_ena == 0 )
   {
-    printf(" -> enabled\n");
-  }
-  else
-  {
-    printf(" -> disabled\n");
+    printf("VME master -> disabled\n");
+    return( -1);
   }
 
 
   vme_mas_map_a16.rem_addr = 0x0;
-  vme_mas_map_a16.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_SWAP_AUTO|MAP_VME_A16;
+  vme_mas_map_a16.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A16;
   vme_mas_map_a16.flag = 0x0;
   vme_mas_map_a16.sg_id = MAP_MASTER_32;
   vme_mas_map_a16.size = VME16_MAP_SIZE;
   pev_map_alloc( &vme_mas_map_a16);
 
   vme_mas_map_a32.rem_addr = 0x0;
-  vme_mas_map_a32.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_SWAP_AUTO|MAP_VME_A32;
+  vme_mas_map_a32.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A32;
   vme_mas_map_a32.flag = 0x0;
   vme_mas_map_a32.sg_id = MAP_MASTER_64;
   vme_mas_map_a32.size = VME32_MAP_SIZE;
   pev_map_alloc( &vme_mas_map_a32);
   
   vme_mas_map_a24.rem_addr = 0x0;		
-  vme_mas_map_a24.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_SWAP_AUTO|MAP_VME_A24;
+  vme_mas_map_a24.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A24;
   vme_mas_map_a24.sg_id = MAP_MASTER_32;
   vme_mas_map_a24.size = VME24_MAP_SIZE;
+  pev_map_alloc( &vme_mas_map_a24);
   
-  printf("VME A16 base address = 0x%08lx [0x%x]\n", vme_mas_map_a16.rem_base, vme_mas_map_a16.win_size);
-  printf("VME A24 base address = 0x%08lx [0x%x]\n", vme_mas_map_a24.rem_base, vme_mas_map_a24.win_size);
-  printf("VME A32 base address = 0x%08lx [0x%x]\n", vme_mas_map_a32.rem_base, vme_mas_map_a32.win_size);
+  vme_mas_map_csr.rem_addr = 0x0;		
+  vme_mas_map_csr.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_CR;
+  vme_mas_map_csr.sg_id = MAP_MASTER_32;
+  vme_mas_map_csr.size = VMECR_MAP_SIZE;
+  pev_map_alloc( &vme_mas_map_csr);
+  
+  if( !vme_mas_map_a16.win_size || !vme_mas_map_a24.win_size 
+      || !vme_mas_map_a32.win_size || !vme_mas_map_csr.win_size )
+  {
+    pevDevLibAtexit();
+    return S_dev_addrMapFail;
+  }
   
   map_a16_base = pev_mmap(&vme_mas_map_a16);
   map_a24_base = pev_mmap(&vme_mas_map_a24);
   map_a32_base = pev_mmap(&vme_mas_map_a32);
-  
-  printf("VME A16 mapped at %p\n", map_a16_base);
-  printf("VME A24 mapped at %p\n", map_a24_base);
-  printf("VME A32 mapped at %p\n", map_a32_base);
-  
+  map_csr_base = pev_mmap(&vme_mas_map_csr);
+
+  epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  
   return 0; /*bspExtInit();*/
 }
 
@@ -315,6 +349,12 @@ LOCAL long pevDevMapAddr (epicsAddressType addrType, unsigned options,
             printf("registering: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_a32.win_size, vme_mas_map_a32.rem_base);
 	    if((logicalAddress + size)<=(vme_mas_map_a32.rem_base+vme_mas_map_a32.win_size)) {
               *ppPhysicalAddress = map_a32_base + logicalAddress;
+              break;
+            } else return S_dev_addrMapFail;
+          case atVMECSR:
+            printf("registering: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_csr.win_size, vme_mas_map_csr.rem_base);
+	    if((logicalAddress + size)<=(vme_mas_map_csr.rem_base+vme_mas_map_csr.win_size)) {
+              *ppPhysicalAddress = map_csr_base + logicalAddress;
               break;
             } else return S_dev_addrMapFail;
           default:
@@ -465,3 +505,36 @@ int pevDevLibVMEInit ()
 
 static int pevDevLibVMEInitLocal = pevDevLibVMEInit();
  */
+int vmeMapShow(){
+  printf("VME master windows:\n");
+  printf("\tVME A16 base address = 0x%08lx [size 0x%x]\n", vme_mas_map_a16.rem_base, vme_mas_map_a16.win_size);
+  printf("\tVME A24 base address = 0x%08lx [size 0x%x]\n", vme_mas_map_a24.rem_base, vme_mas_map_a24.win_size);
+  printf("\tVME A32 base address = 0x%08lx [size 0x%x]\n", vme_mas_map_a32.rem_base, vme_mas_map_a32.win_size);
+  printf("\tVME CSR base address = 0x%08lx [size 0x%x]\n", vme_mas_map_csr.rem_base, vme_mas_map_csr.win_size);
+    
+  printf("\tVME A16 mapped at user %p\n", map_a16_base);
+  printf("\tVME A24 mapped at user %p\n", map_a24_base);
+  printf("\tVME A32 mapped at user %p\n", map_a32_base);
+  printf("\tVME CSR mapped at user %p\n", map_csr_base);
+  return 0;
+}
+#include <iocsh.h>
+#include <epicsExit.h>
+
+static const iocshArg * const vmeMapShowArgs[] = {};
+
+static const iocshFuncDef vmeMapShowDef =
+    { "vmeMapShow", 0, vmeMapShowArgs };
+
+static void vmeMapShowFunc (const iocshArgBuf *args)
+{
+    int status = vmeMapShow();
+    if (status != 0) epicsExit(1);
+}
+
+static void vmeMapShowRegistrar ()
+{
+    iocshRegister(&vmeMapShowDef, vmeMapShowFunc);
+}
+
+epicsExportRegistrar(vmeMapShowRegistrar);

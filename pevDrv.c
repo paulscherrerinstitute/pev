@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.24 2012/09/13 14:03:45 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.25 2012/10/01 14:45:15 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -536,7 +536,7 @@ int pevAsynWrite(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (1<<4);
       
       pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
       pevDmaRequest.pCallBack = cbStruct;
@@ -1330,6 +1330,9 @@ SKIP_PEV_RESMAP:
   {
     device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
   }
+  
+  if( strcmp(resource, "USR1")==0 )
+   device->dmaSpace = DMA_SPACE_USR1;
   
 TESTJUMP: 
   if( strcmp(resource, "USR1")==0 || strcmp(resource, "SH_MEM")==0 )
