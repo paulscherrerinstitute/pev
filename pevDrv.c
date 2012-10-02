@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.26 2012/10/02 07:31:13 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.27 2012/10/02 14:19:39 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -845,11 +845,17 @@ int pevConfigure(
       device->dmaAllocFailed = epicsFalse;
    }
   
-  if( mapExists && strcmp(resource, "SH_MEM"))
+  if( mapExists )
     {
       device->pev_rmArea_map = pev_rmArea_map;
       device->uPtrMapRes = usrMappedResource;
       printf ("pevConfigure: skip mapping...\n");
+  
+      if( strcmp(resource, "USR1")==0 )
+       device->dmaSpace = DMA_SPACE_USR1;
+      else
+      if( strcmp(resource, "SH_MEM")==0 )
+       device->dmaSpace = DMA_SPACE_SHM;
       goto SKIP_PEV_RESMAP;
     }
       
@@ -1009,11 +1015,6 @@ TESTJUMP:
       device->dmaSpace |= DMA_SPACE_DS;
     if( strcmp(vmeProtocol, "QS")==0 )
       device->dmaSpace |= DMA_SPACE_QS;
-  
-    if( strcmp(resource, "USR1")==0 )
-     device->dmaSpace |= DMA_SPACE_USR1;
-    if( strcmp(resource, "SH_MEM")==0 )
-     device->dmaSpace |= DMA_SPACE_SHM;
   }
 
   device->baseOffset = offset;
@@ -1176,6 +1177,12 @@ int pevAsynConfigure(
       device->pev_rmArea_map = pev_rmArea_map;
       device->uPtrMapRes = usrMappedResource;
       printf ("pevAsynConfigure: skip mapping...\n");
+  
+      if( strcmp(resource, "USR1")==0 )
+        device->dmaSpace = DMA_SPACE_USR1;
+      else
+      if( strcmp(resource, "SH_MEM")==0 )
+        device->dmaSpace = DMA_SPACE_SHM;
       goto SKIP_PEV_RESMAP;
     }
      
@@ -1238,7 +1245,7 @@ int pevAsynConfigure(
   	device->pev_rmArea_map.size = USR2_MAP_SIZE;
 	if( offset > VME16_MAP_SIZE) 
 	  {
-	    printf("pevConfigure: ERROR, too big offset\n");
+	    printf("pevAsynConfigure: ERROR, too big offset\n");
 	    exit(0);
 	  }/**/
 	device->dmaSpace = DMA_SPACE_USR2;
@@ -1345,11 +1352,6 @@ TESTJUMP:
       device->dmaSpace |= DMA_SPACE_DS;
     if( strcmp(vmeProtocol, "QS")==0 )
       device->dmaSpace |= DMA_SPACE_QS;
-  
-    if( strcmp(resource, "USR1")==0 )
-     device->dmaSpace |= DMA_SPACE_USR1;
-    if( strcmp(resource, "SH_MEM")==0 )
-     device->dmaSpace |= DMA_SPACE_SHM;
   }
 
   device->baseOffset = offset;
@@ -1366,7 +1368,7 @@ TESTJUMP:
          ((device->pev_rmArea_map.mode & MAP_SPACE_SHM) && (intrVec>1))  || 
 	 ((device->pev_rmArea_map.mode & MAP_SPACE_PCIE) && (intrVec>1)) )
     {
-      printf("pevConfigure: ERROR, intrVec out of range (1<=VME<=255, 1<=USR1<=16, SH_MEM=1, PCIE=1)\n");
+      printf("pevAsynConfigure: ERROR, intrVec out of range (1<=VME<=255, 1<=USR1<=16, SH_MEM=1, PCIE=1)\n");
       return errno;
     }	
     if( !pevIntrHandlerInitialized ) 
