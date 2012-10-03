@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.9 2012/09/12 11:26:58 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.10 2012/10/03 09:03:32 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -318,8 +318,8 @@ void *pev_i2cRequetServer(int *crate)
        i2cCtrl = (msgptr.i2cDevice&0xFFF3FFFF) | ((msgptr.i2cDatSiz-1) << 18);
        msgptr.i2cDevice = i2cCtrl;
      }
-   
 
+     *(int*)msgptr.opStat = 0; 
      if(msgptr.readOperation)
      {
        switch(msgptr.i2cDatSiz)
@@ -328,6 +328,11 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++) 
 	     {
      	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii, &readVal);
+       	       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+	       {
+	         *(int*)msgptr.opStat = -1;
+		 readVal = 0;
+	       }
 	       ((epicsUInt8*)msgptr.pi2cData)[ii] = (epicsUInt8)readVal;
 	     }
      	   break;
@@ -336,6 +341,11 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++)
 	     {
      	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2, &readVal);
+       	       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+	       {
+	         *(int*)msgptr.opStat = -1;
+		 readVal = 0;
+	       }
 	       ((epicsUInt16*)msgptr.pi2cData)[ii] = (epicsUInt16)readVal;
 	     }
      	   break;
@@ -344,14 +354,15 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++)
 	     {
      	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4, &readVal);
+       	       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+	       {
+	         *(int*)msgptr.opStat = -1;
+		 readVal = 0;
+	       }
 	       ((epicsUInt32*)msgptr.pi2cData)[ii] = (epicsUInt32)readVal;
 	     }
      	   break;
        }       
-       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
-	 *(int*)msgptr.opStat = -1;
-       else 
-         *(int*)msgptr.opStat = 0; 
      }
      else
      {
