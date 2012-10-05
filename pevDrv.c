@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.27 2012/10/02 14:19:39 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.28 2012/10/05 10:54:07 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -224,7 +224,7 @@ int pevRead(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
       if( pev_dma_move(&device->pev_dmaReq) )
         {
 	  printf("pevRead(): DMA transfer failed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
@@ -329,7 +329,7 @@ int pevWrite(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR;
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
       if( pev_dma_move(&device->pev_dmaReq) )
         {
 	  printf("pevWrite(): DMA transfer failed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
@@ -423,15 +423,15 @@ int pevAsynRead(
       epicsMutexLock(pevDmaReqLock);       
       device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
       device->pev_dmaReq.des_addr = (ulong)pdata;       			 /*  des bus address */
-      device->pev_dmaReq.size = nelem*dlen | DMA_SIZE_PKT_1K;              				
+      device->pev_dmaReq.size = nelem*dlen;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
       device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
-      device->pev_dmaReq.src_mode = srcMode | DMA_PCIE_RR2;
-      device->pev_dmaReq.des_mode = DMA_PCIE_RR2;
+      device->pev_dmaReq.src_mode = srcMode;
+      device->pev_dmaReq.des_mode = 0;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (1<<4);
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
       
       pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
       pevDmaRequest.pCallBack = cbStruct;
@@ -531,12 +531,12 @@ int pevAsynWrite(
       device->pev_dmaReq.size = nelem*dlen;                  
       device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
       device->pev_dmaReq.des_space = device->dmaSpace;
-      device->pev_dmaReq.src_mode = 0;
-      device->pev_dmaReq.des_mode = destMode;
+      device->pev_dmaReq.src_mode = 0 | DMA_PCIE_RR2;
+      device->pev_dmaReq.des_mode = destMode | DMA_PCIE_RR2;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (1<<4);
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
       
       pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
       pevDmaRequest.pCallBack = cbStruct;
@@ -1457,7 +1457,7 @@ void *pev_dmaRequetServer(int *crate)
 	 continue;
        }
      dmaServerDebug = 1;
-     usleep(1); 
+     /* usleep(1); */
      if( (*(msgptr.reqStatus) = pev_dma_move(&msgptr.pev_dmaReq)) )
        {
      	 printf("pev_dmaRequetServer(): DMA failure or Timeout! dma status = 0x%x\n",

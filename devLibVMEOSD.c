@@ -56,6 +56,8 @@ static void * map_csr_base;
 LOCAL myISR *isrFetch(unsigned vectorNumber, void **parg);
 int pevDevLibVMEInit();
 
+LOCAL int pevDevLibDebug = 0;
+
 /*
  * this routine needs to be in the symbol table
  * for this code to work correctly
@@ -335,24 +337,29 @@ LOCAL long pevDevMapAddr (epicsAddressType addrType, unsigned options,
 	switch (addrType)
         {
           case atVMEA16:
+            if( pevDevLibDebug )
+	      printf("registering atVMEA16: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_a16.win_size, vme_mas_map_a16.rem_base);
 	    if((logicalAddress + size)<=(vme_mas_map_a16.rem_base+vme_mas_map_a16.win_size)) {
               *ppPhysicalAddress = map_a16_base + logicalAddress;
               break;
             } else return S_dev_addrMapFail;
           case atVMEA24:
-            printf("registering: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_a24.win_size, vme_mas_map_a24.rem_base);
+            if( pevDevLibDebug )
+	      printf("registering atVMEA24: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_a24.win_size, vme_mas_map_a24.rem_base);
 	    if((logicalAddress + size)<=(vme_mas_map_a24.rem_base+vme_mas_map_a24.win_size)) {
               *ppPhysicalAddress = map_a24_base + logicalAddress;
               break;
             } else return S_dev_addrMapFail;
           case atVMEA32:
-            printf("registering: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_a32.win_size, vme_mas_map_a32.rem_base);
+            if( pevDevLibDebug )
+	      printf("registering atVMEA32: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_a32.win_size, vme_mas_map_a32.rem_base);
 	    if((logicalAddress + size)<=(vme_mas_map_a32.rem_base+vme_mas_map_a32.win_size)) {
               *ppPhysicalAddress = map_a32_base + logicalAddress;
               break;
             } else return S_dev_addrMapFail;
           case atVMECSR:
-            printf("registering: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_csr.win_size, vme_mas_map_csr.rem_base);
+            if( pevDevLibDebug )
+	      printf("registering atVMECSR: size = %x at address %x, (available window %x at %lx)\n",size, logicalAddress,vme_mas_map_csr.win_size, vme_mas_map_csr.rem_base);
 	    if((logicalAddress + size)<=(vme_mas_map_csr.rem_base+vme_mas_map_csr.win_size)) {
               *ppPhysicalAddress = map_csr_base + logicalAddress;
               break;
@@ -363,7 +370,7 @@ LOCAL long pevDevMapAddr (epicsAddressType addrType, unsigned options,
 
     }
 
-    return 0;
+    return S_dev_success;
 }
 
 /*
@@ -373,14 +380,30 @@ LOCAL long pevDevMapAddr (epicsAddressType addrType, unsigned options,
 
 long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
 {
- /*   long status; */
- 
-/*    status = bspExtMemProbe ((void*)ptr, 0, wordSize, pValue);
-    if (status!=RTEMS_SUCCESSFUL) {
-        return S_dev_noDevice;
+    volatile uint sts; 
+
+    /* clear BERR */
+    sts = pev_csr_rd(0x41c | 0x80000000);
+
+    /* check address */
+    switch(wordSize)
+    {
+      case 1: *(char *)pValue = *(char *)(ptr);
+        break;
+      case 2: *(unsigned short *)pValue = *(unsigned short *)(ptr);
+        break;
+      case 4: *(unsigned long *)pValue = *(unsigned long *)(ptr);
+        break;
+      default:
+	return S_dev_badArgument;
     }
-*/
-    return 0;
+    
+    /* check BERR */
+    sts = pev_csr_rd( 0x41c | 0x80000000);
+    if( sts & 0x80000000)
+      return S_dev_noDevice;
+
+    return S_dev_success;
 }
 
 /*
