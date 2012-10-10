@@ -16,6 +16,7 @@
 
 #include <stdlib.h>
 #include <stdio.h>
+#include <signal.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
@@ -34,6 +35,7 @@
 #define VME24_MAP_SIZE 	0x1000000      	/* 8 MB A24 - fixed */
 #define VMECR_MAP_SIZE 	0x1000000	/* 8 MB CR/CSR - fixed */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 - fixed */
+#define ISRC_VME	0x10		/* ITC_SRC */
 
 #if defined(pdevLibVirtualOS) && !defined(devLibVirtualOS)
 #define devLibVirtualOS devLibVME
@@ -53,8 +55,11 @@ static void * map_a24_base;
 static void * map_a32_base;
 static void * map_csr_base;
 
-LOCAL myISR *isrFetch(unsigned vectorNumber, void **parg);
 int pevDevLibVMEInit();
+LOCAL struct pev_ioctl_evt *pevIntrEvent;
+LOCAL void (*pevIsrFuncTable[256])(void*);
+LOCAL void*  pevIsrParmTable[256];
+LOCAL void pevIntrHandler(int sig);
 
 LOCAL int pevDevLibDebug = 0;
 
@@ -105,13 +110,20 @@ LOCAL long pevDevMapAddr (epicsAddressType addrType, unsigned options,
  * a bus error safe "wordSize" read at the specified address which returns 
  * unsuccessful status if the device isnt present
  */
-long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue);
+LOCAL long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue);
 
 /*
  * a bus error safe "wordSize" write at the specified address which returns 
  * unsuccessful status if the device isnt present
  */
-long pevDevWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue);
+LOCAL long pevDevWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue);
+
+LOCAL long pevDevConnectInterruptVME (unsigned vectorNumber, void (*pFunction)(), void  *parameter);
+LOCAL long pevDevDisconnectInterruptVME ( unsigned vectorNumber, void (*pFunction)());
+LOCAL int pevDevInterruptInUseVME (unsigned vectorNumber);
+LOCAL long pevDevEnableInterruptLevelVME(unsigned level);
+LOCAL long pevDevDisableInterruptLevelVME(unsigned level);
+
 
 /* RTEMS specific init */
 
@@ -125,8 +137,8 @@ LOCAL long pevDevInit(void);
  */
 devLibVirtualOS pevVirtualOS = {
     pevDevMapAddr, pevDevReadProbe, pevDevWriteProbe, 
-    devConnectInterruptVME, devDisconnectInterruptVME,
-    devEnableInterruptLevelVME, devDisableInterruptLevelVME,
+    pevDevConnectInterruptVME, pevDevDisconnectInterruptVME,
+    pevDevEnableInterruptLevelVME, pevDevDisableInterruptLevelVME,
     devA24Malloc,devA24Free,pevDevInit
 };
 
@@ -136,6 +148,9 @@ devLibVirtualOS pevVirtualOS = {
  */
 static void pevDevLibAtexit(void)
 {
+  pev_evt_queue_disable(pevIntrEvent);
+  pev_evt_queue_free(pevIntrEvent);
+
   printf(">>>> pevDevLibAtexit exiting....\n");
   if( vme_mas_map_a32.win_size != 0 )
     pev_map_free(&vme_mas_map_a32);
@@ -164,7 +179,7 @@ pevDevInit(void)
     /* assume the vme bridge has been initialized by bsp */
     /* init BSP extensions [memProbe etc.] */
 
-  unsigned int crate = 0;
+  unsigned int crate = 0, i = 0 ;
   pev = pev_init(crate);
   if( !pev)
   {
@@ -223,35 +238,65 @@ pevDevInit(void)
   map_a24_base = pev_mmap(&vme_mas_map_a24);
   map_a32_base = pev_mmap(&vme_mas_map_a32);
   map_csr_base = pev_mmap(&vme_mas_map_csr);
-
+  
+  /* intr setup start */
+  for(i=0; i<256; i++)
+  {
+    pevIsrFuncTable[i] = 0;
+    pevIsrParmTable[i] = 0;
+  }
+  pevIntrEvent = pev_evt_queue_alloc( SIGUSR2);  
+  pevIntrEvent->wait = -1;
+  signal(pevIntrEvent->sig, pevIntrHandler);
+  /* intr setup end */
+  
   epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  
   return 0; /*bspExtInit();*/
 }
+
+
 
 /*
  * devConnectInterruptVME
  *
  * wrapper to minimize driver dependency on OS
  */
-long devConnectInterruptVME (
+
+
+LOCAL void pevIntrHandler(int sig)
+{ 
+  do
+  {
+    pev_evt_read( pevIntrEvent, 0);
+    if(pevIntrEvent->src_id & ISRC_VME)	
+    {
+      if( *pevIsrFuncTable[pevIntrEvent->vec_id] )
+          (*pevIsrFuncTable[pevIntrEvent->vec_id])(pevIsrParmTable[pevIntrEvent->vec_id]);
+
+      pev_evt_unmask( pevIntrEvent, pevIntrEvent->src_id);
+    }
+  } while(pevIntrEvent->evt_cnt);
+  return;
+}
+
+
+
+long pevDevConnectInterruptVME (
     unsigned vectorNumber,
     void (*pFunction)(),
     void  *parameter)
 {
-  /*  int status; */
 
-
-    if (devInterruptInUseVME(vectorNumber)) {
+    if ( vectorNumber <=0 || vectorNumber > 256) {
+        return S_dev_badVector; 
+    }
+    if (pevDevInterruptInUseVME(vectorNumber)) {
         return S_dev_vectorInUse; 
     }
-/*    status = pev_irq_register( pevStruct,
-            vectorNumber,
-            pFunction,
-            parameter);       
-    if (status) {
-        return S_dev_vecInstlFail;
-    }
-*/
+    
+    pevIsrFuncTable[vectorNumber] = pFunction;
+    pevIsrParmTable[vectorNumber] = parameter;
+
     return 0;
 }
 
@@ -266,54 +311,42 @@ long devConnectInterruptVME (
  *  an interrupt handler that was installed by another driver
  *
  */
-long devDisconnectInterruptVME (
+long pevDevDisconnectInterruptVME (
     unsigned vectorNumber,
     void (*pFunction)() 
 )
 {
-    void (*psub)();
-    void  *arg;
-  /*  int status; */
-
-    /*
-     * If pFunction not connected to this vector
-     * then they are probably disconnecting from the wrong vector
-     */
-    psub = isrFetch(vectorNumber, &arg);
-    if(psub != pFunction){
-        return S_dev_vectorNotInUse;
-    }
-
-/*
-    status = BSP_removeVME_isr(
-        vectorNumber,
-        psub,
-        arg) ||
-     BSP_installVME_isr(
-        vectorNumber,
-        (BSP_VME_ISR_t)unsolicitedHandlerEPICS,
-        (void*)vectorNumber);        
-    if(status){
-        return S_dev_vecInstlFail;
-    }
-*/
+    if( pFunction ==  pevIsrFuncTable[vectorNumber] ) 
+      pevIsrFuncTable[vectorNumber] = 0;
+    else 
+      return S_dev_badVector;
+    
     return 0;
 }
 
 /*
  * enable VME interrupt level
  */
-long devEnableInterruptLevelVME (unsigned level)
+long pevDevEnableInterruptLevelVME (unsigned level)
 {
-    return 0; /*BSP_enableVME_int_lvl(level);*/
+    if(level <=0 || level > 7)
+      return S_dev_intEnFail; 
+    
+    pev_evt_register( pevIntrEvent, ISRC_VME + level);
+    pev_evt_queue_enable(pevIntrEvent);
+    return 0; 
 }
 
 /*
  * disable VME interrupt level
  */
-long devDisableInterruptLevelVME (unsigned level)
+long pevDevDisableInterruptLevelVME (unsigned level)
 {
-    return 0; /*BSP_disableVME_int_lvl(level);*/
+    if(level <=0 || level > 7)
+      return S_dev_intEnFail; 
+    
+    pev_evt_unregister( pevIntrEvent, ISRC_VME + level);
+    return 0; 
 }
 
 /*
@@ -409,54 +442,46 @@ long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
 /*
  * a bus error safe "wordSize" write at the specified address which returns 
  * unsuccessful status if the device isnt present
+ * KB: does not currently work on ifc!
+ *
  */
 long pevDevWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue)
 {
- /*
-   long status;
-     status = bspExtMemProbe ((void*)ptr, 1, wordSize, (void*)pValue);
-    if (status!=RTEMS_SUCCESSFUL) {
-        return S_dev_noDevice;
+    volatile uint sts; 
+
+    /* clear BERR */
+    sts = pev_csr_rd(0x41c | 0x80000000);
+
+    /* check address */
+    switch(wordSize)
+    {
+      case 1: *(char *)(ptr) = *(char *)pValue;
+        break;
+      case 2: *(unsigned short *)(ptr) = *(unsigned short *)pValue;
+        break;
+      case 4: *(unsigned long *)(ptr) = *(unsigned long *)pValue;
+        break;
+      default:
+	return S_dev_badArgument;
     }
-*/
-    return 0;
+    
+    /* check BERR */
+    sts = pev_csr_rd( 0x41c | 0x80000000);
+    if( sts & 0x80000000)
+      return S_dev_noDevice;
+
+    return S_dev_success;
 }
 
-/*
- *      isrFetch()
- */
-LOCAL myISR *isrFetch(unsigned vectorNumber, void **parg)
-{
-    /*
-     * fetch the handler or C stub attached at this vector
-     */
-    return 0; /*(myISR *) BSP_getVME_isr(vectorNumber,parg);*/
-}
 
 /*
  * determine if a VME interrupt vector is in use
  */
-int devInterruptInUseVME (unsigned vectorNumber)
+LOCAL int pevDevInterruptInUseVME (unsigned vectorNumber)
 {
- /*   int i; */
-    myISR *psub;
-    void *arg;
-
-    psub = isrFetch (vectorNumber,&arg);
-
-    if (!psub)
-        return FALSE;
-
-    /*
-     * its a C routine. Does it match a default handler?
-     */
-/*
-    for (i=0; i<NELEMENTS(defaultHandlerAddr); i++) {
-        if (defaultHandlerAddr[i] == psub) {
-            return FALSE;
-        }
-    }
-*/
+    if( pevIsrFuncTable[vectorNumber] == NULL )
+      return FALSE;
+   
     return TRUE;
 }
 
