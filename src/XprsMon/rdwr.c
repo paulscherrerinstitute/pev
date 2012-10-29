@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.10  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.11  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.31  2012/10/09 14:21:49  ioxos
+ * detect DMA transfer error [JFG]
  *
  * Revision 1.30  2012/09/04 13:17:42  ioxos
  * allow dma to PCIe bus addresses [JFG]
@@ -124,7 +127,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #define DEBUGno
@@ -2437,6 +2440,11 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       if(  dma_req.dma_status & DMA_STATUS_TMO)
       {
 	printf("NOK -> timeout - status=%08x\n",  dma_req.dma_status);
+      }
+      else if(  dma_req.dma_status & DMA_STATUS_ERR)
+      {
+	printf("NOK -> transfer error - status=%08x\n", dma_req.dma_status);
+	sleep(1);
       }
       else
       {

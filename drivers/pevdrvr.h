@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.12  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.13  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.18  2012/10/12 13:28:25  ioxos
+ * keep local_crate in pev_drv structure [JFG]
  *
  * Revision 1.17  2012/08/27 08:41:45  ioxos
  * support for VME fast single cycles through ELB bus [JFG]
@@ -297,6 +300,7 @@ struct pev_drv
   struct cdev cdev;
   dev_t dev_id;
   struct pev_dev *pev[16];
+  int pev_local_crate;
 };
 
 struct pev_irq_handler

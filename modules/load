@@ -6,6 +6,7 @@ LINUX_X86_32="pev-linux-x86_32"
 LINUX_X86_64="pev-linux-x86_64"
 LINUX_PPC="pev-linux-ppc"
 HP="hppev"
+VME="vme"
 
 if [ $1 = $XENO_X86 ]; then
 device="pev"
@@ -62,6 +63,17 @@ if [  $? -ne 0 ]; then
 exit 1
 fi
 
+elif [ $1 = $VME ]; then
+device="vme"
+mode="666"
+group="root"
+
+echo loading VME  driver $VME.ko
+/sbin/insmod $VME.ko
+if [  $? -ne 0 ]; then 
+exit 1
+fi
+
 else
 echo cannot load module $1
 exit 1
@@ -100,6 +112,17 @@ elif [ $device = "hppev" ]; then
 
 echo creating HPPEV device
 major=$(gawk '$2=="hppev" {print $1}' /proc/devices)
+
+rm -f /dev/$device
+mknod /dev/$device c $major 0
+
+chgrp $group /dev/$device
+chmod $mode /dev/$device
+
+elif [ $device = "vme" ]; then
+
+echo creating VME device
+major=$(gawk '$2=="vme" {print $1}' /proc/devices)
 
 rm -f /dev/$device
 mknod /dev/$device c $major 0

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.12  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.13  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.25  2012/09/27 09:47:18  ioxos
  * generate interrupt in case of error when DMA are linked [JFG]

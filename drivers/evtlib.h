@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: evtlib.h,v $
- * Revision 1.7  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.8  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.3  2012/10/25 12:27:57  ioxos
+ * eeprom delay set to 5 msec + clear evt + mask SMI while reading event (need new FPGA)[JFG]
  *
  * Revision 1.2  2012/06/28 12:06:16  ioxos
  * support up to 8 ITC [JFG]
@@ -56,7 +59,9 @@ struct evt_queue
   int signal;
   struct semaphore sem;
   int src_id[8];
-  struct semaphore lock;
+  //struct semaphore lock;
+  int lock;
+  int lock_cnt;
 };
 
 void evt_init( void);
@@ -65,7 +70,7 @@ struct evt_queue *evt_queue_alloc( int);
 int evt_queue_free( struct evt_queue *);
 int evt_register( struct evt_queue *, int);
 int evt_unregister( struct evt_queue *, int);
-int evt_read( struct evt_queue *, int *, int);
+int evt_read( struct evt_queue *, int *, int, char *);
 int *evt_get_src_id( struct evt_queue *);
 
 #endif /*  _H_FIFOLIB */

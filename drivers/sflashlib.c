@@ -27,8 +27,8 @@
  *  Change History
  *  
  *  $Log: sflashlib.c,v $
- *  Revision 1.12  2012/10/01 14:56:49  kalantari
- *  added verion 4.20 of tosca-driver from IoxoS
+ *  Revision 1.13  2012/10/29 10:06:55  kalantari
+ *  added the tosca driver version 4.22 from IoxoS
  *
  *  Revision 1.8  2012/03/14 14:03:19  ioxos
  *  read status should return short [JFG]

@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.15  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.16  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.29  2012/10/25 12:34:23  ioxos
+ * add evt_clear() [JFG]
  *
  * Revision 1.28  2012/09/04 13:18:59  ioxos
  * new function to map system memory statically allocated [JFG]
@@ -236,6 +239,7 @@ int pev_evt_queue_enable( struct pev_ioctl_evt *evt);
 int pev_evt_queue_disable( struct pev_ioctl_evt *evt);
 int pev_evt_mask( struct pev_ioctl_evt *, int);
 int pev_evt_unmask( struct pev_ioctl_evt *,int);
+int pev_evt_clear( struct pev_ioctl_evt *,int);
 int pev_evt_read( struct pev_ioctl_evt *, int);
 #ifdef _cplusplus
 }

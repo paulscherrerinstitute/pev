@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: DmaTst.c,v $
- * Revision 1.10  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.11  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.15  2012/10/12 13:48:13  ioxos
+ * cosmetics [JFG]
  *
  * Revision 1.14  2012/08/28 13:39:25  ioxos
  * cleanup [JFG]
@@ -97,8 +100,8 @@ RT_TASK rt_task_desc;
 
 #endif
 
-static int tst_dma_read( long, uint, int, int *);
-static int tst_dma_write( long, uint, int, int *);
+static int tst_dma_read( long, int, int, int *);
+static int tst_dma_write( long, int, int, int *);
 static void print_res_read( void);
 static void print_res_write( void);
 
@@ -434,7 +437,7 @@ print_res_write( void)
 
 int 
 tst_dma_read( long vme_addr, 
-              uint size,
+              int size,
               int mode,
 	      int *usec)
 {
@@ -462,7 +465,7 @@ tst_dma_read( long vme_addr,
 
   dma_req.src_addr = vme_addr;                    /* source is VME address of SHM */
   dma_req.des_addr = (ulong)dma_buf.b_addr;       /* destination is DMA buffer    */
-  dma_req.size = size | DMA_SIZE_PKT_1K;                  
+  dma_req.size = (uint)size | DMA_SIZE_PKT_1K;                  
   dma_req.src_space = DMA_SPACE_VME|mode;
   dma_req.des_space = DMA_SPACE_PCIE;
   dma_req.src_mode = DMA_PCIE_RR2;
@@ -516,7 +519,7 @@ tst_dma_read( long vme_addr,
 
 int 
 tst_dma_write( long vme_addr, 
-               uint size,
+               int size,
                int mode,
 	       int *usec)
 {
@@ -544,7 +547,7 @@ tst_dma_write( long vme_addr,
 
   dma_req.des_addr = vme_addr;                    /* destination is VME address of SHM */
   dma_req.src_addr = (ulong)dma_buf.b_addr;       /* source is DMA buffer    */
-  dma_req.size = size | DMA_SIZE_PKT_1K;                  
+  dma_req.size = (uint)size | DMA_SIZE_PKT_1K;                  
   dma_req.des_space = DMA_SPACE_VME|mode;
   dma_req.src_space = DMA_SPACE_PCIE;
   dma_req.src_mode = DMA_PCIE_RR2;

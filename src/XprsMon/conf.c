@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.10  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.11  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.19  2012/09/25 09:13:27  ioxos
  * cosmetics [JFG]
@@ -91,7 +91,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #define DEBUGno

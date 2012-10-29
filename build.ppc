@@ -64,6 +64,11 @@ if [  $XENO -eq 1 ]; then
 ./build.xeno.ppc
 fi
 
+# build vme device driver
+cd ../vme
+./build
+
+
 # build libraries
 cd ../lib
 ./build.ppc_32
@@ -78,13 +83,17 @@ if [  $XENO -eq 1 ]; then
 ./build.xeno
 fi
 
-# build examples
+# build pev examples
 cd ../examples
 make -f Makefile.ppc clean
 make -f Makefile.ppc
 if [  $XENO -eq 1 ]; then 
 make -f Makefile.ppc xeno
 fi
+
+# build vme examples
+cd ../vme
+./build
 
 # build test suite
 cd ../XprsTst

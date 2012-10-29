@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: eeprom.c,v $
- * Revision 1.9  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.10  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.5  2012/09/27 09:58:49  ioxos
  * cosmetics [JFG]
@@ -48,7 +48,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: eeprom.c,v 1.9 2012/10/01 14:56:49 kalantari Exp $";
+static char *rcsid = "$Id: eeprom.c,v 1.10 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #include <sys/types.h>

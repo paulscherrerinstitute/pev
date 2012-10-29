@@ -106,6 +106,7 @@ int pev_evt_register( struct pev_dev *, struct pev_ioctl_evt *);
 void pev_evt_enable( struct pev_dev *, struct pev_ioctl_evt *);
 void pev_evt_unmask( struct pev_dev *, struct pev_ioctl_evt *);
 void pev_evt_mask( struct pev_dev *, struct pev_ioctl_evt *);
+void pev_evt_clear( struct pev_dev *, struct pev_ioctl_evt *);
 void pev_evt_disable( struct pev_dev *, struct pev_ioctl_evt *);
 int pev_evt_unregister( struct pev_dev *, struct pev_ioctl_evt *);
 int pev_evt_read( struct pev_dev *, struct pev_ioctl_evt *);

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: tst.c,v $
- * Revision 1.10  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.11  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.11  2012/06/06 12:33:20  ioxos
  * change rcsid [JFG]
@@ -67,7 +67,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: tst.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char *rcsid = "$Id: tst.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #define DEBUGno

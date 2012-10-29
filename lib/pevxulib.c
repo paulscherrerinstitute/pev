@@ -27,8 +27,14 @@
  *  Change History
  *  
  *  $Log: pevxulib.c,v $
- *  Revision 1.10  2012/10/01 14:56:49  kalantari
- *  added verion 4.20 of tosca-driver from IoxoS
+ *  Revision 1.11  2012/10/29 10:06:56  kalantari
+ *  added the tosca driver version 4.22 from IoxoS
+ *
+ *  Revision 1.54  2012/10/25 12:31:46  ioxos
+ *  add evt_clear() + version 4.22 [JFG]
+ *
+ *  Revision 1.53  2012/10/12 14:25:06  ioxos
+ *  tagging release 4.21 [JFG]
  *
  *  Revision 1.52  2012/09/27 11:49:36  ioxos
  *  tagging 4.20 [JFG]
@@ -188,7 +194,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevxulib.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char rcsid[] = "$Id: pevxulib.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #include <stdlib.h>
@@ -210,7 +216,7 @@ static struct pevx_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
 static char pevx_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pevx_driver_version[16];
-char pevx_lib_version[] = "4.20";
+char pevx_lib_version[] = "4.22";
 int pevx_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -1753,6 +1759,19 @@ pevx_evt_unmask( uint crate,
   if( pev->fd < 0) return(-1);
   evt->src_id = src_id;
   return( ioctl( pev->fd, PEV_IOCTL_EVT_UNMASK, evt));
+}
+ 
+int
+pevx_evt_clear( uint crate,
+	        struct pev_ioctl_evt *evt,
+		int src_id)
+{
+
+  if( !pevx[crate]) return(-1);
+  pev = pevx[crate];
+  if( pev->fd < 0) return(-1);
+  evt->src_id = src_id;
+  return( ioctl( pev->fd, PEV_IOCTL_EVT_CLEAR, evt));
 }
  
 int

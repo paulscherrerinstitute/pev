@@ -24,8 +24,14 @@
  *  Change History
  *  
  * $Log: XprsMon.c,v $
- * Revision 1.10  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.11  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.45  2012/10/25 12:51:49  ioxos
+ * releae 4.22 [JFG]
+ *
+ * Revision 1.44  2012/10/12 14:25:07  ioxos
+ * tagging release 4.21 [JFG]
  *
  * Revision 1.43  2012/09/27 11:49:51  ioxos
  * tagging 4.20 [JFG]
@@ -160,7 +166,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: XprsMon.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char rcsid[] = "$Id: XprsMon.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #include <debug.h>
@@ -196,7 +202,7 @@ typedef unsigned int u32;
 #include "cmdlist.h"
 
 
-char XprsMon_version[] = "4.20";
+char XprsMon_version[] = "4.22";
 
 int xprs_cmd_exec( struct cli_cmd_list *, struct cli_cmd_para *);
 

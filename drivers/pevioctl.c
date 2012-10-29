@@ -29,8 +29,11 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.12  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.13  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.23  2012/10/25 12:27:57  ioxos
+ * eeprom delay set to 5 msec + clear evt + mask SMI while reading event (need new FPGA)[JFG]
  *
  * Revision 1.22  2012/09/04 13:21:12  ioxos
  * new function to map system memory statically allocated [JFG]
@@ -353,6 +356,11 @@ pev_ioctl_evt( struct pev_dev *pev,
     case PEV_IOCTL_EVT_MASK:
     {
       pev_evt_mask( pev, &evt);
+      break;
+    }
+    case PEV_IOCTL_EVT_CLEAR:
+    {
+      pev_evt_clear( pev, &evt);
       break;
     }
     case PEV_IOCTL_EVT_DISABLE:

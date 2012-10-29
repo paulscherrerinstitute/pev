@@ -99,7 +99,8 @@ evt_queue_alloc( int sig)
       evt_queue[i].src_id[6] = 0;
       evt_queue[i].src_id[7] = 0;
       sema_init( &evt_queue[i].sem, 0);
-      sema_init( &evt_queue[i].lock, 1);
+      evt_queue[i].lock = 0;
+      evt_queue[i].lock_cnt = 0;
       return( &evt_queue[i]);
     }
   }
@@ -137,6 +138,7 @@ evt_queue_free( struct evt_queue *q)
       q->src_id[5] = 0;
       q->src_id[6] = 0;
       q->src_id[7] = 0;
+      //printk("lock_cnt = %d\n", q->lock_cnt);
       return( 0);
     }
   }
@@ -178,7 +180,8 @@ evt_get_src_id(  struct evt_queue *q)
 int
 evt_read( struct evt_queue *q,
 	  int *evt_id,
-	  int wait)
+	  int wait,
+	  char *msi)
 {
   int i, *p;
   int cnt;
@@ -207,7 +210,17 @@ evt_read( struct evt_queue *q,
 	  return(0);
         }
       }
-      retval = down_interruptible( &q->lock);
+      if( msi)
+      {
+        *(uint *)(msi + 0x5c) = 0x80;
+        retval =  *(uint *)(msi + 0x5c);
+	while( (retval & 0x06000000) == 0x04000000)
+	{
+          //printk("msi as been issued\n");
+	  retval =  *(uint *)(msi + 0x5c);
+	}
+      }
+      q->lock = 1;
       cnt = q->cnt;
       if( cnt)
       {
@@ -225,7 +238,12 @@ evt_read( struct evt_queue *q,
       {
         *evt_id = 0;
       }
-      up( &q->lock);
+      q->lock = 0;
+      if( msi)
+      {
+        *(uint *)(msi + 0x5c) = 0x0;
+        retval =  *(uint *)(msi + 0x5c);
+      }
       return( q->cnt);
     }
   }
@@ -256,13 +274,16 @@ evt_irq( int src,
   struct evt_queue *q;
   int src_id;
   int *p;
-  int retval;
 
   src_id = ( src >> 8) & 0x7f;
   q = evt_tbl[src_id].queue;
   if( q)
   {
-    retval = down_interruptible( &q->lock);
+    if( q->lock)
+    {
+      //printk("evt lock set\n");
+      q->lock_cnt += 1;
+    }
     p = q->queue_ptr;
     p[q->wr_idx] = src;
     q->wr_idx = (q->wr_idx + 1) & 0xff;
@@ -278,7 +299,6 @@ evt_irq( int src,
 	send_sig( q->signal, q->task_p, 0);
       }
     }
-    up( &q->lock);
     up( &q->sem);
   }
   return;

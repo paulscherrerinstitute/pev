@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: dmalib.h,v $
- * Revision 1.12  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.13  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.9  2012/04/17 07:47:03  ioxos
  * support pipe mode on PPC [JFG]

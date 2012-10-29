@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: i2c.c,v $
- * Revision 1.10  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.11  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.7  2012/09/03 13:19:05  ioxos
  * adapt pec_i2c_xx(), pev_pex_xx() and pev_bmr_xx() to new FPGA and library [JFG]
@@ -55,7 +55,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: i2c.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char *rcsid = "$Id: i2c.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #define DEBUGno

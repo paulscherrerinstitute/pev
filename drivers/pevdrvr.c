@@ -43,8 +43,17 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.12  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.13  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.71  2012/10/25 12:51:00  ioxos
+ * releae 4.22 [JFG]
+ *
+ * Revision 1.70  2012/10/12 14:25:06  ioxos
+ * tagging release 4.21 [JFG]
+ *
+ * Revision 1.69  2012/10/12 13:28:25  ioxos
+ * keep local_crate in pev_drv structure [JFG]
  *
  * Revision 1.68  2012/09/27 11:49:18  ioxos
  * tagging 4.20 [JFG]
@@ -300,9 +309,8 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.20"
+#define DRIVER_VERSION "4.22"
 char *pev_version=DRIVER_VERSION;
-int pev_local_crate=0;
 
 
 struct pev_drv *
@@ -899,7 +907,7 @@ pev_open( struct inode *inode,
   {
     if( !minor)
     {
-      pev = (void *)pev_drv.pev[pev_local_crate];
+      pev = (void *)pev_drv.pev[pev_drv.pev_local_crate];
       if( pev)
       {
         filp->private_data = (void *)pev;
@@ -1423,6 +1431,7 @@ static int pev_init( void)
   {
     pev_drv.pev[i] = (struct pev_dev *)NULL;
   }
+  pev_drv.pev_local_crate = 0;
 
   /* check for PEX86XX switch (cannot be pci probed because already owned) */
   ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, 0);
@@ -1518,7 +1527,7 @@ static int pev_init( void)
         pev->crate = ~(SWAP32(*(int *)(pev->pex_ptr + 0x640)))&0xf;
         pev_drv.pev[pev->crate] = pev;
         printk("PEV crate number = %d\n", pev->crate);
-	if( !pev_local_crate) pev_local_crate = pev->crate;
+	if( !pev_drv.pev_local_crate) pev_drv.pev_local_crate = pev->crate;
 	
   	/* Disable SERR# bit[8] generation */
 	bcr = SWAP16(*(short *)(pev->pex_ptr + 0x04));

@@ -30,8 +30,8 @@
  *  Change History
  *  
  *  $Log: clilib.c,v $
- *  Revision 1.10  2012/10/01 14:56:49  kalantari
- *  added verion 4.20 of tosca-driver from IoxoS
+ *  Revision 1.11  2012/10/29 10:06:56  kalantari
+ *  added the tosca driver version 4.22 from IoxoS
  *
  *  Revision 1.8  2012/06/07 08:44:47  ioxos
  *  cast strlen to int [JFG]
@@ -61,7 +61,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: clilib.c,v 1.10 2012/10/01 14:56:49 kalantari Exp $";
+static char rcsid[] = "$Id: clilib.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
 #endif
 
 #include <debug.h>

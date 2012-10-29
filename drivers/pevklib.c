@@ -38,8 +38,17 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.17  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.18  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.55  2012/10/25 12:27:57  ioxos
+ * eeprom delay set to 5 msec + clear evt + mask SMI while reading event (need new FPGA)[JFG]
+ *
+ * Revision 1.54  2012/10/12 13:29:09  ioxos
+ * export pev_irq_register [JFG]
+ *
+ * Revision 1.53  2012/10/09 14:03:39  ioxos
+ * add 1 jiffy to calculated timeout value [JFG]
  *
  * Revision 1.52  2012/09/27 09:50:57  ioxos
  * i2c active timeout + DMA interrupt on error [JFG]
@@ -239,6 +248,7 @@ void  pev_outl( struct pev_dev *, uint, uint);
 uint vme_irq_vector[16];
 uint vme_irq_idx[16];
 
+
 void pev_irq_register( struct pev_dev *pev,
 		       int src,
 		       void (* func)( struct pev_dev*, int, void *),
@@ -247,6 +257,7 @@ void pev_irq_register( struct pev_dev *pev,
   pev->irq_tbl[src].func = func;
   pev->irq_tbl[src].arg = arg;
 }
+EXPORT_SYMBOL( pev_irq_register);
 
 int
 pev_rdwr(struct pev_dev *pev,
@@ -1361,6 +1372,7 @@ pev_idt_eeprom_write(struct pev_dev *pev,
   int order, i, data;
   volatile int tmo;
   int retval;
+  int jiffies;
 
   if( pev->board != PEV_BOARD_IFC1210)
   {
@@ -1401,7 +1413,8 @@ pev_idt_eeprom_write(struct pev_dev *pev,
     }
     while( ((data & 0x3000000) != 0x2000000) && --tmo);
     /* add delay because hardware gives command complete too early !!!  */
-    retval = down_timeout( &pev_eeprom_sem, 2);
+    jiffies = msecs_to_jiffies( 5) + 1;
+    retval = down_timeout( &pev_eeprom_sem, jiffies);
   }
 
   free_pages( (unsigned long)k_buf, order);
@@ -1511,7 +1524,7 @@ pev_vme_irq_wait( struct pev_dev *pev,
   pev->vme_status |= VME_IRQ_WAITING;
   idx = (irq->irq >> 16) & 0xf;
   //printk("pev_vme_irq_wait(): %08x - %08x - %08x\n", irq->irq, pev->vme_irq_set, pev->vme_irq_ctl[idx].set);
-  jiffies = msecs_to_jiffies( irq->tmo);
+  jiffies = msecs_to_jiffies( irq->tmo) + 1;
   if( irq->tmo)
   {
     retval = down_timeout( &pev->vme_irq_ctl[idx].sem, jiffies);
@@ -2158,7 +2171,7 @@ pev_fifo_wait_ef( struct pev_dev *pev,
   pev_outl( pev, irq, pev->io_remap[pev->csr_remap].usr_itc + 0x08);
 
   /* wait for semaphores */
-  jiffies = msecs_to_jiffies( fifo->tmo);
+  jiffies = msecs_to_jiffies( fifo->tmo) + 1;
   if( fifo->tmo)
   {
     retval = down_timeout( &pev->fifo_sem[fifo->idx], jiffies);
@@ -2208,7 +2221,7 @@ pev_fifo_wait_ff( struct pev_dev *pev,
   pev_outl( pev, irq, pev->io_remap[pev->csr_remap].usr_itc + 0x08);
 
   /* wait for semaphores */
-  jiffies = msecs_to_jiffies( fifo->tmo);
+  jiffies = msecs_to_jiffies( fifo->tmo) + 1;
   if( fifo->tmo)
   {
     retval = down_timeout( &pev->fifo_sem[fifo->idx+4], jiffies);
@@ -2602,7 +2615,7 @@ pev_dma_move( struct pev_dev *pev,
 	    scale = scale*10;
           }
 	}
-	jiffies =  msecs_to_jiffies(tmo*scale);
+	jiffies =  msecs_to_jiffies(tmo*scale) + 1;
 #ifdef XENOMAI
         rtdm_sem_down( &pev->dma_done);
 #else
@@ -2692,12 +2705,47 @@ pev_histo_clear( struct pev_dev *pev,
   return(0);
 }
 
+#ifdef HISTO
+int last_evt_cnt = 0;
+uint evt_cnt = 0;
+#endif
+
 void
 pev_evt_irq( struct pev_dev *pev,
 	     int src,
 	     void *arg)
 {
+  struct vme_time tm;
+  int chan;
+#ifdef HISTO
+  tm.time  = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x0c);
+  tm.utime = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x08);
+  if( tm.time != last_evt_cnt + 1)
+  {
+    //printk(" pev_evt_irq(): evt lost %d - %d\n", last_evt_cnt,tm.time);
+    chan = tm.time - last_evt_cnt;
+    histo_inc( 3, chan, 1000);
+    histo_inc( 0, 1001, 1002);
+  }
+  else
+  {
+    chan = (tm.utime & 0x1ffff)/10;
+    histo_inc( 0, chan, 1000);
+    histo_inc( 0, 1000, 1001);
+  } 
+  last_evt_cnt =  tm.time;
+  evt_cnt += 1;
+#endif
   evt_irq( src, arg);
+#ifdef HISTO
+  tm.time  = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x0c);
+  tm.utime = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x08);
+  chan = (tm.utime & 0x1ffff)/10;
+  histo_inc( 1, chan, 1000);
+  /* unmask TIMER  interrupts */
+  pev_outl( pev, 0x400, pev->io_remap[pev->csr_remap].vme_itc + 0x08);
+#endif
+
   return;
 }
 
@@ -2713,6 +2761,9 @@ pev_evt_alloc( struct pev_dev *pev,
 	       struct pev_ioctl_evt *evt)
 
 {
+#ifdef HISTO
+  evt_cnt = 0;
+#endif
   evt->evt_queue = evt_queue_alloc( evt->sig);
   return;
 }
@@ -2722,6 +2773,9 @@ pev_evt_free( struct pev_dev *pev,
 	       struct pev_ioctl_evt *evt)
 
 {
+#ifdef HISTO
+  printk("\nevt_cnt = %d - last_evnt_cnt = %d\n", evt_cnt, last_evt_cnt);
+#endif
   return( evt_queue_free( evt->evt_queue));
 }
 
@@ -2774,6 +2828,9 @@ pev_evt_enable( struct pev_dev *pev,
     pev_outl( pev, p[5]<<16, pev->io_remap[pev->csr_remap].usr2_itc);
     pev_outl( pev, p[5], pev->io_remap[pev->csr_remap].usr2_itc + 0x08);
   }
+#ifdef HISTO
+  last_evt_cnt  = pev_inl( pev, pev->io_remap[pev->csr_remap].vme_timer + 0x0c);
+#endif
   return;
 }
 
@@ -2871,6 +2928,59 @@ pev_evt_mask( struct pev_dev *pev,
   }
 }
 
+void
+pev_evt_clear( struct pev_dev *pev,
+	      struct pev_ioctl_evt *evt)
+{
+  int ip;
+
+  ip = 1 << (evt->src_id & 0xf) ;
+
+  switch( (evt->src_id >> 4) & 7)
+  {
+    case 0:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].iloc_itc + 0x0c);
+      pev_outl( pev, ip<<16, pev->io_remap[pev->csr_remap].iloc_itc);
+      return;
+    }
+    case 1:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].vme_itc + 0x0c);
+      pev_outl( pev, ip<<16, pev->io_remap[pev->csr_remap].vme_itc);
+      return;
+    }
+    case 2:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].dma_itc + 0x0c);
+      pev_outl( pev, ip<<16, pev->io_remap[pev->csr_remap].dma_itc);
+      return;
+    }
+    case 3:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr_itc + 0x0c);
+      pev_outl( pev, ip<<16, pev->io_remap[pev->csr_remap].usr_itc);
+      return;
+    }
+    case 4:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr1_itc + 0x0c);
+      pev_outl( pev, ip<<16, pev->io_remap[pev->csr_remap].usr1_itc);
+      return;
+    }
+    case 5:
+    {
+      pev_outl( pev, ip, pev->io_remap[pev->csr_remap].usr2_itc + 0x0c);
+      pev_outl( pev, ip<<16, pev->io_remap[pev->csr_remap].usr2_itc);
+      return;
+    }
+    default:
+    {
+      return;
+    }
+  }
+}
+
 
 void
 pev_evt_disable( struct pev_dev *pev,
@@ -2921,7 +3031,7 @@ pev_evt_read( struct pev_dev *pev,
 {
   int evt_id;
 
-  evt->evt_cnt= evt_read( evt->evt_queue, &evt_id, evt->wait);
+  evt->evt_cnt= evt_read( evt->evt_queue, &evt_id, evt->wait, (char *)pev->csr_ptr);
   evt->src_id = (evt_id >> 8) & 0x7f;
   evt->vec_id = evt_id & 0xff;
   return(0);

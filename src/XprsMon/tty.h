@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: tty.h,v $
- * Revision 1.6  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.7  2012/10/29 10:06:56  kalantari
+ * added the tosca driver version 4.22 from IoxoS
  *
  * Revision 1.1  2012/06/01 14:02:29  ioxos
  * first checkin [JFG]

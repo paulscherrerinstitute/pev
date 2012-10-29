@@ -377,6 +377,18 @@ September 27, 2012: JFG
                         -> DMA error status
    -> Tagging 4.2
 
+October 12, 2012: JFG
+   -> include a VME driver to handle vme interrupts in the kernel
+      create new directories PEV1100/vme and PEV1100/src/vme
+      vme/vmedrv.c
+      src/vme/vme.c
+      include/vmeioctl.h
+   -> adapt Makefiles to compile with ELDK-5.2.1
+      /rootfs_ppc should point on root of linux file system
+      /tools_pps should point on compilation tools
+
+   -> Tagging 4.21
+
 ===============================< end of file >================================
 
 

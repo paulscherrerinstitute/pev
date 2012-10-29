@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.12  2012/10/01 14:56:49  kalantari
- * added verion 4.20 of tosca-driver from IoxoS
+ * Revision 1.13  2012/10/29 10:06:55  kalantari
+ * added the tosca driver version 4.22 from IoxoS
+ *
+ * Revision 1.43  2012/10/25 12:34:23  ioxos
+ * add evt_clear() [JFG]
+ *
+ * Revision 1.42  2012/10/12 13:47:01  ioxos
+ * add vme am for ELB access [JFG]
  *
  * Revision 1.41  2012/09/27 09:54:13  ioxos
  * define DMA_STATUS_ERR [JFG]
@@ -334,6 +340,7 @@ struct pev_reg_remap
 #define PEV_IOCTL_EVT_DISABLE     0x00100009
 #define PEV_IOCTL_EVT_UNMASK      0x0010000a
 #define PEV_IOCTL_EVT_MASK        0x0010000b
+#define PEV_IOCTL_EVT_CLEAR       0x0010000c
 
 #define PEV_IOCTL_DMA             0x00040000
 #define PEV_IOCTL_DMA_MOVE        0x00040001
@@ -548,6 +555,12 @@ struct pev_ioctl_rdwr
 #define MAP_VME_BLT       0x0400
 #define MAP_VME_MBLT      0x0500
 #define MAP_VME_IACK      0x0f00
+
+#define MAP_VME_ELB_SP        0x01
+#define MAP_VME_ELB_A16       0x00
+#define MAP_VME_ELB_A24       0x02
+#define MAP_VME_ELB_A32       0x04
+#define MAP_VME_ELB_IACK      0x06
 
 #define MAP_PCIE_TC0      0x0000
 #define MAP_PCIE_TC1      0x0004
