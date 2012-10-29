@@ -56,7 +56,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.28 2012/10/05 10:54:07 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.29 2012/10/29 09:56:11 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -224,7 +224,7 @@ int pevRead(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (1<<4);
       if( pev_dma_move(&device->pev_dmaReq) )
         {
 	  printf("pevRead(): DMA transfer failed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
@@ -329,7 +329,7 @@ int pevWrite(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (1<<4);
       if( pev_dma_move(&device->pev_dmaReq) )
         {
 	  printf("pevWrite(): DMA transfer failed! dma status = 0x%x \n", device->pev_dmaReq.dma_status);
@@ -431,7 +431,7 @@ int pevAsynRead(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (1<<4);
       
       pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
       pevDmaRequest.pCallBack = cbStruct;
@@ -536,7 +536,7 @@ int pevAsynWrite(
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
-      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1MS | (5<<4);
+      device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (1<<4);
       
       pevDmaRequest.pev_dmaReq = device->pev_dmaReq;
       pevDmaRequest.pCallBack = cbStruct;
@@ -1507,7 +1507,7 @@ epicsThreadId pevDmaThreadId;
       return -1;
     }
 
-  pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",epicsThreadPriorityHigh,
+  pevDmaThreadId = epicsThreadCreate("pevDmaReqHandler",99,
                                       epicsThreadGetStackSize(epicsThreadStackMedium),
                                       (EPICSTHREADFUNC)pev_dmaRequetServer,(int*)&crate);
 

@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
@@ -59,9 +60,9 @@ int pevDevLibVMEInit();
 LOCAL struct pev_ioctl_evt *pevIntrEvent;
 LOCAL void (*pevIsrFuncTable[256])(void*);
 LOCAL void*  pevIsrParmTable[256];
-LOCAL void pevIntrHandler(int sig);
+LOCAL void pevDevIntrHandler(int sig);
 
-LOCAL int pevDevLibDebug = 0;
+LOCAL int pevDevLibDebug = 1;
 
 /*
  * this routine needs to be in the symbol table
@@ -247,7 +248,7 @@ pevDevInit(void)
   }
   pevIntrEvent = pev_evt_queue_alloc( SIGUSR2);  
   pevIntrEvent->wait = -1;
-  signal(pevIntrEvent->sig, pevIntrHandler);
+  signal(pevIntrEvent->sig, pevDevIntrHandler);
   /* intr setup end */
   
   epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  
@@ -263,13 +264,15 @@ pevDevInit(void)
  */
 
 
-LOCAL void pevIntrHandler(int sig)
+LOCAL void pevDevIntrHandler(int sig)
 { 
   do
   {
     pev_evt_read( pevIntrEvent, 0);
     if(pevIntrEvent->src_id & ISRC_VME)	
     {
+      if(pevDevLibDebug)
+        printf("pevDevIntrHandler(): src_id = 0x%x vec_id = 0x%x evt_count = %d \n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt);
       if( *pevIsrFuncTable[pevIntrEvent->vec_id] )
           (*pevIsrFuncTable[pevIntrEvent->vec_id])(pevIsrParmTable[pevIntrEvent->vec_id]);
 
@@ -465,6 +468,8 @@ long pevDevWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue
 	return S_dev_badArgument;
     }
     
+    /* wait for writes to get posted */
+    usleep(10);
     /* check BERR */
     sts = pev_csr_rd( 0x41c | 0x80000000);
     if( sts & 0x80000000)
