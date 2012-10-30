@@ -62,7 +62,7 @@ LOCAL void (*pevIsrFuncTable[256])(void*);
 LOCAL void*  pevIsrParmTable[256];
 LOCAL void pevDevIntrHandler(int sig);
 
-LOCAL int pevDevLibDebug = 1;
+LOCAL int pevDevLibDebug = 0;
 
 /*
  * this routine needs to be in the symbol table
@@ -275,7 +275,7 @@ LOCAL void pevDevIntrHandler(int sig)
         printf("pevDevIntrHandler(): src_id = 0x%x vec_id = 0x%x evt_count = %d \n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt);
       if( *pevIsrFuncTable[pevIntrEvent->vec_id] )
           (*pevIsrFuncTable[pevIntrEvent->vec_id])(pevIsrParmTable[pevIntrEvent->vec_id]);
-
+      pev_evt_clear(pevIntrEvent,  pevIntrEvent->src_id);
       pev_evt_unmask( pevIntrEvent, pevIntrEvent->src_id);
     }
   } while(pevIntrEvent->evt_cnt);
