@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/09/12 11:26:58 $*/
-/*$Revision: 1.9 $*/
+/*$Date: 2012/10/31 12:45:51 $*/
+/*$Revision: 1.10 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -131,7 +131,7 @@ long devIfc1210AiRead(aiRecord* record)
    if (p == NULL)
     {
         recGblRecordError(S_db_badField, record,
-            "devSigAnalyzerAiRead: uninitialized record");
+            "devIfc1210AiRead: uninitialized record");
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;
     }
@@ -277,4 +277,101 @@ struct {
     NULL,
     devIfc1210AoWrite,
     NULL
+};
+
+/*************** longin record  ****************/
+
+#include <longinRecord.h>
+
+long devIfc1210LonginInitRecord(longinRecord* record)
+{
+   int status=0;
+   status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
+   if (status != 0) return status; 
+   record->udf = 0;
+   return 0;
+}
+
+long devIfc1210LonginRead(longinRecord* record)
+{
+   ifcPrivate* p = record->dpvt;
+   unsigned int rval = 0;
+   int status = 0;
+    
+   if (p == NULL)
+    {
+        recGblRecordError(S_db_badField, record,
+            "devIfc1210LonginRead: uninitialized record");
+        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+        return -1;
+    }
+    
+    if(p->devType == IFC_ELB)
+    	rval = pev_elb_rd( p->address );
+    else
+    if(p->devType == IFC_SMON)
+    	rval = pev_smon_rd( p->address );
+    if(p->devType == PCI_IO)
+    	rval = pev_csr_rd( p->address | 0x80000000 );
+    else
+    if(p->devType == BMR)
+      {
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
+	{
+          record->val = (unsigned short)rval;
+	  return 0;
+	}
+      }
+    else
+    if(p->devType == BMR_11U)
+      {
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+	record->val = pev_bmr_conv_11bit_u(rval);
+        usleep( 10000);
+	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
+	  return 0;
+      }
+    else
+    if(p->devType == BMR_11S)
+      {
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+	record->val = pev_bmr_conv_11bit_s(rval);
+        usleep( 10000);
+	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
+	  return 0;
+      }
+    else
+    if(p->devType == BMR_16U)
+      {
+        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+	record->val = pev_bmr_conv_16bit_u(rval);
+        usleep( 10000);
+	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
+	  return 0;
+      }
+    if((status&I2CEXEC_MASK) != I2CEXEC_OK && status!=0) 
+      {
+	recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+	return -1;    
+      }
+    
+    record->val = rval;
+    return 0; 	/* no conversion */
+}
+
+struct {
+    long      number;
+    DEVSUPFUN report;
+    DEVSUPFUN init;
+    DEVSUPFUN init_record;
+    DEVSUPFUN get_ioint_info;
+    DEVSUPFUN read_longin;
+} devIfc1210Longin = {
+    5,
+    NULL,
+    NULL,
+    devIfc1210LonginInitRecord,
+    NULL,
+    devIfc1210LonginRead
 };
