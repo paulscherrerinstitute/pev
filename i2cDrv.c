@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.10 2012/10/03 09:03:32 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.11 2012/11/05 15:09:48 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -305,6 +305,7 @@ void *pev_i2cRequetServer(int *crate)
         
    while(1)
    {
+     usleep(100);
      numByteRecvd = epicsMessageQueueReceive(pevI2cMsgQueueId, (pevI2cReqMsg*)&msgptr, sizeof(pevI2cReqMsg));
      if (numByteRecvd <= 0)
        {
