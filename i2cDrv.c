@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.12 2012/11/05 15:13:12 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.13 2012/11/05 15:48:33 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -329,11 +329,11 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++) 
 	     {
      	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii, &readVal);
-       	       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+       	      /*  if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
 	       {
 	         *(int*)msgptr.opStat = -1;
 		 readVal = 0;
-	       }
+	       }*/
 	       ((epicsUInt8*)msgptr.pi2cData)[ii] = (epicsUInt8)readVal;
 	     }
      	   break;
@@ -342,11 +342,11 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++)
 	     {
      	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*2, &readVal);
-       	       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+       	       /*  if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
 	       {
 	         *(int*)msgptr.opStat = -1;
 		 readVal = 0;
-	       }
+	       }*/
 	       ((epicsUInt16*)msgptr.pi2cData)[ii] = (epicsUInt16)readVal;
 	     }
      	   break;
@@ -355,15 +355,20 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++)
 	     {
      	       status = pev_i2c_read(msgptr.i2cDevice, msgptr.i2cCmd+ii*4, &readVal);
-       	       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+       	       /*  if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
 	       {
 	         *(int*)msgptr.opStat = -1;
 		 readVal = 0;
-	       }
+	       }*/
 	       ((epicsUInt32*)msgptr.pi2cData)[ii] = (epicsUInt32)readVal;
 	     }
      	   break;
        }       
+       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+       {
+         *(int*)msgptr.opStat = -1;
+	 readVal = 0;
+       }
      }
      else
      {
