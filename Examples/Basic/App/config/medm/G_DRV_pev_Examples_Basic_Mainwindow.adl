@@ -1,12 +1,12 @@
 
 file {
-	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Basic/./App/config/medm/G_DRV_pev_Examples_Basic_Mainwindow.adl"
+	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Basic/App/config/medm/./G_DRV_pev_Examples_Basic_Mainwindow.adl"
 	version=030104
 }
 display {
 	object {
-		x=477
-		y=206
+		x=22
+		y=177
 		width=1034
 		height=526
 	}
@@ -474,7 +474,7 @@ text {
 	object {
 		x=780
 		y=242
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -528,7 +528,7 @@ text {
 	object {
 		x=780
 		y=259
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -582,7 +582,7 @@ text {
 	object {
 		x=780
 		y=276
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -636,7 +636,7 @@ text {
 	object {
 		x=780
 		y=293
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -690,7 +690,7 @@ text {
 	object {
 		x=780
 		y=310
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -744,7 +744,7 @@ text {
 	object {
 		x=780
 		y=327
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -798,7 +798,7 @@ text {
 	object {
 		x=780
 		y=344
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -852,7 +852,7 @@ text {
 	object {
 		x=780
 		y=361
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -906,7 +906,7 @@ text {
 	object {
 		x=780
 		y=378
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -960,7 +960,7 @@ text {
 	object {
 		x=780
 		y=395
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1014,7 +1014,7 @@ text {
 	object {
 		x=780
 		y=412
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1068,7 +1068,7 @@ text {
 	object {
 		x=780
 		y=429
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1122,7 +1122,7 @@ text {
 	object {
 		x=780
 		y=446
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1176,7 +1176,7 @@ text {
 	object {
 		x=780
 		y=463
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1230,7 +1230,7 @@ text {
 	object {
 		x=780
 		y=480
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1284,7 +1284,7 @@ text {
 	object {
 		x=780
 		y=497
-		width=177
+		width=100
 		height=14
 	}
 	monitor {
@@ -1377,8 +1377,8 @@ text {
 }
 text {
 	object {
-		x=964
-		y=243
+		x=978
+		y=223
 		width=50
 		height=14
 	}
@@ -1550,6 +1550,45 @@ text {
 	}
 	monitor {
 		chan="$(IOC):SOFT-INTID12"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=783
+		y=223
+		width=50
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="act:"
+}
+text {
+	object {
+		x=904
+		y=411
+		width=50
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="max:"
+}
+"text update" {
+	object {
+		x=904
+		y=429
+		width=100
+		height=14
+	}
+	monitor {
+		chan="$(IOC):USER-INTTIM12-MAX"
 		clr=14
 		bclr=56
 	}
