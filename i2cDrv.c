@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.14 2012/11/06 08:29:57 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.15 2012/11/07 09:44:30 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -373,7 +373,7 @@ void *pev_i2cRequetServer(int *crate)
      else
      {
        if( msgptr.cmndOperation == epicsTrue )
-         pev_i2c_cmd( msgptr.i2cDevice, msgptr.i2cCmd);
+         status = pev_i2c_cmd( msgptr.i2cDevice, msgptr.i2cCmd);
        else
        switch(msgptr.i2cDatSiz)
        {
@@ -391,8 +391,9 @@ void *pev_i2cRequetServer(int *crate)
      	   for (ii=0; ii<msgptr.nelem; ii++)
              status = pev_i2c_write( msgptr.i2cDevice, msgptr.i2cCmd+ii*4, ((epicsUInt32*)msgptr.pi2cData)[ii]);
      	   break;
-       }
-       
+       } 
+       if( (status & I2CEXEC_MASK) != I2CEXEC_OK )
+         *(int*)msgptr.opStat = -1;
      }  
        
      callbackRequest((CALLBACK*)msgptr.pCallBack);
