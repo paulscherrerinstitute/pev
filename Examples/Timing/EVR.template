@@ -1,0 +1,642 @@
+#--------------------------------------------------------------------
+# 
+# $Author: kalt_r $
+# $Date: 2012/11/07 09:06:50 $
+#
+# $Revision: 1.1 $
+# $Header: /cvs/G/DRV/pev/Examples/Timing/EVR.template,v 1.1 2012/11/07 09:06:50 kalt_r Exp $
+#
+#--------------------------------------------------------------------
+# Channels in this template:
+
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):START-TRG      # start trigger
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):DFAN-TRG       # dfanout for start trigger
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-MOD        # modulator trigger
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-ILK        # interlock trigger
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-PREAMP     # pre-amp. trigger
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-LLRF       # LLRF trigger
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-LLRF-SYNC  # LLRF-10Hz sync trg
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SPARE1     # spare trigger 1
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET        # EVR settings
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10     # LLRF trigger event 10 Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG100-CHECK   # check for 100Hz events
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100    # LLRF trigger event 100 Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-DLY0-SYNC # write/trg event 15
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-DLY-SYNC  # readout event 16 dly
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF100-SYNC   # event 100 Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-RATE       # trigger rate of RF HW
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC1-TRIG-OUTP # calc. trigger output
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ10-TRG-OFF  # switch to 10Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ10-TRG-ON   # switch to 10Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC2-TRIG-OUTP # calc. trigger output
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ100-TRG-OFF # switch to 100Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ100-TRG-ON  # switch to 100Hz
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT       # calc. event counter
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT       # trigger event counter
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT100    # calc. event100 counter
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT100    # trigger event100 counter
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT      # check event counter
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):EVNT-STATUS    # event status
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT100   # check event counter
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):EVNT100-STATUS # event status
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):GLOBAL-DLY     # global delay for EVR (ns)
+# $(SECTION)-$(MAINSUBDEV):DFAN-GLOBAL-DLY           # dfanout for dly clc
+
+# Channels in this template:
+#--------------------------------------------------------------------
+# Implementation:
+
+#----------------------------------------------
+#------------    EVENT RECEIVER   -------------
+#----------------------------------------------
+
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV): device
+# $(FIBER-EVENT-ID10)   : fiber-optic event number from EVG with rep rate 10 Hz
+# $(SOFT-EVENT-ID10)    : soft-event number with rep rate 10 Hz
+# $(SOFT-EVENT-ID10DLY) : delayed soft-event number with rep rate 10 Hz
+# $(FIBER-EVENT-ID100)  : fiber-optic event number from EVG with rep rate 100 Hz
+# $(SOFT-EVENT-ID10)    : soft-event number with rep rate 100 Hz
+
+#----------------------------------------------
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):START-TRG") 
+{ 
+        field(DESC,"start trigger")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):DFAN-TRG PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+record(dfanout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):DFAN-TRG") 
+{
+        field(DESC,"dfanout for start trigger")
+        field(DOL,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):START-TRG")
+        field(OMSL,"closed_loop")
+        field(OUTA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP0 PP")
+        field(OUTB,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP1 PP")
+        field(OUTC,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP2 PP")
+        field(OUTD,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP3 PP")
+        field(OUTE,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP4 PP")
+        field(OUTF,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP5 PP")
+        field(OUTG,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTPD PP")
+        field(OUTH,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.DVME PP")
+}
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-MOD") 
+{ 
+        field(DESC,"modulator trigger")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP0 PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(ZSV, "MINOR")
+        field(OSV, "NO_ALARM")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-ILK") 
+{ 
+        field(DESC,"interlock trigger")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP1 PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(ZSV, "MINOR")
+        field(OSV, "NO_ALARM")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-PREAMP") 
+{ 
+        field(DESC,"pre-amp. trigger")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP2 PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(ZSV, "MINOR")
+        field(OSV, "NO_ALARM")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-LLRF") 
+{ 
+        field(DESC,"LLRF trigger")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP3 PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(ZSV, "MINOR")
+        field(OSV, "NO_ALARM")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-LLRF-SYNC") 
+{ 
+        field(DESC,"LLRF-10Hz sync trg")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP4 PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(ZSV, "MINOR")
+        field(OSV, "NO_ALARM")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+record(bo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SPARE1") 
+{ 
+        field(DESC,"spare trigger 1")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OTP5 PP")
+        field(ZNAM,"Disabled")
+        field(ONAM,"Enabled")
+        field(ZSV, "MINOR")
+        field(OSV, "NO_ALARM")
+        field(OMSL,"supervisory")
+        field(VAL,"1")
+        field(PINI,"YES")
+}
+
+
+record(er, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET")
+{
+        field(DESC, "EVR settings")
+        field(DTYP, "MRF Event Receiver")
+        field(OUT, "#C$(CARD) S0 @")
+        field(ENAB, "YES")
+        field(PINI, "YES")
+        field(TRG0, "Disabled")
+        field(TRG1, "Disabled")
+        field(TRG2, "Disabled")
+        field(TRG3, "Disabled")
+        field(TRG4, "Disabled")
+        field(TRG5, "Disabled")
+        field(TRG6, "Disabled")
+        #OTP0: hv modulator
+        field(OTP0, "Disabled")
+        field(OT0P, "Normal")
+        field(OT0W, "1")
+        field(OT0D, "1")
+        #OTP1: interlock
+        field(OTP1, "Disabled")
+        field(OT1P, "Normal")
+        field(OT1W, "1")
+        field(OT1D, "1")
+        #OTP2: pre-amplifier
+        field(OTP2, "Disabled")
+        field(OT2P, "Normal")
+        field(OT2W, "1")
+        field(OT2D, "1")
+        #OTP3: LLRF
+        field(OTP3, "Disabled")
+        field(OT3P, "Normal")
+        field(OT3W, "1")
+        field(OT3D, "1")
+        #OTP4: spare 1
+        field(OTP4, "Disabled")
+        field(OT4P, "Normal")
+        field(OT4W, "1")
+        field(OT4D, "1")
+        #OTP5: spare 2
+        field(OTP5, "Disabled")
+        field(OT5P, "Normal")
+        field(OT5W, "1")
+        field(OT5D, "1")
+        field(OTP6, "Disabled")
+        field(OTP7, "Disabled")
+        field(OTP8, "Disabled")
+        field(OTP9, "Disabled")
+        field(OTPA, "Disabled")
+        field(OTPB, "Disabled")
+        field(OTPC, "Disabled")
+        field(OTPD, "Disabled")
+        field(OTL0, "Disabled")
+        field(OTL1, "Disabled")
+        field(OTL2, "Disabled")
+        field(OTL3, "Disabled")
+        field(OTL4, "Disabled")
+        field(OTL5, "Disabled")
+        field(OTL6, "Disabled")
+        #DG0:
+        field(DG0E, "Disabled")
+        field(DG0P, "Normal")
+        field(DG0W, "1")
+        field(DG0D, "1")
+        #DG1:
+        field(DG1E, "Disabled")
+        field(DG1P, "Normal")
+        field(DG1W, "1")
+        field(DG1D, "1")
+        #DG2:
+        field(DG2E, "Disabled")
+        field(DG2P, "Normal")
+        field(DG2W, "1")
+        field(DG2D, "1")
+        #DG3:
+        field(DG3E, "Disabled")
+        field(DG3P, "Normal")
+        field(DG3W, "0")
+        field(DG3D, "0")
+#        field(RXVE, "Enabled")
+        field(FPS0, "0x0")
+        field(FPS1, "0x1")
+        field(FPS2, "0x2")
+        field(FPS3, "0x3")
+        # delayed VME interrupt:
+        # WLHA:                  pre-scaler DVMC 12500*8ns = 0.1 ms
+        # DI LAB soft-event-gen: pre-scaler DVMC 5000*20ns = 0.1 ms
+        field(DVMC, "12500")
+        # delayed VME interrupt: delay DVMD
+        # (number of TICKSIZE) 170x 0.1ms = 17ms
+        field(DVMD, "170")
+        # delayed VME interrupt: enable DVME
+        field(DVME, "Enabled")
+}
+
+record(erevent, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10")
+{
+        field(DESC, "LLRF trigger event 10 Hz")
+        field(DTYP, "MRF Event Receiver")
+        field(OUT, "#C$(CARD) S0 @")
+        field(ENAB, "Enabled")
+        field(ENM,  "$(FIBER-EVENT-ID10)")
+        field(PINI, "YES")
+        field(PRIO, "LOW")
+        field(OUT0,"Enabled")  # modulator
+        field(OUT1,"Enabled")  # interlock
+        field(OUT2,"Enabled")  # pre-ampplifier
+        field(OUT3,"Enabled")  # LLRF
+        field(OUT4,"Enabled")  # LLRF-sync
+        field(OUT5,"Enabled")  # spare 1
+        field(OUT6,"Disabled")
+        field(OUT7,"Disabled")
+        field(OUT8,"Disabled")
+        field(OUT9,"Disabled")
+        field(OUTA,"Disabled")
+        field(OUTB,"Disabled")
+        field(OUTC,"Disabled")
+        field(OUTD,"Enabled")  # needs to be enabled for delayed VME interrupt
+        field(VME, "Enabled")  # IOC
+}
+
+#checks if 100 Hz events are incoming on EVR by enabling the 100 Hz VME interrupt which
+#drives the 100 Hz event-counter.
+record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG100-CHECK")
+{
+        field(DESC, "check for 100Hz events")
+        field(DO1,"0")
+        field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT100.VAL PP")
+        field(DO2,"1")
+        field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.VME PP")
+        
+        field(DLY3,"1")
+        field(DO3,"0")
+        field(LNK3,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.VME PP")
+}
+
+record(erevent, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100")
+{
+        field(DESC, "LLRF trigger event 100 Hz")
+        field(DTYP, "MRF Event Receiver")
+        field(OUT, "#C$(CARD) S0 @")
+        field(ENAB, "Enabled")
+        field(ENM,  "$(FIBER-EVENT-ID100)")
+        field(PINI, "YES")
+        field(PRIO, "LOW")
+        field(OUT0,"Disabled") # modulator
+        field(OUT1,"Disabled") # interlock
+        field(OUT2,"Disabled") # pre-ampplifier
+        field(OUT3,"Disabled") # LLRF
+        field(OUT4,"Disabled") # LLRF-sync
+        field(OUT5,"Disabled") # spare 1
+        field(OUT6,"Disabled")
+        field(OUT7,"Disabled")
+        field(OUT8,"Disabled")
+        field(OUT9,"Disabled")
+        field(OUTA,"Disabled")
+        field(OUTB,"Disabled")
+        field(OUTC,"Disabled")
+        field(OUTD,"Disabled")
+        field(VME, "Disabled") # IOC (for cnt 100 Hz events)
+}
+
+
+record(event,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-DLY0-SYNC")
+{
+	field(DESC,"readout event 10Hz")
+        field(DTYP,"MRF Event Receiver")
+	field(SCAN,"I/O Intr")
+	field(INP, "#C$(CARD) S$(FIBER-EVENT-ID10) @")
+	field(VAL,"$(SOFT-EVENT-ID10)")
+}
+
+record(event,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-DLY-SYNC")
+{
+	field(DESC,"readout event 10Hz dly")
+        field(DTYP,"MRF Event Receiver")
+	field(SCAN,"I/O Intr")
+	field(INP, "#C$(CARD) S256 @") # S256 = delayed VME interupt, fixed to S256
+	field(VAL,"$(SOFT-EVENT-ID10DLY)")
+}
+
+# 100 Hz VME interrupt, used only for Event100 counter, but only during 1s EVR test after command button pressed
+record(event,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF100-SYNC")
+{
+	field(DESC,"event 100 Hz")
+        field(DTYP,"MRF Event Receiver")
+	field(SCAN,"I/O Intr")
+	field(INP, "#C$(CARD) S$(FIBER-EVENT-ID100) @")
+	field(VAL,"$(SOFT-EVENT-ID100)")
+}
+
+
+#-------------------------------------------------------
+#-------     switch between 10 / 100 Hz      -----------
+#-------------------------------------------------------
+
+record ( mbbo,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-RATE")
+{
+    field ( DESC,"trigger rate of RF HW")
+    field ( DTYP,"Soft Channel")
+    field ( SCAN,"Passive")
+    field ( OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC1-TRIG-OUTP.A PP")
+    field ( ZRST,"10 Hz")
+    field ( ONST,"100 Hz")
+    field ( PHAS,"0")
+    field ( VAL,"0")
+    field ( PINI,"YES")
+}
+
+record ( calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC1-TRIG-OUTP")
+{
+    field ( DESC,"calc. trigger output")
+    field ( INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-RATE NPP")
+    field ( CALC,"A")
+    field ( OOPT,"When Zero")
+    field ( OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ10-TRG-OFF PP MS")
+    field ( IVOA,"Don't drive outputs")
+    field ( PINI,"NO")
+    field ( FLNK,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC2-TRIG-OUTP")
+}
+
+record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ10-TRG-OFF")
+{
+        field(DESC,"switch to 10Hz")
+        field(SCAN,"Passive")
+        # switch off
+        field(DLY1,"0.0")
+        field(DO1,"0")
+        field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT0 PP")
+        field(DLY2,"0.0")
+        field(DO2,"0")
+        field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT1 PP")
+        field(DLY3,"0.0")
+        field(DO3,"0")
+        field(LNK3,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT2 PP")
+        field(DLY4,"0.0")
+        field(DO4,"0")
+        field(LNK4,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT3 PP")
+        field(DLY5,"0.0")
+        field(DO5,"0")
+        field(LNK5,"")
+        field(DLY6,"0.0")
+        field(DO6,"0")
+        field(LNK6,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT5 PP")
+        # switch on
+        field(DLY7,"0.5")
+        field(DO7,"1")
+        field(LNK7,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ10-TRG-ON.PROC PP")
+}
+
+record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ10-TRG-ON")
+{
+        field(DESC,"switch to 10Hz")
+        field(SCAN,"Passive")
+        # switch on        
+        field(DLY1,"0.0")
+        field(DO1,"1")
+        field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT0 PP")
+        field(DLY2,"0.0")
+        field(DO2,"1")
+        field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT1 PP")
+        field(DLY3,"0.0")
+        field(DO3,"1")
+        field(LNK3,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT2 PP")
+        field(DLY4,"0.0")
+        field(DO4,"1")
+        field(LNK4,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT3 PP") 
+        field(DLY5,"0.0")
+        field(DO5,"0")
+        field(LNK5,"")
+        field(DLY6,"0.0")
+        field(DO6,"1")
+        field(LNK6,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT5 PP")
+}
+
+record ( calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC2-TRIG-OUTP")
+{
+    field ( DESC,"calc. trigger output")
+    field ( INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-RATE NPP")
+    field ( INPB,"$(SECTION)-$(MAINDEV)-RIOC:100HZ-ENABLE-CLC NPP")
+    field ( CALC,"((A=1)&&(B=1))?1:0")
+    field ( OOPT,"When Non-zero")
+    field ( DOPT,"Use CALC")
+    field ( OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ100-TRG-OFF PP MS")
+    field ( IVOA,"Don't drive outputs")
+    field ( PINI,"NO")
+}
+
+record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ100-TRG-OFF")
+{
+        field(DESC,"switch to 100Hz")
+        field(SCAN,"Passive")
+        # switch off
+        field(DLY1,"0.0")
+        field(DO1,"0")
+        field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT0 PP")
+        field(DLY2,"0.0")
+        field(DO2,"0")
+        field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT1 PP")
+        field(DLY3,"0.0")
+        field(DO3,"0")
+        field(LNK3,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT2 PP")
+        field(DLY4,"0.0")
+        field(DO4,"0")
+        field(LNK4,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT3 PP")
+        field(DLY5,"0.0")
+        field(DO5,"0")
+        field(LNK5,"")
+        field(DLY6,"0.0")
+        field(DO6,"0")
+        field(LNK6,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG10.OUT5 PP")
+        # switch on
+        field(DLY7,"0.5")
+        field(DO7,"1")
+        field(LNK7,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ100-TRG-ON.PROC PP")
+}
+
+record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):SEQ100-TRG-ON")
+{
+        field(DESC,"switch to 100Hz")
+        field(SCAN,"Passive")
+        # switch on        
+        field(DLY1,"0.0")
+        field(DO1,"1")
+        field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT0 PP")
+        field(DLY2,"0.0")
+        field(DO2,"1")
+        field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT1 PP")
+        field(DLY3,"0.0")
+        field(DO3,"1")
+        field(LNK3,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT2 PP")
+        field(DLY4,"0.0")
+        field(DO4,"1")
+        field(LNK4,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT3 PP") 
+        field(DLY5,"0.0")
+        field(DO5,"0")
+        field(LNK5,"")
+        field(DLY6,"0.0")
+        field(DO6,"1")
+        field(LNK6,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LLRF-TRG100.OUT5 PP")
+}
+
+#-------------------------------------------------------
+#-------       counter for soft events       -----------
+#-------------------------------------------------------
+
+record(calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT") 
+{ 
+        field(DESC,"calc. event counter")
+        field(INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT.VAL NPP")
+        # trigger on VME interrupt
+        field(EVNT,"$(SOFT-EVENT-ID10)")
+        field(PRIO,"LOW")
+        field(SCAN,"Event")
+        field(CALC,"A+1")
+        field(OOPT,"Every Time")
+        field(DOPT,"Use CALC")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT PP")
+}
+
+record(ai,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT") 
+{ 
+        field(DESC,"trigger event counter")
+        field(HOPR,"4294967295")
+        field(LOPR,"0")
+        field(PREC,"0")
+}
+
+record(calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT100") 
+{ 
+        field(DESC,"calc. event100 counter")
+        field(INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CLC-EVNT100.VAL NPP")
+        # trigger on VME interrupt 100 Hz Event
+        field(EVNT,"$(SOFT-EVENT-ID100)")
+        field(PRIO,"LOW")
+        field(SCAN,"Event")
+        field(CALC,"A+1")
+        field(OOPT,"Every Time")
+        field(DOPT,"Use CALC")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT100 PP")
+}
+
+record(ai,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT100") 
+{ 
+        field(DESC,"trigger event100 counter")
+        field(HOPR,"4294967295")
+        field(LOPR,"0")
+        field(PREC,"0")
+}
+
+#-------------------------------------------------------
+#-------  check event counter incrementation -----------
+#-------------------------------------------------------
+
+record(calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT") 
+{ 
+        field(DESC,"check event counter")
+        field(INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT NPP")
+        field(INPB,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT.LA NPP")
+        field(INPC,"1")     # inhibit value (0: inhibit, 1: check status)
+        field(SCAN,"2 second") # always check the 10 Hz events asynchron
+        field(PHAS,"3")
+        field(CALC,"((A-B)=0)&(C=1)?1:0")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):EVNT-STATUS.PROC PP")
+}
+
+record(bi,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):EVNT-STATUS") 
+{ 
+        field(DESC,"event status")
+        field(DTYP,"Soft Channel")
+        field(INP,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT")
+        field(ZNAM,"ok")
+        field(ONAM,"no_trigger")
+        field(PINI,"YES")
+        field(ZSV,"NO_ALARM")
+        field(OSV,"MAJOR")
+}
+
+record(calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT100") 
+{ 
+        field(DESC,"check event counter")
+        field(INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CNT-EVNT100 NPP")
+        field(INPB,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT100.LA NPP")
+        field(INPC,"1")     # inhibit value (0: inhibit, 1: check status)
+        field(SCAN,"Event")
+        field(EVNT,"$(SOFT-EVENT-ID100)") # 100 Hz VME interrupt (only active during 1s check period)
+        field(PHAS,"3")
+        field(CALC,"((A-B)=0)&(C=1)?1:0")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):EVNT100-STATUS.PROC PP")
+}
+
+record(bi,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):EVNT100-STATUS") 
+{ 
+        field(DESC,"event status")
+        field(DTYP,"Soft Channel")
+        field(INP,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CHCK-EVNT100")
+        field(ZNAM,"ok")
+        field(ONAM,"no_trigger")
+        field(PINI,"YES")
+        field(ZSV,"NO_ALARM")
+        field(OSV,"MAJOR")
+}
+
+#-------------------------------------------------------
+#-------  Local delay for all EVR outputs -------------
+#-------------------------------------------------------
+record(ao,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LOCAL-DLY") 
+{ 
+        field(DESC,"local delay for EVR (ns)")
+        field(HOPR,"70000")
+        field(LOPR,"0")
+        field(DRVH,"70000")
+        field(DRVL,"0")
+        field(PREC,"0")
+        field(EGU,"ns")
+        field(VAL,"0")
+        field(PINI,"YES")
+        field(FLNK,"$(SECTION)-$(MAINSUBDEV):DFAN-LOCAL-DLY")
+}
+
+# triggers all 6 EVR output delay re-calculation if global delay changed
+record ( dfanout, "$(SECTION)-$(MAINSUBDEV):DFAN-LOCAL-DLY")
+{
+    field(DESC,"dfanout for dly clc")
+    field(DOL,"1")
+    field(OMSL,"closed_loop")
+    field(OUTA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-0.PROC PP")
+    field(OUTB,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-1.PROC PP")
+    field(OUTC,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-2.PROC PP")
+    field(OUTD,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-3.PROC PP")
+    field(OUTE,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-4.PROC PP")
+    field(OUTF,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-5.PROC PP")
+}
+
+# Implementation:
+#--------------------------------------------------------------------

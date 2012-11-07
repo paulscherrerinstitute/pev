@@ -1,0 +1,62 @@
+# $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
+# $Date: 2012/11/07 09:06:50 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            06.11.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: Timing Example for accessing TOSCA-II
+#           * Provide example for VME-EVG-230 card in slot 20
+#           * Provide example for VME-EVR-230RF card in slot 21
+#
+# Purpose of this file:
+#           * startup.script for EPICS
+
+
+
+#######################################################################
+# EPICS specific environment variablees
+putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
+
+
+
+#######################################################################
+# load EPICS specific drivers
+
+# load regDev and pev (=TOSCA-II) drivers
+require "regDev","test"
+require "pev"
+require "mrf200evt","test"
+
+# load G_IFCMON hardware monitoring application for IFC1210 card
+#require "ifcmon"
+
+
+
+#######################################################################
+# define access to TOSCA-II CENTRAL FPGA ressources
+# Swapping options: 0  = no     swapping
+#                   WS = 16 bit swapping
+#                   DS = 32 bit swapping
+#                   QS = 64 bit swapping
+
+
+# slot-1 system / VME_master interface
+# set up a data area in VME A32 address space of length 1NB starting at offset 0 bytes with no 
+# swapping, VME speed = fastest, and Asyn read-out with DMA for aai/aao bigger than 100 elements, else without DMA
+#pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0      , "2eSST320", 0                  )
+
+# VME_slave interface mapping (not mandatory for slot-1 system, but for all other systems it is)
+# ==> currently missing, to be completed here
+
+#######################################################################
+# EVG and EVR configure
+EgConfigure(20,0x200000,0x60,    0x098E8166)  # card in slot 20
+ErConfigure(21,0x100000,0xC2,5,0,0x098E8166)  # card in slot 21

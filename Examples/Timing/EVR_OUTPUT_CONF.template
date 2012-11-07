@@ -1,0 +1,101 @@
+#--------------------------------------------------------------------
+# 
+# $Author: kalt_r $
+# $Date: 2012/11/07 09:06:50 $
+#
+# $Revision: 1.1 $
+# $Header: /cvs/G/DRV/pev/Examples/Timing/EVR_OUTPUT_CONF.template,v 1.1 2012/11/07 09:06:50 kalt_r Exp $
+#
+#--------------------------------------------------------------------
+# channels in this template:
+
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LOC-DELAY-$(OUTPUT-NR)  # local delay $(OUTPUT-NR) for EVR (ns)
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-$(OUTPUT-NR) # calc. delay $(OUTPUT-NR) in clock ticks
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):D-TICKS-$(OUTPUT-NR)    # delay $(OUTPUT-NR) in clock ticks
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):DLY-WIDTH-$(OUTPUT-NR)  # local delay $(OUTPUT-NR) width (ns)
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-WIDTH-$(OUTPUT-NR) # calc. width $(OUTPUT-NR) in clk ticks
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):W-TICKS-$(OUTPUT-NR)    # del. width $(OUTPUT-NR) in clock ticks
+
+# channels in this template:
+#--------------------------------------------------------------------
+# Implementation:
+
+record(ao,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LOC-DELAY-$(OUTPUT-NR)") 
+{ 
+        field(DESC,"local delay $(OUTPUT-NR) for EVR (ns)")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-$(OUTPUT-NR).A PP")
+        field(HOPR,"70000")
+        field(LOPR,"0")
+        field(DRVH,"70000")
+        field(DRVL,"0")
+        field(PREC,"0")
+        field(EGU,"ns")
+        field(VAL,"$(LOC-DELAY)")
+        field(PINI,"YES")
+}
+
+#output to $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.DG$(OUTPUT-NR)D
+record(calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-$(OUTPUT-NR)") 
+{ 
+        field(DESC,"calc. delay $(OUTPUT-NR) in clock ticks")
+        field(INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LOC-DELAY-$(OUTPUT-NR) NPP")
+        field(INPB,"$(TICKSIZE)")
+        field(INPC,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):LOCAL-DLY NPP")
+        field(CALC,"FLOOR((A+C)/B)")
+        field(PREC,"0")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):D-TICKS-$(OUTPUT-NR) PP")
+        field(OOPT,"Every Time")
+        field(DOPT,"Use CALC")
+        field(IVOA,"Don't drive outputs")
+}
+
+record(ao,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):D-TICKS-$(OUTPUT-NR)") 
+{ 
+        field(DESC,"delay $(OUTPUT-NR) in clock ticks")
+        field(DOL, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-DELAY-$(OUTPUT-NR) NPP")
+        field(OMSL,"closed_loop")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OT$(OUTPUT-NR)D PP")
+        field(HOPR,"35000")
+        field(LOPR,"0")
+        field(PREC,"0")
+}
+
+record(ao,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):DLY-WIDTH-$(OUTPUT-NR)") 
+{ 
+        field(DESC,"local delay $(OUTPUT-NR) width (ns)")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-WIDTH-$(OUTPUT-NR) PP")
+        field(HOPR,"35000")
+        field(LOPR,"0")
+        field(PREC,"0")
+        field(EGU,"ns")
+        field(VAL,"$(DLY-WIDTH)")
+        field(PINI,"YES")
+}
+
+#output to $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.DG$(OUTPUT-NR)W
+record(calcout,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-WIDTH-$(OUTPUT-NR)") 
+{ 
+        field(DESC,"calc. width $(OUTPUT-NR) in clk ticks")
+        field(INPA,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):DLY-WIDTH-$(OUTPUT-NR) NPP")
+        field(INPB,"$(TICKSIZE)")
+        field(CALC,"FLOOR((A-1)/B)+1")
+        field(PREC,"0")
+        field(OUT,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):W-TICKS-$(OUTPUT-NR) PP")
+        field(OOPT,"Every Time")
+        field(DOPT,"Use CALC")
+        field(IVOA,"Don't drive outputs")
+}
+
+record(ao,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):W-TICKS-$(OUTPUT-NR)") 
+{ 
+        field(DESC,"del. width $(OUTPUT-NR) in clock ticks")
+        field(DOL, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):CALC-WIDTH-$(OUTPUT-NR) NPP")
+        field(OMSL,"closed_loop")
+        field(OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TRG-SET.OT$(OUTPUT-NR)W PP")
+        field(HOPR,"35000")
+        field(LOPR,"0")
+        field(PREC,"0")
+}
+
+# Implementation:
+#--------------------------------------------------------------------

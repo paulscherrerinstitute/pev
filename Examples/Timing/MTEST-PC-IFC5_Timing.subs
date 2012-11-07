@@ -1,0 +1,60 @@
+# $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_Timing.subs,v $
+# $Date: 2012/11/07 09:06:50 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            06.11.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: Timing Example for accessing TOSCA-II
+#           * Provide example for VME-EVG-230 card in slot 20
+#           * Provide example for VME-EVR-230RF card in slot 21
+#
+# Purpose of this file:
+#           * Substitution file for EPICS
+
+
+
+##########################################################################################
+# event generator card configuration for lab test systems (generates fiber-optic event 16 = 10 Hz)
+file EVG-200.template {
+pattern {SYSTEM,UNIT,CARD ,FIFO,SEQCLK,ETE0,ET0,ETE1, ET1,ETE2, ET2,ETE3, ET3,ETE4,ET4,ETE5,ET5,ETE6,ET6,ETE7,ET7, DBEN7, DBDV7, DBEN6, DBDV6, MEEN4, DBDV4, MEEN1, DBDV1, ACSEQ1, ACSEQ2,ACSYN, ACDIV, ACPHS, ACEV0, DBDV0,MSQ1}
+{"MTEST-PC-IFC5-EVG","RLLE","20","NO","1","NO","0x0","NO","0x7C","NO","0x21","YES","0x11","YES","0x10","NO","0x0","NO","0x0","NO","0x0","NO","3","NO","46","YES","12500000","NO","1250","NO","NO","NO","1","0", "0", "25000000", "NO"}
+}
+file EGEVENT-200.template {
+pattern {SYSTEM,EVENT,CARD,EVNO,RAM, PRIOR,DELY,TIMEUNIT}
+{"MTEST-PC-IFC5-EVG","SQRM-EV1",   "20","0x93","0",10,"1","Clock Ticks"} 
+{"MTEST-PC-IFC5-EVG","LINAC-PRE",  "20","0x60","0","0","2"  ,"Clock Ticks"}
+{"MTEST-PC-IFC5-EVG","LLRF-EV0",  "20","0x10","0","0","70000"  ,"Clock Ticks"}
+}
+
+
+
+##########################################################################################
+# event receiver card configuration
+file EVR.template
+{
+    pattern
+    {SECTION      , MAINDEV, MAINSUBDEV, CARD, FIBER-EVENT-ID10, SOFT-EVENT-ID10, SOFT-EVENT-ID10DLY, FIBER-EVENT-ID100, SOFT-EVENT-ID100}
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 21  , 16              , 13             , 23                , 100              , 100             }
+}
+
+
+# the EVR rear transition module TTL outputs
+file F_LLRF_SMC_EVR_OUTPUT_CONF.template
+{
+    pattern
+    {SECTION      , MAINDEV, MAINSUBDEV, TICKSIZE, OUTPUT-NR, LOC-DELAY, DLY-WIDTH}
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 0        , 28800    , 10000    } # Modulator
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 1        , 0        , 200000   } # Interlock
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 2        , 20000    , 30000    } # Pre-Amplifier
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 3        , 29800    , 10000    } # LLRF (to SMC crate)
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 4        , 0        , 10000    } # LLRF sync 10 Hz
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 5        , 29800    , 10000    } # Spare: Powermeter, ...
+}

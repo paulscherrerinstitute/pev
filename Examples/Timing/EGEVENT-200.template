@@ -1,0 +1,12 @@
+record(egevent, "$(SYSTEM):$(EVENT)")
+{
+        field(DTYP, "MRF Event Generator")
+        field(OUT, "#C$(CARD) S0 @")
+        field(ENM, "$(EVNO)")
+        field(RAM, "$(RAM)")
+        field(DELY, "$(DELY)")
+        field(SCAN, "Passive")
+        field(UNIT, "$(TIMEUNIT)")
+        field(PINI,  "YES")
+	field(VAL,  "$(PRIOR)")
+}
