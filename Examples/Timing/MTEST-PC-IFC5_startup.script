@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2012/11/07 09:06:50 $
-# $Revision: 1.1 $
+# $Date: 2012/11/07 15:14:33 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -58,5 +58,8 @@ require "mrf200evt","test"
 
 #######################################################################
 # EVG and EVR configure
-EgConfigure(20,0x200000,0x60,    0x098E8166)  # card in slot 20
-ErConfigure(21,0x100000,0xC2,5,0,0x098E8166)  # card in slot 21
+          Slot,A16-base,IRQ-vect
+EgConfigure(20,0x200000,0x60                 ,0x098E8166)  # card in slot 20
+
+          Slot,A16-base,IRQ-vect, IRQ-level
+ErConfigure(21,0x100000,0xC2    ,5         ,0,0x098E8166)  # card in slot 21

@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_Timing.subs,v $
-# $Date: 2012/11/07 10:15:28 $
-# $Revision: 1.2 $
+# $Date: 2012/11/07 15:14:33 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -22,18 +22,20 @@
 
 
 ##########################################################################################
-# event generator card configuration for lab test systems (generates fiber-optic event 16 = 10 Hz)
+# event generator card configuration for lab test systems (generates fiber-optic event 16 = 10 Hz (ET4) and 15 = 100 Hz (ET3))
+# setup of EVG with dividers...
 file EVG-200.template {
     pattern
-    {SYSTEM             ,UNIT  ,CARD ,FIFO,SEQCLK,ETE0,ET0  ,ETE1, ET1  ,ETE2, ET2  ,ETE3 , ET3  ,ETE4 ,ET4   ,ETE5,ET5  ,ETE6,ET6  ,ETE7,ET7  , DBEN7, DBDV7, DBEN6, DBDV6, MEEN4, DBDV4    , MEEN1, DBDV1, ACSEQ1, ACSEQ2,ACSYN, ACDIV, ACPHS, ACEV0, DBDV0     , MSQ1}
-    {"MTEST-PC-IFC5-EVG","RLLE","20" ,"NO","1"   ,"NO","0x0","NO","0x7C","NO","0x21","YES","0x11","YES","0x10","NO","0x0","NO","0x0","NO","0x0","NO"  ,"3"   ,"NO"  ,"46"  ,"YES" ,"12500000","NO"  ,"1250","NO"   ,"NO"   ,"NO" ,"1"   ,"0"   , "0"  , "25000000", "NO"}
+    {SYSTEM             ,UNIT  ,CARD ,FIFO,SEQCLK,ETE0,ET0  ,ETE1, ET1  ,ETE2, ET2  ,ETE3 , ET3  ,ETE4 ,ET4   ,ETE5,ET5  ,ETE6,ET6  ,ETE7,ET7  , DBEN7, DBDV7, DBEN6, DBDV6, MEEN3, DBDV3    , MEEN4, DBDV4    , MEEN1, DBDV1, ACSEQ1, ACSEQ2,ACSYN, ACDIV, ACPHS, ACEV0, DBDV0     , MSQ1}
+    {"MTEST-PC-IFC5-EVG","RLLE","20" ,"NO","1"   ,"NO","0x0","NO","0x00","NO","0x00","YES","0x20","NO" ,"0x10","NO","0x0","NO","0x0","NO","0x0","NO"  ,"3"   ,"NO"  ,"46"  ,"YES" ,"1250000" , "YES" ,"12500000","NO"  ,"1250","NO"   ,"NO"   ,"NO" ,"1"   ,"0"   , "0"  , "25000000", "NO"}
 }
+
+# definition of event distribution over fiber link
 file EGEVENT-200.template {
     pattern
     {SYSTEM             ,EVENT       ,CARD ,EVNO   ,RAM ,PRIOR ,DELY    ,TIMEUNIT     }
-    {"MTEST-PC-IFC5-EVG","SQRM-EV1"  ,"20" ,"0x93" ,"0" ,10    ,"1"     ,"Clock Ticks"} 
-    {"MTEST-PC-IFC5-EVG","LINAC-PRE" ,"20" ,"0x60" ,"0" ,"0"   ,"2"     ,"Clock Ticks"}
-    {"MTEST-PC-IFC5-EVG","LLRF-EV0"  ,"20" ,"0x10" ,"0" ,"0"   ,"70000" ,"Clock Ticks"}
+    {"MTEST-PC-IFC5-EVG","LLRF-EV10" ,"20" ,"0x10" ,"0" ,"0"   ,"70000" ,"Clock Ticks"}
+    {"MTEST-PC-IFC5-EVG","LLRF-EV100","20" ,"0x11" ,"0" ,"0"   ,"70000" ,"Clock Ticks"}
 }
 
 
@@ -43,8 +45,8 @@ file EGEVENT-200.template {
 file EVR.template
 {
     pattern
-    {SECTION      , MAINDEV, MAINSUBDEV, CARD, FIBER-EVENT-ID10, SOFT-EVENT-ID10, SOFT-EVENT-ID10DLY, FIBER-EVENT-ID100, SOFT-EVENT-ID100}
-    {MTEST-PC-IFC5, RLLE   , CEVR      , 21  , 16              , 13             , 23                , 100              , 100             }
+    {SECTION      , MAINDEV, MAINSUBDEV, CARD, FIBER-EVENT-ID100, SOFT-EVENT-ID100, SOFT-EVENT-ID100DLY}
+    {MTEST-PC-IFC5, RLLE   , CEVR      , 21  , 32               , 32              , 33                 }
 }
 
 

@@ -46,25 +46,3 @@ record(eg, "$(SYSTEM):$(UNIT)-GEN")
 	field(MSQ1, "$(MSQ1)")
 	field(RMAX, "0xffffffff")
 }
-
-#record(longout,"$(SYSTEM):$(UNIT)-HEARTBEAT")
-#{
-#        field(DESC, "event system heartbeat")
-#        field(SCAN, "1 second")
-#        field(PINI, "NO")
-#        field(OUT, "$(SYSTEM):$(UNIT)-GEN.VME PP NMS")
-#        field(DOL, "122")
-#        field(OMSL,"supervisory")
-#        field(DTYP, "Soft Channel")
-#}
-
-#record(longout,"$(SYSTEM):$(UNIT)-TS-INC")
-#{
-#        field(DESC, "timestamp increment")
-#        field(SCAN, ".1 second")
-#        field(PINI, "NO")
-#        field(OUT, "$(SYSTEM):$(UNIT)-GEN.VME PP NMS")
-#        field(DOL, "124")
-#        field(OMSL,"supervisory")
-#        field(DTYP, "Soft Channel")
-#}
