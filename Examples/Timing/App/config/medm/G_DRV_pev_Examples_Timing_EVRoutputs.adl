@@ -1,0 +1,1003 @@
+
+file {
+	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Timing/App/config/medm/./G_DRV_pev_Examples_Timing_EVRoutputs.adl"
+	version=030104
+}
+display {
+	object {
+		x=257
+		y=79
+		width=838
+		height=392
+	}
+	clr=14
+	bclr=55
+	cmap=""
+	gridSpacing=5
+	gridOn=0
+	snapToGrid=0
+}
+"color map" {
+	ncolors=65
+	colors {
+		ffffff,
+		ececec,
+		dadada,
+		c8c8c8,
+		bbbbbb,
+		aeaeae,
+		9e9e9e,
+		919191,
+		858585,
+		787878,
+		696969,
+		5a5a5a,
+		464646,
+		2d2d2d,
+		000000,
+		00d800,
+		1ebb00,
+		339900,
+		2d7f00,
+		216c00,
+		fd0000,
+		de1309,
+		be190b,
+		a01207,
+		820400,
+		5893ff,
+		597ee1,
+		4b6ec7,
+		3a5eab,
+		27548d,
+		fbf34a,
+		f9da3c,
+		eeb62b,
+		e19015,
+		cd6100,
+		ffb0ff,
+		d67fe2,
+		ae4ebc,
+		8b1a96,
+		610a75,
+		a4aaff,
+		8793e2,
+		6a73c1,
+		4d52a4,
+		343386,
+		c7bb6d,
+		b79d5c,
+		a47e3c,
+		7d5627,
+		58340f,
+		99ffff,
+		73dfff,
+		4ea5f9,
+		2a63e4,
+		0a00b8,
+		ebf1b5,
+		d4db9d,
+		bbc187,
+		a6a462,
+		8b8239,
+		73ff6b,
+		52da3b,
+		3cb420,
+		289315,
+		1a7309,
+	}
+}
+rectangle {
+	object {
+		x=20
+		y=15
+		width=800
+		height=38
+	}
+	"basic attribute" {
+		clr=56
+	}
+}
+text {
+	object {
+		x=27
+		y=18
+		width=180
+		height=28
+	}
+	"basic attribute" {
+		clr=54
+	}
+	textix="EVR rear outputs: $(SECTION)"
+}
+text {
+	object {
+		x=21
+		y=129
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Modulator:"
+}
+text {
+	object {
+		x=21
+		y=159
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Interlock:"
+}
+text {
+	object {
+		x=21
+		y=189
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Pre-Amp.:"
+}
+text {
+	object {
+		x=21
+		y=219
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="LLRF:"
+}
+"text entry" {
+	object {
+		x=187
+		y=127
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-0"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=130
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-0.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=187
+		y=157
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-1"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=160
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-1.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=187
+		y=187
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-2"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=190
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-2.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=187
+		y=217
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-3"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=220
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-3.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=226
+		y=60
+		width=70
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Delay:"
+}
+"text entry" {
+	object {
+		x=396
+		y=128
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-0"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=538
+		y=131
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-0.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=396
+		y=158
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-1"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=538
+		y=161
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-1.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=396
+		y=188
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-2"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=538
+		y=191
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-2.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=396
+		y=218
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-3"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=538
+		y=221
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-3.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=406
+		y=61
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Pulse Width:"
+}
+text {
+	object {
+		x=137
+		y=132
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT0)"
+}
+text {
+	object {
+		x=137
+		y=162
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT1)"
+}
+text {
+	object {
+		x=137
+		y=192
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT2)"
+}
+text {
+	object {
+		x=137
+		y=222
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT3)"
+}
+"text update" {
+	object {
+		x=654
+		y=131
+		width=52
+		height=19
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=654
+		y=161
+		width=52
+		height=19
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=654
+		y=191
+		width=52
+		height=19
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=642
+		y=61
+		width=130
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Trigger Rate:"
+}
+polyline {
+	object {
+		x=14
+		y=81
+		width=805
+		height=0
+	}
+	"basic attribute" {
+		clr=14
+	}
+	"dynamic attribute" {
+		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
+	}
+	points {
+		(14,81)
+		(819,81)
+	}
+}
+polyline {
+	object {
+		x=127
+		y=59
+		width=0
+		height=313
+	}
+	"basic attribute" {
+		clr=14
+	}
+	points {
+		(127,59)
+		(127,372)
+	}
+}
+polyline {
+	object {
+		x=382
+		y=59
+		width=0
+		height=313
+	}
+	"basic attribute" {
+		clr=14
+	}
+	points {
+		(382,59)
+		(382,372)
+	}
+}
+polyline {
+	object {
+		x=637
+		y=59
+		width=0
+		height=313
+	}
+	"basic attribute" {
+		clr=14
+	}
+	points {
+		(637,59)
+		(637,372)
+	}
+}
+polyline {
+	object {
+		x=14
+		y=59
+		width=805
+		height=0
+	}
+	"basic attribute" {
+		clr=14
+	}
+	"dynamic attribute" {
+		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
+	}
+	points {
+		(14,59)
+		(819,59)
+	}
+}
+polyline {
+	object {
+		x=14
+		y=373
+		width=805
+		height=0
+	}
+	"basic attribute" {
+		clr=14
+	}
+	"dynamic attribute" {
+		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
+	}
+	points {
+		(14,373)
+		(819,373)
+	}
+}
+polyline {
+	object {
+		x=14
+		y=59
+		width=0
+		height=313
+	}
+	"basic attribute" {
+		clr=14
+	}
+	points {
+		(14,59)
+		(14,372)
+	}
+}
+polyline {
+	object {
+		x=820
+		y=59
+		width=0
+		height=313
+	}
+	"basic attribute" {
+		clr=14
+	}
+	points {
+		(820,59)
+		(820,372)
+	}
+}
+text {
+	object {
+		x=21
+		y=249
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="LLRF-SNYC:"
+}
+"text entry" {
+	object {
+		x=187
+		y=247
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-4"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=250
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-4.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=396
+		y=248
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-4"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=538
+		y=251
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-4.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=137
+		y=252
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT4)"
+}
+text {
+	object {
+		x=21
+		y=279
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Spare 1:"
+}
+"text entry" {
+	object {
+		x=187
+		y=277
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-5"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=280
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-5.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=396
+		y=278
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-5"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=538
+		y=281
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-5.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=137
+		y=282
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT5)"
+}
+text {
+	object {
+		x=21
+		y=339
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="DVME:"
+}
+"text entry" {
+	object {
+		x=187
+		y=337
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:TRG-SET.DVMD"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=138
+		y=342
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(VME)"
+}
+text {
+	object {
+		x=329
+		y=341
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="x0.1us"
+}
+"text update" {
+	object {
+		x=654
+		y=221
+		width=52
+		height=19
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=654
+		y=281
+		width=52
+		height=19
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
+		clr=14
+		bclr=56
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=654
+		y=341
+		width=50
+		height=18
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="10 Hz"
+}
+text {
+	object {
+		x=654
+		y=251
+		width=50
+		height=18
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="10 Hz"
+}
+"text entry" {
+	object {
+		x=187
+		y=87
+		width=139
+		height=24
+	}
+	control {
+		chan="$(SECTION)-RLLE-CEVR:LOCAL-DLY"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=329
+		y=90
+		width=35
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LOCAL-DLY.EGU"
+		clr=14
+		bclr=2
+	}
+	limits {
+	}
+}
+polyline {
+	object {
+		x=15
+		y=328
+		width=805
+		height=0
+	}
+	"basic attribute" {
+		clr=14
+	}
+	"dynamic attribute" {
+		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
+	}
+	points {
+		(15,328)
+		(820,328)
+	}
+}
+text {
+	object {
+		x=21
+		y=89
+		width=120
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Local DLY"
+}
+text {
+	object {
+		x=21
+		y=108
+		width=100
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(OUT0-OUT5)"
+}
