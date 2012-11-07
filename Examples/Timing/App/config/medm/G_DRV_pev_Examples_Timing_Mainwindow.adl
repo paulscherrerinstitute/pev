@@ -5,10 +5,10 @@ file {
 }
 display {
 	object {
-		x=62
-		y=68
-		width=846
-		height=524
+		x=724
+		y=86
+		width=847
+		height=550
 	}
 	clr=14
 	bclr=55
@@ -87,715 +87,275 @@ display {
 		1a7309,
 	}
 }
-rectangle {
+polyline {
 	object {
-		x=680
-		y=33
-		width=90
-		height=30
+		x=89
+		y=523
+		width=500
+		height=0
 	}
 	"basic attribute" {
-		clr=50
+		clr=14
 	}
 	"dynamic attribute" {
-		clr="alarm"
-		chan="$(SECTION)-RLLE-RIOC:100HZ-ENABLE-CLC"
+		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
 	}
-}
-rectangle {
-	object {
-		x=20
-		y=15
-		width=300
-		height=38
-	}
-	"basic attribute" {
-		clr=56
+	points {
+		(89,523)
+		(589,523)
 	}
 }
 text {
 	object {
-		x=27
-		y=18
+		x=384
+		y=527
+		width=150
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="VMEbus"
+}
+rectangle {
+	object {
+		x=10
+		y=76
+		width=200
+		height=435
+	}
+	"basic attribute" {
+		clr=14
+		fill="outline"
+	}
+}
+text {
+	object {
+		x=30
+		y=10
 		width=180
 		height=28
 	}
 	"basic attribute" {
 		clr=54
 	}
-	textix="EVR: $(SECTION)"
+	textix="IFC1210 Timing Example"
 }
-text {
+rectangle {
 	object {
-		x=22
-		y=62
-		width=250
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="RF event no. (10 Hz):"
-}
-"text update" {
-	object {
-		x=277
-		y=62
-		width=51
-		height=20
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG10.ENM"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=21
-		y=197
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Modulator:"
-}
-text {
-	object {
-		x=21
-		y=227
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Interlock:"
-}
-text {
-	object {
-		x=21
-		y=257
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Pre-Amp.:"
-}
-text {
-	object {
-		x=21
-		y=287
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="LLRF:"
-}
-"text entry" {
-	object {
-		x=187
-		y=195
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-0"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=329
-		y=198
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-0.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=187
-		y=225
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-1"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=329
-		y=228
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-1.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=187
-		y=255
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-2"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=329
-		y=258
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-2.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=187
-		y=285
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-3"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=329
-		y=288
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-3.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=226
-		y=128
-		width=70
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Delay:"
-}
-"text entry" {
-	object {
-		x=396
-		y=196
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-0"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=538
-		y=199
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-0.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=396
-		y=226
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-1"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=538
-		y=229
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-1.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=396
-		y=256
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-2"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=538
-		y=259
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-2.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=396
-		y=286
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-3"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=538
-		y=289
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-3.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=406
-		y=129
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Pulse Width:"
-}
-text {
-	object {
-		x=137
-		y=200
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT0)"
-}
-text {
-	object {
-		x=137
-		y=230
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT1)"
-}
-text {
-	object {
-		x=137
-		y=260
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT2)"
-}
-text {
-	object {
-		x=137
-		y=290
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT3)"
-}
-text {
-	object {
-		x=22
-		y=87
-		width=250
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="RF event no. (100 Hz):"
-}
-"text update" {
-	object {
-		x=277
-		y=87
-		width=51
-		height=20
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG100.ENM"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=199
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=229
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=259
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=642
-		y=129
-		width=130
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Trigger Rate:"
-}
-polyline {
-	object {
-		x=14
-		y=149
-		width=805
-		height=0
-	}
-	"basic attribute" {
-		clr=14
-	}
-	"dynamic attribute" {
-		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
-	}
-	points {
-		(14,149)
-		(819,149)
-	}
-}
-polyline {
-	object {
-		x=127
-		y=127
-		width=0
-		height=313
-	}
-	"basic attribute" {
-		clr=14
-	}
-	points {
-		(127,127)
-		(127,440)
-	}
-}
-polyline {
-	object {
-		x=382
-		y=127
-		width=0
-		height=313
-	}
-	"basic attribute" {
-		clr=14
-	}
-	points {
-		(382,127)
-		(382,440)
-	}
-}
-polyline {
-	object {
-		x=637
-		y=127
-		width=0
-		height=313
-	}
-	"basic attribute" {
-		clr=14
-	}
-	points {
-		(637,127)
-		(637,440)
-	}
-}
-polyline {
-	object {
-		x=14
-		y=127
-		width=805
-		height=0
-	}
-	"basic attribute" {
-		clr=14
-	}
-	"dynamic attribute" {
-		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
-	}
-	points {
-		(14,127)
-		(819,127)
-	}
-}
-polyline {
-	object {
-		x=14
-		y=441
-		width=805
-		height=0
-	}
-	"basic attribute" {
-		clr=14
-	}
-	"dynamic attribute" {
-		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
-	}
-	points {
-		(14,441)
-		(819,441)
-	}
-}
-polyline {
-	object {
-		x=14
-		y=127
-		width=0
-		height=313
-	}
-	"basic attribute" {
-		clr=14
-	}
-	points {
-		(14,127)
-		(14,440)
-	}
-}
-polyline {
-	object {
-		x=820
-		y=127
-		width=0
-		height=313
-	}
-	"basic attribute" {
-		clr=14
-	}
-	points {
-		(820,127)
-		(820,440)
-	}
-}
-text {
-	object {
-		x=16
-		y=469
-		width=180
-		height=18
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="No. of received events:"
-}
-"text update" {
-	object {
-		x=390
-		y=467
+		x=227
+		y=76
 		width=100
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:CNT-EVNT"
-		clr=14
-		bclr=56
-	}
-	align="horiz. right"
-	limits {
-	}
-}
-oval {
-	object {
-		x=506
-		y=465
-		width=20
-		height=20
+		height=435
 	}
 	"basic attribute" {
 		clr=14
+		fill="outline"
 	}
-	"dynamic attribute" {
-		clr="alarm"
-		chan="$(SECTION)-RLLE-CEVR:EVNT-STATUS"
+}
+rectangle {
+	object {
+		x=333
+		y=77
+		width=500
+		height=435
+	}
+	"basic attribute" {
+		clr=14
+		fill="outline"
+	}
+}
+polyline {
+	object {
+		x=575
+		y=513
+		width=0
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+		fill="outline"
+	}
+	points {
+		(575,513)
+		(575,523)
+	}
+}
+polyline {
+	object {
+		x=275
+		y=512
+		width=0
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+		fill="outline"
+	}
+	points {
+		(275,512)
+		(275,522)
+	}
+}
+polyline {
+	object {
+		x=98
+		y=512
+		width=0
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+		fill="outline"
+	}
+	points {
+		(98,512)
+		(98,522)
 	}
 }
 text {
 	object {
-		x=534
-		y=468
+		x=579
+		y=513
 		width=50
-		height=18
+		height=10
 	}
 	"basic attribute" {
 		clr=14
 	}
-	textix="(10 Hz)"
+	textix="slot 21"
 }
 text {
 	object {
-		x=16
-		y=496
-		width=180
-		height=18
+		x=278
+		y=513
+		width=50
+		height=10
 	}
 	"basic attribute" {
 		clr=14
 	}
-	textix="No. of received events during 1s check period:"
+	textix="slot 20"
+}
+text {
+	object {
+		x=101
+		y=513
+		width=50
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="slot 1"
+}
+text {
+	object {
+		x=14
+		y=79
+		width=50
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="IFC1210: $(SECTION)"
+}
+text {
+	object {
+		x=231
+		y=79
+		width=50
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="VME-EVG-230"
+}
+text {
+	object {
+		x=336
+		y=79
+		width=50
+		height=10
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="VME-EVR-230RF"
+}
+arc {
+	object {
+		x=275
+		y=62
+		width=147
+		height=30
+	}
+	"basic attribute" {
+		clr=34
+		fill="outline"
+		width=2
+	}
+	begin=0
+	path=11520
+}
+"choice button" {
+	object {
+		x=235
+		y=148
+		width=85
+		height=65
+	}
+	control {
+		chan="$(SECTION)-EVG:RLLE-GEN.ETE4"
+		clr=14
+		bclr=4
+	}
+}
+text {
+	object {
+		x=232
+		y=129
+		width=50
+		height=13
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="10 Hz Event:"
+}
+text {
+	object {
+		x=235
+		y=219
+		width=50
+		height=13
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="No:"
 }
 "text update" {
 	object {
-		x=390
-		y=494
+		x=262
+		y=220
+		width=51
+		height=13
+	}
+	monitor {
+		chan="$(SECTION)-EVG:RLLE-GEN.ET4"
+		clr=14
+		bclr=45
+	}
+	limits {
+	}
+}
+"text update" {
+	object {
+		x=386
+		y=375
 		width=100
 		height=18
 	}
@@ -810,8 +370,8 @@ text {
 }
 oval {
 	object {
-		x=506
-		y=492
+		x=502
+		y=373
 		width=20
 		height=20
 	}
@@ -825,466 +385,186 @@ oval {
 }
 text {
 	object {
-		x=534
-		y=495
+		x=530
+		y=376
 		width=70
 		height=18
 	}
 	"basic attribute" {
 		clr=14
 	}
-	textix="(100 Hz)"
+	textix="(VME event 100 Hz)"
+}
+"related display" {
+	object {
+		x=613
+		y=107
+		width=200
+		height=30
+	}
+	display[0] {
+		name="G_DRV_pev_Examples_Timing_EVRoutputs.adl"
+		args="SECTION=$(SECTION)"
+	}
+	clr=14
+	bclr=4
+	label="-EVR rear outputs"
 }
 text {
 	object {
-		x=21
-		y=317
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="LLRF-SNYC:"
-}
-"text entry" {
-	object {
-		x=187
-		y=315
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-4"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=329
-		y=318
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-4.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=396
-		y=316
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-4"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=538
-		y=319
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-4.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=137
-		y=320
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT4)"
-}
-text {
-	object {
-		x=21
-		y=347
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Spare 1:"
-}
-"text entry" {
-	object {
-		x=187
-		y=345
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-5"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=329
-		y=348
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOC-DELAY-5.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text entry" {
-	object {
-		x=396
-		y=346
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-5"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=538
-		y=349
-		width=35
-		height=18
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:DLY-WIDTH-5.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=137
-		y=350
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT5)"
-}
-text {
-	object {
-		x=21
-		y=407
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="DVME:"
-}
-"text entry" {
-	object {
-		x=187
-		y=405
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:TRG-SET.DVMD"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=138
-		y=410
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(VME)"
-}
-text {
-	object {
-		x=329
-		y=409
-		width=40
-		height=16
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="x0.1us"
-}
-"text update" {
-	object {
-		x=654
-		y=289
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=349
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=654
-		y=409
+		x=232
+		y=112
 		width=50
-		height=18
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="10 Hz"
-}
-text {
-	object {
-		x=654
-		y=319
-		width=50
-		height=18
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="10 Hz"
-}
-"message button" {
-	object {
-		x=607
-		y=493
-		width=150
 		height=20
 	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="ET4:"
+}
+"choice button" {
+	object {
+		x=237
+		y=351
+		width=85
+		height=65
+	}
 	control {
-		chan="$(SECTION)-RLLE-CEVR:TRG100-CHECK.PROC"
+		chan="$(SECTION)-EVG:RLLE-GEN.ETE3"
 		clr=14
 		bclr=4
 	}
-	label="Check 100 Hz Events"
-	press_msg="1"
 }
 text {
 	object {
-		x=516
-		y=75
-		width=150
-		height=10
+		x=234
+		y=332
+		width=50
+		height=13
 	}
 	"basic attribute" {
 		clr=14
 	}
-	textix="the symstem to the correct state."
+	textix="100 Hz Event:"
 }
 text {
 	object {
-		x=516
-		y=63
-		width=150
-		height=10
+		x=237
+		y=422
+		width=50
+		height=13
 	}
 	"basic attribute" {
 		clr=14
 	}
-	textix="Use general settings window to switch"
-}
-text {
-	object {
-		x=516
-		y=36
-		width=150
-		height=14
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="use only RF-group!"
-}
-text {
-	object {
-		x=514
-		y=21
-		width=150
-		height=18
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="High Power Trigger:"
-}
-"message button" {
-	object {
-		x=684
-		y=12
-		width=80
-		height=20
-	}
-	control {
-		chan="$(SECTION)-RLLE-RIOC:SET-TRG-RATE10.PROC"
-		clr=14
-		bclr=56
-	}
-	label="Set 10 Hz"
-	press_msg="1"
-}
-"message button" {
-	object {
-		x=685
-		y=38
-		width=80
-		height=20
-	}
-	control {
-		chan="$(SECTION)-RLLE-RIOC:SET-TRG-RATE100.PROC"
-		clr=14
-		bclr=56
-	}
-	label="Set 100 Hz"
-	press_msg="1"
-}
-"text entry" {
-	object {
-		x=187
-		y=155
-		width=139
-		height=24
-	}
-	control {
-		chan="$(SECTION)-RLLE-CEVR:LOCAL-DLY"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
+	textix="No:"
 }
 "text update" {
 	object {
-		x=329
-		y=158
-		width=35
-		height=18
+		x=264
+		y=423
+		width=51
+		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-CEVR:LOCAL-DLY.EGU"
-		clr=14
-		bclr=2
-	}
-	limits {
-	}
-}
-polyline {
-	object {
-		x=15
-		y=396
-		width=805
-		height=0
-	}
-	"basic attribute" {
-		clr=14
-	}
-	"dynamic attribute" {
-		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG.ENM"
-	}
-	points {
-		(15,396)
-		(820,396)
-	}
-}
-text {
-	object {
-		x=21
-		y=157
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Local DLY"
-}
-text {
-	object {
-		x=21
-		y=176
-		width=100
-		height=10
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="(OUT0-OUT5)"
-}
-"text entry" {
-	object {
-		x=404
-		y=66
-		width=80
-		height=20
-	}
-	control {
-		chan="$(SECTION)-EVG:RLLE-GEN.ETE4"
+		chan="$(SECTION)-EVG:RLLE-GEN.ET3"
 		clr=14
 		bclr=45
 	}
 	limits {
 	}
+}
+text {
+	object {
+		x=234
+		y=315
+		width=50
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="ET3:"
+}
+"text update" {
+	object {
+		x=386
+		y=406
+		width=100
+		height=18
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:CNT-EVNT100DLY"
+		clr=14
+		bclr=56
+	}
+	align="horiz. right"
+	limits {
+	}
+}
+oval {
+	object {
+		x=502
+		y=404
+		width=20
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	"dynamic attribute" {
+		clr="alarm"
+		chan="$(SECTION)-RLLE-CEVR:EVNT100DLY-STATUS"
+	}
+}
+text {
+	object {
+		x=530
+		y=407
+		width=70
+		height=18
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="(Delayed VME event 100 Hz)"
+}
+text {
+	object {
+		x=386
+		y=324
+		width=50
+		height=13
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="EVR listen to event no.:"
+}
+"text update" {
+	object {
+		x=569
+		y=325
+		width=51
+		height=13
+	}
+	monitor {
+		chan="$(SECTION)-RLLE-CEVR:LLRF-TRG100.ENM"
+		clr=14
+		bclr=45
+	}
+	limits {
+	}
+}
+text {
+	object {
+		x=386
+		y=357
+		width=50
+		height=13
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="Event counter on IOC:"
 }

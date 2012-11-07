@@ -1,12 +1,12 @@
 
 file {
-	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Timing/App/config/medm/./G_DRV_pev_Examples_Timing_EVRoutputs.adl"
+	name="/afs/psi.ch/user/k/kalt_r/cvs_root/G/DRV/pev/Examples/Timing/App/config/medm/G_DRV_pev_Examples_Timing_EVRoutputs.adl"
 	version=030104
 }
 display {
 	object {
-		x=257
-		y=79
+		x=883
+		y=109
 		width=838
 		height=392
 	}
@@ -109,54 +109,6 @@ text {
 		clr=54
 	}
 	textix="EVR rear outputs: $(SECTION)"
-}
-text {
-	object {
-		x=21
-		y=129
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Modulator:"
-}
-text {
-	object {
-		x=21
-		y=159
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Interlock:"
-}
-text {
-	object {
-		x=21
-		y=189
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Pre-Amp.:"
-}
-text {
-	object {
-		x=21
-		y=219
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="LLRF:"
 }
 "text entry" {
 	object {
@@ -424,7 +376,7 @@ text {
 }
 text {
 	object {
-		x=137
+		x=21
 		y=132
 		width=40
 		height=16
@@ -436,7 +388,7 @@ text {
 }
 text {
 	object {
-		x=137
+		x=21
 		y=162
 		width=40
 		height=16
@@ -448,7 +400,7 @@ text {
 }
 text {
 	object {
-		x=137
+		x=21
 		y=192
 		width=40
 		height=16
@@ -460,7 +412,7 @@ text {
 }
 text {
 	object {
-		x=137
+		x=21
 		y=222
 		width=40
 		height=16
@@ -469,51 +421,6 @@ text {
 		clr=14
 	}
 	textix="(OUT3)"
-}
-"text update" {
-	object {
-		x=654
-		y=131
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=161
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=191
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
 }
 text {
 	object {
@@ -656,18 +563,6 @@ polyline {
 		(820,372)
 	}
 }
-text {
-	object {
-		x=21
-		y=249
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="LLRF-SNYC:"
-}
 "text entry" {
 	object {
 		x=187
@@ -730,7 +625,7 @@ text {
 }
 text {
 	object {
-		x=137
+		x=21
 		y=252
 		width=40
 		height=16
@@ -739,18 +634,6 @@ text {
 		clr=14
 	}
 	textix="(OUT4)"
-}
-text {
-	object {
-		x=21
-		y=279
-		width=120
-		height=20
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="Spare 1:"
 }
 "text entry" {
 	object {
@@ -814,7 +697,7 @@ text {
 }
 text {
 	object {
-		x=137
+		x=21
 		y=282
 		width=40
 		height=16
@@ -873,61 +756,7 @@ text {
 	"basic attribute" {
 		clr=14
 	}
-	textix="x0.1us"
-}
-"text update" {
-	object {
-		x=654
-		y=221
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-"text update" {
-	object {
-		x=654
-		y=281
-		width=52
-		height=19
-	}
-	monitor {
-		chan="$(SECTION)-RLLE-CEVR:TRG-RATE"
-		clr=14
-		bclr=56
-	}
-	limits {
-	}
-}
-text {
-	object {
-		x=654
-		y=341
-		width=50
-		height=18
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="10 Hz"
-}
-text {
-	object {
-		x=654
-		y=251
-		width=50
-		height=18
-	}
-	"basic attribute" {
-		clr=14
-	}
-	textix="10 Hz"
+	textix="x0.1ms"
 }
 "text entry" {
 	object {
@@ -963,7 +792,7 @@ polyline {
 	object {
 		x=15
 		y=328
-		width=805
+		width=622
 		height=0
 	}
 	"basic attribute" {
@@ -974,7 +803,7 @@ polyline {
 	}
 	points {
 		(15,328)
-		(820,328)
+		(637,328)
 	}
 }
 text {
@@ -1000,4 +829,16 @@ text {
 		clr=14
 	}
 	textix="(OUT0-OUT5)"
+}
+text {
+	object {
+		x=654
+		y=131
+		width=40
+		height=16
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="100 Hz"
 }
