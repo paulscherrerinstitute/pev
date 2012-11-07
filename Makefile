@@ -3,8 +3,7 @@ include /ioc/tools/driver.makefile
 #EPICS_VERSIONS = 3.14.8
 EXCLUDE_VERSIONS=3.13
 
-SOURCES = pevDrv.c i2cDrv.c ifcDev.c 
-#devLibVMEOSD.c devLibInitiator.cc
+SOURCES = pevDrv.c i2cDrv.c ifcDev.c devLibVMEOSD.c devLibInitiator.cc
 BUILDCLASSES = Linux
 USR_CPPFLAGS = -DPPC -mlongcall -g -DLITTLE_ENDIAN -DDEBUG -Wall
 
