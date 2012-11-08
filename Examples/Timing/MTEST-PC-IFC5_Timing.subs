@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_Timing.subs,v $
-# $Date: 2012/11/07 15:14:33 $
-# $Revision: 1.3 $
+# $Date: 2012/11/08 13:46:49 $
+# $Revision: 1.4 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -62,3 +62,15 @@ file EVR_OUTPUT_CONF.template
     {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 4        , 0        , 10000    } # LLRF sync 10 Hz
     {MTEST-PC-IFC5, RLLE   , CEVR      , 8       , 5        , 29800    , 10000    } # Spare: Powermeter, ...
 }
+
+
+
+##########################################################################################
+# time measure with genSub record
+#file timeMeasure.template
+#{
+#    pattern
+#    {SECTION      , MAINDEV, MAINSUBDEV, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
+#    {MTEST-PC-IFC5, RLLE   , RIOC      , 1      , Passive   , 32            , Event    , 32           }
+#}
+

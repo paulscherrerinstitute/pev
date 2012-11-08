@@ -1,0 +1,185 @@
+#--------------------------------------------------------------------
+# 
+# $Author: kalt_r $
+# $Date: 2012/11/08 13:46:49 $
+#
+# $Revision: 1.1 $
+# $Header: /cvs/G/DRV/pev/Examples/Timing/timeMeasure.template,v 1.1 2012/11/08 13:46:49 kalt_r Exp $
+#
+#--------------------------------------------------------------------
+
+#--------------------------------------------------------------------
+# Channels in this template:
+
+# user input channel
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE-RESET
+
+# user outut channel
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MIN
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MAX
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTART-COUNTER
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTOP-COUNTER
+
+# internal calculation channel
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE-START
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE-STOP
+# $(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE
+
+# Channels in this template:
+#--------------------------------------------------------------------
+# Implementation:
+
+# Starts the clock
+record ( bo, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIMSTART" )
+{
+    field ( VAL, "1" )
+    field ( OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.A PP" )
+    field ( EVNT, "$(START_EVENT-ID)" )
+    field ( SCAN, "$(START_SCAN)" )
+}
+
+# Stops the clock
+record ( bo, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIMSTOP" )
+{
+    field ( VAL, "0" )
+    field ( OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.A PP" )
+    field ( EVNT, "$(STOP_EVENT-ID)" )
+    field ( SCAN, "$(STOP_SCAN)" )
+}
+
+# resets min max clocks
+record ( bo, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE-RESET" )
+{
+    field ( VAL, "1" )
+    field ( OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.B NPP" )
+}
+
+# Stop clock implementation
+record ( genSub,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE" )
+{
+    field ( DESC, "Measures time span" )
+    field ( INAM,"LLRF_timeMeasureInit" )
+    field ( SNAM,"LLRF_timeMeasure" )
+    # 1: Starts time measuring, 0: Stops time measuring
+    field ( INPA,"" ) # Will be set externally
+    field ( FTA,"LONG" )
+    field ( NOA,"1" )
+    # 1: resets Max Min times
+    field ( INPB,"" ) # Will be set externally
+    field ( FTB,"LONG" )
+    field ( NOB,"1" )
+    #
+    #####################################
+    # return values from subroutine
+    #####################################
+    # 
+    field ( OUTA, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT PP")
+    field ( FTVA, "FLOAT")
+    field ( NOVA, "1")
+    # 
+    field ( OUTB, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MIN PP")
+    field ( FTVB, "FLOAT")
+    field ( NOVB, "1")
+    # 
+    field ( OUTC, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MAX PP")
+    field ( FTVC, "FLOAT")
+    field ( NOVC, "1")
+    # 
+    field ( OUTD, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTART-COUNTER PP")
+    field ( FTVD, "LONG")
+    field ( NOVD, "1")
+    # 
+    field ( OUTE, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTOP-COUNTER PP")
+    field ( FTVE, "LONG")
+    field ( NOVE, "1")
+    # 
+    field ( OUTF, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-CPU-TIME PP")
+    field ( FTVF, "FLOAT")
+    field ( NOVF, "1")
+    #
+    field ( FLNK, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE-RESET-REMOVE" )
+}
+
+# Disables the reset
+record ( bo, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE-RESET-REMOVE" )
+{
+    field ( DTYP, "Soft Channel" )
+    field ( VAL, "0" )
+    field ( OUT, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.B NPP" )
+}
+
+# Measured time output
+record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT" )
+{
+    field ( DESC, "Measured time in us" )
+    field ( DTYP, "Soft Channel" )
+    field ( PREC, "1" )
+    field ( EGU , "us" )
+    field ( FLNK, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT-HIST" )
+}
+# Histogram record
+record ( histogram, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT-HIST" )
+{
+    field ( DESC, "histogram" )
+    field ( DTYP, "Soft Channel" )
+    field ( SVL , "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT NPP" )
+    field ( NELM, "$(HISTSIZE)" )
+    field ( ULIM, "25.0" )
+    field ( LLIM, "0.0" )
+}
+
+# Measured time output
+record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MIN" )
+{
+    field ( DESC, "Measured time in us" )
+    field ( DTYP, "Soft Channel" )
+    field ( PREC, "1" )
+    field ( EGU, "us" )
+}
+
+# Measured time output
+record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MAX" )
+{
+    field ( DESC, "Measured time in us" )
+    field ( DTYP, "Soft Channel" )
+    field ( PREC, "1" )
+    field ( EGU, "us" )
+}
+
+# Time restart counter
+record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTART-COUNTER" )
+{
+    field ( DESC, "Measured time in us" )
+    field ( DTYP, "Soft Channel" )
+}
+
+# Time restop counter
+record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTOP-COUNTER" )
+{
+    field ( DESC, "Measured time in us" )
+    field ( DTYP, "Soft Channel" )
+}
+
+# measures absolute time value
+record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-CPU-TIME" )
+{
+    field ( DESC, "PPC time" )
+    field ( DTYP, "Soft Channel" )
+    field ( PREC, "3" )
+}
+
+record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TIME-RESET-ATINIT")
+{
+    field(DESC, "Clear first measure")
+    field(PINI,"YES")
+    field(DO1,"1")
+    field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.B NPP")
+    field(DLY1,"1")
+    field(DO2,"0")
+    field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.B NPP")
+    field(DLY2,"1")
+}
+
+# Implementation:
+#--------------------------------------------------------------------
