@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_Timing.subs,v $
-# $Date: 2012/11/08 13:46:49 $
-# $Revision: 1.4 $
+# $Date: 2012/11/08 14:20:41 $
+# $Revision: 1.5 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -67,10 +67,10 @@ file EVR_OUTPUT_CONF.template
 
 ##########################################################################################
 # time measure with genSub record
-#file timeMeasure.template
-#{
-#    pattern
-#    {SECTION      , MAINDEV, MAINSUBDEV, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
-#    {MTEST-PC-IFC5, RLLE   , RIOC      , 1      , Passive   , 32            , Event    , 32           }
-#}
+file timeMeasure.template
+{
+    pattern
+    {SECTION      , MAINDEV, MAINSUBDEV, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID, HISTSIZE}
+    {MTEST-PC-IFC5, RLLE   , RIOC      , 1      , Passive   , 32            , Event    , 32           , 200}
+}
 

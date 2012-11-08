@@ -597,7 +597,7 @@ text {
 text {
 	object {
 		x=21
-		y=284
+		y=204
 		width=50
 		height=13
 	}
@@ -609,7 +609,7 @@ text {
 "text update" {
 	object {
 		x=198
-		y=300
+		y=220
 		width=150
 		height=13
 	}
@@ -623,7 +623,7 @@ text {
 text {
 	object {
 		x=21
-		y=344
+		y=258
 		width=50
 		height=13
 	}
@@ -635,7 +635,7 @@ text {
 "text update" {
 	object {
 		x=198
-		y=392
+		y=289
 		width=100
 		height=13
 	}
@@ -650,7 +650,7 @@ text {
 text {
 	object {
 		x=21
-		y=357
+		y=271
 		width=50
 		height=13
 	}
@@ -662,7 +662,7 @@ text {
 text {
 	object {
 		x=159
-		y=391
+		y=288
 		width=50
 		height=13
 	}
@@ -674,7 +674,7 @@ text {
 "text update" {
 	object {
 		x=303
-		y=392
+		y=289
 		width=30
 		height=13
 	}
@@ -689,7 +689,7 @@ text {
 "text update" {
 	object {
 		x=198
-		y=408
+		y=305
 		width=100
 		height=13
 	}
@@ -704,7 +704,7 @@ text {
 text {
 	object {
 		x=159
-		y=407
+		y=304
 		width=50
 		height=13
 	}
@@ -716,12 +716,12 @@ text {
 "text update" {
 	object {
 		x=303
-		y=408
+		y=305
 		width=30
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:TIME-ACT.EGU"
+		chan="$(SECTION)-RLLE-RIOC:1-TIME-ACT.EGU"
 		clr=14
 		bclr=45
 	}
@@ -731,7 +731,7 @@ text {
 "text update" {
 	object {
 		x=198
-		y=423
+		y=320
 		width=100
 		height=13
 	}
@@ -746,7 +746,7 @@ text {
 text {
 	object {
 		x=159
-		y=422
+		y=319
 		width=50
 		height=13
 	}
@@ -758,7 +758,7 @@ text {
 "text update" {
 	object {
 		x=303
-		y=423
+		y=320
 		width=30
 		height=13
 	}
@@ -768,5 +768,21 @@ text {
 		bclr=45
 	}
 	limits {
+	}
+}
+"cartesian plot" {
+	object {
+		x=28
+		y=343
+		width=314
+		height=150
+	}
+	plotcom {
+		clr=14
+		bclr=45
+	}
+	trace[0] {
+		ydata="$(SECTION)-RLLE-RIOC:1-TIME-ACT-HIST"
+		data_clr=14
 	}
 }
