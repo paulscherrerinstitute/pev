@@ -1,10 +1,10 @@
 #-------------------------------------------------------------------- 
 #  
-# $Author: kalt_r $ 
-# $Date: 2012/11/08 12:35:27 $ 
+# $Author: zimoch $ 
+# $Date: 2012/11/08 13:05:14 $ 
 # 
-# $Revision: 1.1 $ 
-# $Header: /cvs/G/DRV/pev/Examples/Timing/src/Makefile,v 1.1 2012/11/08 12:35:27 kalt_r Exp $ 
+# $Revision: 1.2 $ 
+# $Header: /cvs/G/DRV/pev/Examples/Timing/src/Makefile,v 1.2 2012/11/08 13:05:14 zimoch Exp $ 
 # 
 #-------------------------------------------------------------------- 
 
@@ -12,7 +12,7 @@ include /ioc/tools/driver.makefile
 BUILDCLASSES += Linux                               # build it only for Linux, not for vxWorks
 EPICS_VERSIONS = 3.14.12                            # so far (nov. 2012) the only supported EPICS version at IFC1210 board
 CROSS_COMPILER_TARGET_ARCHS = embeddedlinux-e500v2  # choose the right cross-compiler (ELDK 5.x), but only available at the *lc machines
-
+USE_LIBVERSION = NO
 
 getCommonFiles:
 	@if (test -f COMMON_FILES);then \
