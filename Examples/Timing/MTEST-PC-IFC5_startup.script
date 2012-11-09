@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2012/11/08 14:20:41 $
-# $Revision: 1.4 $
+# $Date: 2012/11/09 12:38:32 $
+# $Revision: 1.5 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -34,8 +34,13 @@ putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
 require "regDev","test"
 require "pev"
 require "mrf200evt","test"
-require "Timing"
+
+# for the histogram record, which is not in EPICS base
 require "histogram"
+
+# for our genSub c-library, Timing since we are in G/DRV/pev/Examples/Timing
+# and Timing will then be the name of our library.
+require "Timing"
 
 # load G_IFCMON hardware monitoring application for IFC1210 card
 #require "ifcmon"

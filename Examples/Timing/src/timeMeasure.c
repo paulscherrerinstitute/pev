@@ -1,6 +1,6 @@
 /* $Author: kalt_r $
-*  $Date: 2012/11/08 12:35:27 $
-* $Revision: 1.1 $
+*  $Date: 2012/11/09 12:38:32 $
+* $Revision: 1.2 $
 *
 * ATTENTION:
 * To be used only for Linux / embeddedlinux-e500v2.
@@ -30,13 +30,13 @@
 
 typedef struct
 {
+    struct timeval tv1;
     long measuringStarted;
-    unsigned long startTimeCounter;
     long restartCounter;
     long restopCounter;
     long firstMeasuring;
-    float timeMin;
-    float timeMax;
+    long timeMin;
+    long timeMax;
 } timeMeasureStorageData;
 
 /** Initializes and spanws a timeMeasure task.
@@ -71,13 +71,14 @@ int LLRF_timeMeasureInit ( struct genSubRecord* genSubData )
         return ERROR;
     }
     genSubData -> dpvt = dataStorage;
+    dataStorage -> tv1.tv_sec = 0;
+    dataStorage -> tv1.tv_usec  = 0;
     dataStorage -> measuringStarted = 0;
-    dataStorage -> startTimeCounter = 0;
     dataStorage -> restartCounter = 0;
     dataStorage -> restopCounter = 0;
     dataStorage -> firstMeasuring = 1;
-    dataStorage -> timeMin = 0.0;
-    dataStorage -> timeMax = 0.0;
+    dataStorage -> timeMin = 0;
+    dataStorage -> timeMax = 0;
     {/*Checks for input output fields*/
         init_error_flag = 0;
         if (genSubData->fta!=menuFtypeLONG) 
@@ -100,30 +101,30 @@ int LLRF_timeMeasureInit ( struct genSubRecord* genSubData )
             init_error_flag=ERROR;
             printf(" ( e: %s ) NOB not 1\r\n", __FUNCTION__);
         }
-        if (genSubData->ftva!=menuFtypeFLOAT) 
+        if (genSubData->ftva!=menuFtypeLONG) 
         {
             init_error_flag=ERROR;
-            printf(" ( e: %s ) FTVA type not FLOAT\r\n", __FUNCTION__);
+            printf(" ( e: %s ) FTVA type not LONG\r\n", __FUNCTION__);
         }
         if (genSubData->nova!=1) 
         {
             init_error_flag=ERROR;
             printf(" ( e: %s ) NOVA not 1\r\n", __FUNCTION__);
         }
-        if (genSubData->ftvb!=menuFtypeFLOAT) 
+        if (genSubData->ftvb!=menuFtypeLONG) 
         {
             init_error_flag=ERROR;
-            printf(" ( e: %s ) FTVB type not FLOAT\r\n", __FUNCTION__);
+            printf(" ( e: %s ) FTVB type not LONG\r\n", __FUNCTION__);
         }
         if (genSubData->novb!=1) 
         {
             init_error_flag=ERROR;
             printf(" ( e: %s ) NOVB not 1\r\n", __FUNCTION__);
         }
-        if (genSubData->ftvc!=menuFtypeFLOAT) 
+        if (genSubData->ftvc!=menuFtypeLONG) 
         {
             init_error_flag=ERROR;
-            printf(" ( e: %s ) FTVC type not FLOAT\r\n", __FUNCTION__);
+            printf(" ( e: %s ) FTVC type not LONG\r\n", __FUNCTION__);
         }
         if (genSubData->novc!=1) 
         {
@@ -179,19 +180,17 @@ int LLRF_timeMeasureInit ( struct genSubRecord* genSubData )
 int LLRF_timeMeasure ( struct genSubRecord* genSubData )
 {
     timeMeasureStorageData* dataStorage = NULL;
-    struct timeval tv1;
+    struct timeval tv2; /* The start/stop time-value */
     long startStopSelect = 0;
     long reset = 0;
-    float *outTimeAct = NULL;
-    float *outTimeMin = NULL;
-    float *outTimeMax = NULL;
+    long *outTimeAct = NULL;
+    long *outTimeMin = NULL;
+    long *outTimeMax = NULL;
     long *outRestartCounter = NULL;
     long *outRestopCounter = NULL;
     float *cpuTime = NULL;
     
-    if ( DEBUG )
-        printf ( " ( i: %s ) %s started.\r\n", __FILE__ + 3, __FUNCTION__ );
-    if ( genSubData == NULL )
+        if ( genSubData == NULL )
     {
         printf ( " ( e: %s: %s() ) No genSubData to process\r\n", __FILE__ + 3, __FUNCTION__ );
         return ERROR;
@@ -205,41 +204,57 @@ int LLRF_timeMeasure ( struct genSubRecord* genSubData )
 
     startStopSelect         = *( long * ) genSubData -> a;
     reset                   = *( long * ) genSubData -> b;
-    outTimeAct              = ( float * ) genSubData -> vala;
-    outTimeMin              = ( float * ) genSubData -> valb;
-    outTimeMax              = ( float * ) genSubData -> valc;
+    outTimeAct              = ( long * )  genSubData -> vala;
+    outTimeMin              = ( long * )  genSubData -> valb;
+    outTimeMax              = ( long * )  genSubData -> valc;
     outRestartCounter       = ( long * )  genSubData -> vald;
     outRestopCounter        = ( long * )  genSubData -> vale;
     cpuTime                 =             genSubData -> valf;
     
-    gettimeofday(&tv1,NULL);
-    * cpuTime = (float) tv1.tv_usec;
-    /*vxTimeBaseGet (& pTbu, & pTbl);
-    * cpuTime = ( ( float ) pTbl ) / 33333333;*/
+    gettimeofday(&tv2,NULL);
+    * cpuTime = (float) tv2.tv_usec;
+
     
     if ( reset )
         dataStorage -> firstMeasuring = 1;
     if ( startStopSelect == 1 && dataStorage -> measuringStarted == 0 )
     {
-        dataStorage -> startTimeCounter = (float) tv1.tv_usec;
+        if ( DEBUG )
+            printf ( " ( i: %s ) %s start command with tv_usec=%ldus.\r\n", __FILE__ + 3, __FUNCTION__ , (long) tv2.tv_usec);
+        dataStorage -> tv1 = tv2;
         dataStorage -> measuringStarted = 1;
     }
     else if ( startStopSelect == 1 && dataStorage -> measuringStarted == 1 )
     {
         dataStorage -> restartCounter ++; /* counts up serveral start commands */
+        if ( DEBUG )
+            printf ( " ( i: %s ) %s started but restarted=%ld.\r\n", __FILE__ + 3, __FUNCTION__ , (long) dataStorage -> restartCounter);
+        
         *outRestartCounter = dataStorage -> restartCounter;
     }
     else if ( startStopSelect == 0 && dataStorage -> measuringStarted == 0 )
     {
         dataStorage -> restopCounter ++; /* counts up serveral start commands */
+        if ( DEBUG )
+            printf ( " ( i: %s ) %s stopped but restopped=%ld.\r\n", __FILE__ + 3, __FUNCTION__ , (long) dataStorage -> restopCounter);
+        
         *outRestopCounter = dataStorage -> restopCounter;
     }
     else if ( startStopSelect == 0 && dataStorage -> measuringStarted == 1 )
     {
         dataStorage -> measuringStarted = 0;
         
-        *outTimeAct = ( ( float ) ( (float)(tv1.tv_usec) - dataStorage -> startTimeCounter ) );
-        /**outTimeAct = ( ( float ) ( pTbl - dataStorage -> startTimeCounter ) ) / 33333.333;*/
+        if (tv2.tv_usec >= dataStorage->tv1.tv_usec)
+        {
+            * outTimeAct = ( long ) (tv2.tv_usec - dataStorage->tv1.tv_usec) ;
+        }
+        else
+        {
+            * outTimeAct = ( long ) ((1000000 - dataStorage->tv1.tv_usec)+tv2.tv_usec) ;
+        }
+        
+        if ( DEBUG )
+            printf ( " ( i: %s ) %s:  stop command, with tv_usec=%ldus, t_diff=%ldus.\r\n", __FILE__ + 3, __FUNCTION__ , (long) tv2.tv_usec, * outTimeAct );
         
         if ( dataStorage -> firstMeasuring )
         {

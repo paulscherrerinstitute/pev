@@ -1,10 +1,10 @@
 #--------------------------------------------------------------------
 # 
 # $Author: kalt_r $
-# $Date: 2012/11/08 13:46:49 $
+# $Date: 2012/11/09 12:38:32 $
 #
-# $Revision: 1.1 $
-# $Header: /cvs/G/DRV/pev/Examples/Timing/timeMeasure.template,v 1.1 2012/11/08 13:46:49 kalt_r Exp $
+# $Revision: 1.2 $
+# $Header: /cvs/G/DRV/pev/Examples/Timing/timeMeasure.template,v 1.2 2012/11/09 12:38:32 kalt_r Exp $
 #
 #--------------------------------------------------------------------
 
@@ -75,15 +75,15 @@ record ( genSub,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE" )
     #####################################
     # 
     field ( OUTA, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT PP")
-    field ( FTVA, "FLOAT")
+    field ( FTVA, "LONG")
     field ( NOVA, "1")
     # 
     field ( OUTB, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MIN PP")
-    field ( FTVB, "FLOAT")
+    field ( FTVB, "LONG")
     field ( NOVB, "1")
     # 
     field ( OUTC, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MAX PP")
-    field ( FTVC, "FLOAT")
+    field ( FTVC, "LONG")
     field ( NOVC, "1")
     # 
     field ( OUTD, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-RESTART-COUNTER PP")
@@ -114,7 +114,7 @@ record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT" )
 {
     field ( DESC, "Measured time in us" )
     field ( DTYP, "Soft Channel" )
-    field ( PREC, "1" )
+    field ( PREC, "0" )
     field ( EGU , "us" )
     field ( FLNK, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT-HIST" )
 }
@@ -124,9 +124,9 @@ record ( histogram, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT-HIS
     field ( DESC, "histogram" )
     field ( DTYP, "Soft Channel" )
     field ( SVL , "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-ACT NPP" )
-    field ( NELM, "$(HISTSIZE)" )
-    field ( ULIM, "25.0" )
-    field ( LLIM, "0.0" )
+    field ( NELM, "2000" )      # one bin for each 10us
+    field ( ULIM, "10100" )     # max in us
+    field ( LLIM, "9800" )      # min in us
 }
 
 # Measured time output
@@ -134,7 +134,7 @@ record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MIN" )
 {
     field ( DESC, "Measured time in us" )
     field ( DTYP, "Soft Channel" )
-    field ( PREC, "1" )
+    field ( PREC, "0" )
     field ( EGU, "us" )
 }
 
@@ -143,7 +143,7 @@ record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):$(TIME_ID)-TIME-MAX" )
 {
     field ( DESC, "Measured time in us" )
     field ( DTYP, "Soft Channel" )
-    field ( PREC, "1" )
+    field ( PREC, "0" )
     field ( EGU, "us" )
 }
 
@@ -166,7 +166,7 @@ record ( ao, "$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-CPU-TIME" )
 {
     field ( DESC, "PPC time" )
     field ( DTYP, "Soft Channel" )
-    field ( PREC, "3" )
+    field ( PREC, "0" )
 }
 
 record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TIME-RESET-ATINIT")
@@ -175,10 +175,10 @@ record(seq,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):TIME-RESET-ATINIT")
     field(PINI,"YES")
     field(DO1,"1")
     field(LNK1,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.B NPP")
-    field(DLY1,"1")
+    field(DLY1,"10")
     field(DO2,"0")
     field(LNK2,"$(SECTION)-$(MAINDEV)-$(MAINSUBDEV):#$(TIME_ID)-TIME-MEASURE.B NPP")
-    field(DLY2,"1")
+    field(DLY2,"10")
 }
 
 # Implementation:
