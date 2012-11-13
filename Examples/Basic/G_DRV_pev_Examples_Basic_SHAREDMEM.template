@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_SHAREDMEM.template,v $
-# $Date: 2012/11/13 15:09:32 $
-# $Revision: 1.3 $
+# $Date: 2012/11/13 15:28:32 $
+# $Revision: 1.4 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -90,24 +90,23 @@ record(bo,"$(IOC):SMEM-WriteInitiator")
     field(DTYP, "regDev")
     field(OUT , "#C S @SharedMemoryExampleBasicDataBlock_W/0")
     field(PRIO, "HIGH")
+    field(FLNK, "$(IOC):SOFT-INTID12-CALC")  # kick SOFT record interrupt counter
+#   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # kick latency counter stop record
 }
 
-# after the block-write is finished, this record is kicked I/O Intr
+# these records write to memory buffer in kernel, with WriteInitiator the whole buffer is written towards SMEM
 record(aao,"$(IOC):SMEM-WAVEFORM-W")
 {
    field(DTYP, "regDev")
    field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x100 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "LONG")
-   field(SCAN, "I/O Intr")
-   field(FLNK, "$(IOC):SMEM-REG-W")
 }
 
 record(ao,"$(IOC):SMEM-REG-W")
 {
    field(DTYP, "regDev")
    field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x0 T=UINT32")
-   field(FLNK, "$(IOC):SOFT-INTID12-CALC")  # kick SOFT record interrupt counter
-#   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # kick latency counter stop record
+
 }
 
