@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_USERBLOCK.template,v $
-# $Date: 2012/09/28 13:26:02 $
-# $Revision: 1.3 $
+# $Date: 2012/11/13 15:09:32 $
+# $Revision: 1.4 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -39,7 +39,7 @@ record(ai,"$(IOC):USER-TCSR-TESTREG-R")
 {
     field(DESC, "test reg read")
     field(DTYP, "ifc1210")
-    field(SCAN, "1 second")
+    field(SCAN, ".5 second")
     field(INP , "#C S0x1004 @PIO")
 }
 
@@ -157,7 +157,7 @@ record(ai,"$(IOC):USER-INTID1")
 {
    field(DTYP, "regDevAsyn")
    field(INP,  "#C S @Usr1StdIOCUserRegisters/0x18 T=UINT32")
-   field(SCAN, "1 second")
+   field(SCAN, ".5 second")
    field(FLNK, "$(IOC):USER-INTID2")
 }
 record(ai,"$(IOC):USER-INTID2")
@@ -421,6 +421,25 @@ record(ai,"$(IOC):USER-INTTIM12")
 {
    field(DTYP, "regDevAsyn")
    field(INP,  "#C S @Usr1StdIOCUserRegistersINT12/0 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTTIM12-MAX")
+}
+record(calcout,"$(IOC):USER-INTTIM12-MAX") 
+{ 
+   field(DESC ,"calc. intr counter")
+   field(INPA ,"$(IOC):USER-INTTIM12.VAL NPP")
+   field(INPB ,"$(IOC):USER-INTTIM12-MAX.VAL NPP")
+   field(CALC ,"(A>=B)?A:B")
+   field(VAL  ,"0")
+   field(FLNK, "$(IOC):USER-INTTIM12-HIST")
+}
+record(histogram, "$(IOC):USER-INTTIM12-HIST")
+{
+    field(DESC, "histogram")
+    field(DTYP, "Soft Channel")
+    field(SVL , "$(IOC):USER-INTTIM12 NPP")
+    field(NELM, "2000")      # number of bins for region defined below
+    field(ULIM, "1000000")   # max in x10 ns = 10 ms
+    field(LLIM, "0")         # min in x10 ns
 }
 
 record(ao,"$(IOC):USER-INTTIM13-STOP")
@@ -490,7 +509,8 @@ record(ai,"$(IOC):USER-INTEVT-12-RX")
    field(DTYP, "regDevAsyn")
    field(SCAN, "I/O Intr")
    field(INP,  "#C S @Usr1StdIOCUserRegistersINT12/0x0 T=UINT32") 
-   field(FLNK, "$(IOC):USER-INTEVT-12")
+#   field(FLNK, "$(IOC):USER-RAMP-IN") # directly FLNK to dma input transfer if required
+   field(FLNK, "$(IOC):USER-INTEVT-12") # fire EPICS soft-event 12
 }
 record(event,"$(IOC):USER-INTEVT-12")
 {
@@ -523,6 +543,8 @@ record(aao,"$(IOC):USER-RAMP-OUT")
    field(OUT,  "#C S @Usr1StdIOCUserRamp/0x2000 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "ULONG")
-   field(FLNK, "$(IOC):USER-INTTIM12-STOP")  # USER-INTTIM12-STOP or SMEM-ReadInitiator") # kick shared memory readout
+#   field(FLNK, "$(IOC):SOFT-INTID12-CALC")  # kick SOFT record interrupt counter
+#   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # kick latency counter stop record
+   field(FLNK, "$(IOC):SMEM-ReadInitiator") # kick shared memory readout
 }
 

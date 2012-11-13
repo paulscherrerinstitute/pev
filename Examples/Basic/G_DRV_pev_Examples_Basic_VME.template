@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_VME.template,v $
-# $Date: 2012/09/06 12:31:52 $
-# $Revision: 1.2 $
+# $Date: 2012/11/13 15:09:32 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -27,26 +27,50 @@
 # the shared memory, you can verify your r/w commands e.g. using XprsMon
 # displaying shared memory content with command: ds1.ws 0
 
-record(ao,"$(IOC):VME-REG0")
+record(ai,"$(IOC):VME-REG0-R")
+{
+    field(DESC, "test reg")
+    field(DTYP, "regDevAsyn")
+    field(INP,  "#C S @VMEA32ExampleBasicData/0x0 T=UINT32")
+    field(SCAN, ".5 second")
+}
+
+record(ao,"$(IOC):VME-REG0-W")
 {
     field(DESC, "test reg")
     field(DTYP, "regDevAsyn")
     field(OUT,  "#C S @VMEA32ExampleBasicData/0x0 T=UINT32")
+    field(PINI, "YES")
+    field(VAL , "0xfa")
 }
 
 
-record(ao,"$(IOC):VME-REG4")
+
+record(ai,"$(IOC):VME-REG4-R")
+{
+    field(DESC, "test reg")
+    field(DTYP, "regDevAsyn")
+    field(INP,  "#C S @VMEA32ExampleBasicData/0x4 T=UINT32")
+    field(SCAN, ".5 second")
+}
+
+record(ao,"$(IOC):VME-REG4-W")
 {
     field(DESC, "test reg")
     field(DTYP, "regDevAsyn")
     field(OUT,  "#C S @VMEA32ExampleBasicData/0x4 T=UINT32")
+    field(PINI, "YES")
+    field(VAL , "0x12")
 }
+
+
 
 record(ai,"$(IOC):VME-REG8-R")
 {
     field(DESC, "test reg")
     field(DTYP, "regDevAsyn")
     field(INP,  "#C S @VMEA32ExampleBasicData/0x8 T=UINT32")
+    field(SCAN, ".5 second")
 }
 
 record(ao,"$(IOC):VME-REG8-W")
@@ -54,5 +78,7 @@ record(ao,"$(IOC):VME-REG8-W")
     field(DESC, "test reg")
     field(DTYP, "regDevAsyn")
     field(OUT,  "#C S @VMEA32ExampleBasicData/0x8 T=UINT32")
+    field(PINI, "YES")
+    field(VAL , "0x55")
 }
 

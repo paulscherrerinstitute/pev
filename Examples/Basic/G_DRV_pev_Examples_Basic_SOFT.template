@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_SOFT.template,v $
-# $Date: 2012/09/07 07:22:56 $
-# $Revision: 1.2 $
+# $Date: 2012/11/13 15:09:32 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -32,13 +32,14 @@ record(calcout,"$(IOC):SOFT-INTID12-CALC")
 { 
         field(DESC,"calc. intr counter")
         field(INPA,"$(IOC):SOFT-INTID12.VAL NPP")
-        field(SCAN,"Event")
-        field(EVNT,"12")
-        field(PRIO,"LOW")
+#        field(SCAN,"Event")
+#        field(EVNT,"12")
+#        field(PRIO,"LOW")
         field(CALC,"A+1")
         field(OOPT,"Every Time")
         field(DOPT,"Use CALC")
         field(OUT,"$(IOC):SOFT-INTID12 PP")
+        field(FLNK, "$(IOC):USER-INTTIM12-STOP") # kick latency counter stop record
 }
 
 record(ai,"$(IOC):SOFT-INTID12") 

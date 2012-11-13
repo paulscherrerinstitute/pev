@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/G_DRV_pev_Examples_Basic_SHAREDMEM.template,v $
-# $Date: 2012/09/06 12:31:52 $
-# $Revision: 1.2 $
+# $Date: 2012/11/13 15:09:32 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -24,14 +24,13 @@
 ######################################################################
 # SHMEM read block with DMA and then distribute to individual records
 #
-# This block-read using pevConfigure is one of possible options. This
+# This block-read using pevConfigure is the only possibility. This
 # is used to read a big block of data and then distribute to several
 # recrods.
-# The other possibility using pevAsynConfigure can be uswd directly
-# with ai or aai records and issues every time a DMA transfer, even
-# if only a ai UINT32 = 4 byte is processed. This is a limitation
-# since we have PMEM windows of TOSCA-II reserved for VME_A32 access
-# and not to SHARED-MEMORY.
+# In any case you are forced to use block-read with DMA behind, even
+# if you want to read only a single ai / UINT32.
+# This is a limitation since we have PMEM windows of TOSCA-II reserved
+# for VME_A32 access and not to SHARED-MEMORY.
 ######################################################################
 
 # kick the 131 kByte block readout
@@ -41,24 +40,32 @@ record(bi,"$(IOC):SMEM-ReadInitiator")
     field(DTYP, "regDev")
     field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0")
     field(PRIO, "HIGH")
-    field(FLNK, "$(IOC):SMEM-TESTREG1")
 }
 ######################################################################
 
-
-record(ai,"$(IOC):SMEM-TESTREG1")
+# after the block-read is finished, this record is kicked I/O Intr
+record(ai,"$(IOC):SMEM-TESTREG0")
 {
     field(DESC, "a register")
     field(DTYP, "regDev")
+    field(SCAN, "I/O Intr")
     field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x0 T=UINT32")
-    field(FLNK, "$(IOC):SMEM-TESTREG2")
+    field(FLNK, "$(IOC):SMEM-TESTREG4")
 }
 
-record(ai,"$(IOC):SMEM-TESTREG2")
+record(ai,"$(IOC):SMEM-TESTREG4")
 {
     field(DESC, "a register")
     field(DTYP, "regDev")
     field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x4 T=UINT32")
+    field(FLNK, "$(IOC):SMEM-TESTREG8")
+}
+
+record(ai,"$(IOC):SMEM-TESTREG8")
+{
+    field(DESC, "a register")
+    field(DTYP, "regDev")
+    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x8 T=UINT32")
     field(FLNK, "$(IOC):SMEM-WAVEFORM-R")
 }
 
@@ -68,33 +75,39 @@ record(aai,"$(IOC):SMEM-WAVEFORM-R")
    field(INP,  "#C S @SharedMemoryExampleBasicDataBlock_R/0x100 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "LONG")
-   field(FLNK, "$(IOC):SMEM-WAVEFORM-W")
+   field(FLNK, "$(IOC):SMEM-WriteInitiator")
 }
 
 
 
 ######################################################################
 # SHMEM write with DMA
-# Write is possibly only with pevAsynConfigure and issues for ao or
-# aao records independant of data size every time a DMA transfer.
-# This is a limitation since we have PMEM windows of TOSCA-II
-# reserved for VME_A32 access and not to SHARED-MEMORY.
+# Write towards SMEM using pevConfigure and block-write.
 ######################################################################
 
+record(bo,"$(IOC):SMEM-WriteInitiator")
+{
+    field(DTYP, "regDev")
+    field(OUT , "#C S @SharedMemoryExampleBasicDataBlock_W/0")
+    field(PRIO, "HIGH")
+}
 
+# after the block-write is finished, this record is kicked I/O Intr
 record(aao,"$(IOC):SMEM-WAVEFORM-W")
 {
-   field(DTYP, "regDevAsyn")
+   field(DTYP, "regDev")
    field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x100 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "LONG")
+   field(SCAN, "I/O Intr")
    field(FLNK, "$(IOC):SMEM-REG-W")
 }
 
 record(ao,"$(IOC):SMEM-REG-W")
 {
-   field(DTYP, "regDevAsyn")
+   field(DTYP, "regDev")
    field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x0 T=UINT32")
-   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # now stop the INT12 latency measurement timer
+   field(FLNK, "$(IOC):SOFT-INTID12-CALC")  # kick SOFT record interrupt counter
+#   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # kick latency counter stop record
 }
 

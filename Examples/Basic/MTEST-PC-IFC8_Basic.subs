@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/MTEST-PC-IFC8_Basic.subs,v $
-# $Date: 2012/09/07 07:20:15 $
-# $Revision: 1.3 $
+# $Date: 2012/11/13 15:09:32 $
+# $Revision: 1.4 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -24,17 +24,23 @@
 file G_DRV_pev_Examples_Basic_USERBLOCK.template{
 {IOC = MTEST-PC-IFC8}
 }
-
+#        |
+#  FLNK  |
+#       \/
 file G_DRV_pev_Examples_Basic_SHAREDMEM.template{
 {IOC = MTEST-PC-IFC8}
 }
+#        |
+#  FLNK  |
+#       \/
+file G_DRV_pev_Examples_Basic_SOFT.template{
+{IOC = MTEST-PC-IFC8}
+}
 
+# Scan passive + scan 0.5 second
 file G_DRV_pev_Examples_Basic_VME.template{
 {IOC = MTEST-PC-IFC8}
 }
 
 
 
-file G_DRV_pev_Examples_Basic_SOFT.template{
-{IOC = MTEST-PC-IFC8}
-}

@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/MTEST-PC-IFC8_startup.script,v $
-# $Date: 2012/09/06 12:31:52 $
-# $Revision: 1.2 $
+# $Date: 2012/11/13 15:09:32 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -34,6 +34,8 @@ putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
 # load regDev and pev (=TOSCA-II) drivers
 require "regDev","test"
 require "pev"
+
+require "histogram"
 
 # load G_IFCMON hardware monitoring application for IFC1210 card
 #require "ifcmon"
@@ -90,7 +92,7 @@ pevAsynConfigure(0,"Usr1StdIOCUserRamp"                 ,"USR1"   , 0x10000 , "D
 # block read:
 pevConfigure(    0,"SharedMemoryExampleBasicDataBlock_R","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1)
 # block write (register example)
-pevAsynConfigure(0,"SharedMemoryExampleBasicDataBlock_W","SH_MEM" , 0x20000 , "DS"      , 0 ,             )
+pevConfigure(    0,"SharedMemoryExampleBasicDataBlock_W","SH_MEM" , 0x20000 , "DS"      , 0 , 0x2000 ,   1)
 
 # slot-1 system / VME_master interface
 # set up a data area in VME A32 address space of length 1NB starting at offset 0 bytes with no 

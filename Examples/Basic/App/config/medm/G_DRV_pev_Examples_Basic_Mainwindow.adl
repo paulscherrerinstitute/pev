@@ -5,10 +5,10 @@ file {
 }
 display {
 	object {
-		x=22
-		y=177
+		x=870
+		y=41
 		width=1034
-		height=526
+		height=690
 	}
 	clr=14
 	bclr=2
@@ -1387,21 +1387,6 @@ text {
 	}
 	textix="x 10ns"
 }
-"shell command" {
-	object {
-		x=810
-		y=40
-		width=139
-		height=41
-	}
-	command[0] {
-		name="medm"
-		args="-macro IOC=$(IOC) -x G_IOCMON_ioc_status.adl"
-	}
-	clr=14
-	bclr=2
-	label="-IOCMON"
-}
 text {
 	object {
 		x=8
@@ -1526,21 +1511,6 @@ text {
 	limits {
 	}
 }
-"shell command" {
-	object {
-		x=810
-		y=89
-		width=139
-		height=41
-	}
-	command[0] {
-		name="medm"
-		args="-macro IOC=$(IOC) -x G_IFCMON_ifc1210_ifctc1.adl"
-	}
-	clr=14
-	bclr=2
-	label="-IFCMON"
-}
 "text update" {
 	object {
 		x=570
@@ -1594,4 +1564,303 @@ text {
 	}
 	limits {
 	}
+}
+"cartesian plot" {
+	object {
+		x=742
+		y=54
+		width=280
+		height=156
+	}
+	plotcom {
+		title="INT_TIM12 histogram"
+		clr=14
+		bclr=2
+	}
+	trace[0] {
+		ydata="$(IOC):USER-INTTIM12-HIST"
+		data_clr=14
+	}
+}
+polyline {
+	object {
+		x=12
+		y=538
+		width=987
+		height=0
+	}
+	"basic attribute" {
+		clr=14
+	}
+	"dynamic attribute" {
+		chan="$(IOC):USER-INTTIM12"
+	}
+	points {
+		(12,538)
+		(999,538)
+	}
+}
+text {
+	object {
+		x=640
+		y=548
+		width=250
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="SMEM registers (cyclic rd with intr12)"
+}
+text {
+	object {
+		x=642
+		y=584
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="REG-0:"
+}
+"text update" {
+	object {
+		x=751
+		y=584
+		width=177
+		height=14
+	}
+	monitor {
+		chan="$(IOC):SMEM-TESTREG0"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=642
+		y=601
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="REG-4:"
+}
+"text update" {
+	object {
+		x=751
+		y=601
+		width=177
+		height=14
+	}
+	monitor {
+		chan="$(IOC):SMEM-TESTREG4"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=642
+		y=618
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="REG-8:"
+}
+"text update" {
+	object {
+		x=751
+		y=618
+		width=177
+		height=14
+	}
+	monitor {
+		chan="$(IOC):SMEM-TESTREG8"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=18
+		y=548
+		width=250
+		height=20
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="VME master registers"
+}
+text {
+	object {
+		x=20
+		y=611
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="REG-0:"
+}
+"text update" {
+	object {
+		x=76
+		y=611
+		width=177
+		height=14
+	}
+	monitor {
+		chan="$(IOC):VME-REG0-R"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=20
+		y=636
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="REG-4:"
+}
+"text update" {
+	object {
+		x=76
+		y=636
+		width=177
+		height=14
+	}
+	monitor {
+		chan="$(IOC):VME-REG4-R"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=20
+		y=660
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="REG-8:"
+}
+"text update" {
+	object {
+		x=76
+		y=660
+		width=177
+		height=14
+	}
+	monitor {
+		chan="$(IOC):VME-REG8-R"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=261
+		y=609
+		width=177
+		height=20
+	}
+	control {
+		chan="$(IOC):VME-REG0-W"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=261
+		y=632
+		width=177
+		height=20
+	}
+	control {
+		chan="$(IOC):VME-REG4-W"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+"text entry" {
+	object {
+		x=260
+		y=656
+		width=177
+		height=20
+	}
+	control {
+		chan="$(IOC):VME-REG8-W"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=77
+		y=589
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="cyclic read                       PP"
+}
+text {
+	object {
+		x=18
+		y=571
+		width=100
+		height=14
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="access over VME-master to its own VME-slave"
 }
