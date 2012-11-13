@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2012/11/09 12:38:32 $
-# $Revision: 1.5 $
+# $Date: 2012/11/13 12:38:55 $
+# $Revision: 1.6 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -35,33 +35,14 @@ require "regDev","test"
 require "pev"
 require "mrf200evt","test"
 
-# for the histogram record, which is not in EPICS base
+# for the histogram record, which is not in EPICS base for EPICS 3.14.12 / embeddedlinux-e500v2
 require "histogram"
 
 # for our genSub c-library, Timing since we are in G/DRV/pev/Examples/Timing
 # and Timing will then be the name of our library.
 require "Timing"
 
-# load G_IFCMON hardware monitoring application for IFC1210 card
-#require "ifcmon"
 
-
-
-#######################################################################
-# define access to TOSCA-II CENTRAL FPGA ressources
-# Swapping options: 0  = no     swapping
-#                   WS = 16 bit swapping
-#                   DS = 32 bit swapping
-#                   QS = 64 bit swapping
-
-
-# slot-1 system / VME_master interface
-# set up a data area in VME A32 address space of length 1NB starting at offset 0 bytes with no 
-# swapping, VME speed = fastest, and Asyn read-out with DMA for aai/aao bigger than 100 elements, else without DMA
-#pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0      , "2eSST320", 0                  )
-
-# VME_slave interface mapping (not mandatory for slot-1 system, but for all other systems it is)
-# ==> currently missing, to be completed here
 
 #######################################################################
 # EVG and EVR configure

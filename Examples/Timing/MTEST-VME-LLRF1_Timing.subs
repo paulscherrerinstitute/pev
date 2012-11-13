@@ -1,0 +1,73 @@
+# $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-VME-LLRF1_Timing.subs,v $
+# $Date: 2012/11/13 12:38:55 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            13.11.2012
+#
+# Purpose: Timing Example for accessing with MVME6100 IOC with vxWorks OS
+#           * Provide example for VME-EVG-230 card in slot 5
+#           * Provide example for VME-EVR-230RF card in slot 4
+#
+# Purpose of this file:
+#           * Substitution file for EPICS
+
+
+
+##########################################################################################
+# event generator card configuration for lab test systems (generates fiber-optic event 16 = 10 Hz (ET4) and 15 = 100 Hz (ET3))
+# setup of EVG with dividers...
+file EVG-200.template {
+    pattern
+    {SYSTEM               ,UNIT  ,CARD ,FIFO,SEQCLK,ETE0,ET0  ,ETE1, ET1  ,ETE2, ET2  ,ETE3 , ET3  ,ETE4 ,ET4   ,ETE5,ET5  ,ETE6,ET6  ,ETE7,ET7  , DBEN7, DBDV7, DBEN6, DBDV6, MEEN3, DBDV3    , MEEN4, DBDV4    , MEEN1, DBDV1, ACSEQ1, ACSEQ2,ACSYN, ACDIV, ACPHS, ACEV0, DBDV0     , MSQ1}
+    {"MTEST-VME-LLRF1-EVG","RLLE","5"  ,"NO","1"   ,"NO","0x0","NO","0x00","NO","0x00","YES","0x20","NO" ,"0x10","NO","0x0","NO","0x0","NO","0x0","NO"  ,"3"   ,"NO"  ,"46"  ,"YES" ,"1250000" , "YES" ,"12500000","NO"  ,"1250","NO"   ,"NO"   ,"NO" ,"1"   ,"0"   , "0"  , "25000000", "NO"}
+}
+
+# definition of event distribution over fiber link
+file EGEVENT-200.template {
+    pattern
+    {SYSTEM               ,EVENT       ,CARD ,EVNO   ,RAM ,PRIOR ,DELY    ,TIMEUNIT     }
+    {"MTEST-VME-LLRF1-EVG","LLRF-EV10" ,"5"  ,"0x10" ,"0" ,"0"   ,"70000" ,"Clock Ticks"}
+    {"MTEST-VME-LLRF1-EVG","LLRF-EV100","5"  ,"0x11" ,"0" ,"0"   ,"70000" ,"Clock Ticks"}
+}
+
+
+
+##########################################################################################
+# event receiver card configuration
+file EVR.template
+{
+    pattern
+    {SECTION        , MAINDEV, MAINSUBDEV, CARD, FIBER-EVENT-ID100, SOFT-EVENT-ID100, SOFT-EVENT-ID100DLY}
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 4   , 32               , 32              , 33                 }
+}
+
+
+# the EVR rear transition module TTL outputs
+file EVR_OUTPUT_CONF.template
+{
+    pattern
+    {SECTION        , MAINDEV, MAINSUBDEV, TICKSIZE, OUTPUT-NR, LOC-DELAY, DLY-WIDTH}
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 8       , 0        , 28800    , 10000    } # Modulator
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 8       , 1        , 0        , 200000   } # Interlock
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 8       , 2        , 20000    , 30000    } # Pre-Amplifier
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 8       , 3        , 29800    , 10000    } # LLRF (to SMC crate)
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 8       , 4        , 0        , 10000    } # LLRF sync 10 Hz
+    {MTEST-VME-LLRF1, RLLE   , CEVR      , 8       , 5        , 29800    , 10000    } # Spare: Powermeter, ...
+}
+
+
+
+##########################################################################################
+# time measure with genSub record
+# select here with BRD_TYPE the correct genSub function name. BUT make sure you renamed files
+# *.c or *.c.off in ./src subdir correctly. You can only compile for one arch at one time.
+file timeMeasure.template
+{
+    pattern
+    {SECTION        , MAINDEV, MAINSUBDEV, BRD_TYPE, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
+    {MTEST-VME-LLRF1, RLLE   , RIOC      , MVME6100, 1      , Passive   , 32            , Event    , 32           }
+    {MTEST-VME-LLRF1, RLLE   , RIOC      , MVME6100, 2      , Event     , 32            , Event    , 33           }
+}
+

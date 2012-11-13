@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_Timing.subs,v $
-# $Date: 2012/11/09 12:38:32 $
-# $Revision: 1.6 $
+# $Date: 2012/11/13 12:38:55 $
+# $Revision: 1.7 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -67,11 +67,13 @@ file EVR_OUTPUT_CONF.template
 
 ##########################################################################################
 # time measure with genSub record
+# select here with BRD_TYPE the correct genSub function name. BUT make sure you renamed files
+# *.c or *.c.off in ./src subdir correctly. You can only compile for one arch at one time.
 file timeMeasure.template
 {
     pattern
-    {SECTION      , MAINDEV, MAINSUBDEV, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
-    {MTEST-PC-IFC5, RLLE   , RIOC      , 1      , Passive   , 32            , Event    , 32           }
-    {MTEST-PC-IFC5, RLLE   , RIOC      , 2      , Event     , 32            , Event    , 33           }
+    {SECTION      , MAINDEV, MAINSUBDEV, BRD_TYPE, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
+    {MTEST-PC-IFC5, RLLE   , RIOC      , IFC1210 , 1      , Passive   , 32            , Event    , 32           }
+    {MTEST-PC-IFC5, RLLE   , RIOC      , IFC1210 , 2      , Event     , 32            , Event    , 33           }
 }
 

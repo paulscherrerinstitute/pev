@@ -1,0 +1,45 @@
+# $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-VME-LLRF1_startup.script,v $
+# $Date: 2012/11/13 12:38:55 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            13.11.2012
+#
+# Purpose: Timing Example for accessing on MVME6100 IOC
+#           * Provide example for VME-EVG-230 card in slot 5
+#           * Provide example for VME-EVR-230RF card in slot 4
+#
+# Purpose of this file:
+#           * startup.script for EPICS
+
+
+
+#######################################################################
+# EPICS specific environment variablees
+putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
+
+
+
+#######################################################################
+# load EPICS specific drivers
+
+# load regDev and pev (=TOSCA-II) drivers
+require "vme64x"
+require "mrf200evt"
+
+# for the histogram record, but for vxWorks with EPICS 3.12.8 it is in EPICS_BASE
+#require "histogram"
+
+# for our genSub c-library, Timing since we are in G/DRV/pev/Examples/Timing
+# and Timing will then be the name of our library.
+require "Timing"
+
+#######################################################################
+# EVG and EVR configure
+#          Slot,A16-base,IRQ-vect
+EgConfigure(5,0x200000,0x60                 ,0x098E8166)
+
+#          Slot,A16-base,IRQ-vect, IRQ-level
+ErConfigure(4,0x100000,0xC2    ,5         ,0,0x098E8166)
+
