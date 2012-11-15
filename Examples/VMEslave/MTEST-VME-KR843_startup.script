@@ -1,0 +1,64 @@
+# $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR843_startup.script,v $
+# $Date: 2012/11/15 14:16:53 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            13.11.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: VME master and slave example for accessing TOSCA-II
+#           * slot 1 system is VME master
+#           * slot 2 and 3 systems are VME slaves
+#
+# Purpose of this file:
+#           * startup.script for EPICS
+
+
+
+#######################################################################
+# EPICS specific environment variablees
+putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
+
+
+
+#######################################################################
+# load EPICS specific drivers
+
+# load regDev and pev (=TOSCA-II) drivers
+require "regDev","test"
+require "pev"
+
+
+
+
+#######################################################################
+# IFC1210 USER block definition:
+# define access to TOSCA-II CENTRAL FPGA ressources
+# Swapping options: 0  = no     swapping
+#                   WS = 16 bit swapping
+#                   DS = 32 bit swapping
+#                   QS = 64 bit swapping
+
+# data definition in USER and SMEM
+pevAsynConfigure(0,"USR_data" ,"USR1"   , 0x10000 , "DS"      , 0               )
+pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1) # use here pevConfigure since only block r/w allowed with SMEM
+
+
+
+#######################################################################
+# IFC1210 VME definition:
+# since this MTEST-VME-KR843 is the slot-3 system we only have to define VME-slave mapping
+
+
+
+
+
+
+
+

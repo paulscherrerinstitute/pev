@@ -1,0 +1,35 @@
+# $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR842_VMEslave.subs,v $
+# $Date: 2012/11/15 14:16:53 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            13.11.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: VME master and slave example for accessing TOSCA-II
+#           * slot 1 system is VME master
+#           * slot 2 and 3 systems are VME slaves
+#
+# Purpose of this file:
+#           * Substitution file for EPICS
+
+
+
+##########################################################################################
+# IFC1210 local data in USER and SMEM (on each card)
+# USRdata_len of 32768 * UNIT32 = 131 kByte (the same than defined in startup.script for SMEM readout via block read)
+# SET ONE read_evnt to 0 to disable !!!
+file G_DRV_pev_Examples_VMEslave_localdata.template
+{
+    pattern
+    {IOC            , USRdata_read_scan , USRdata_read_evnt , SMEMdata_read_scan , SMEMdata_read_evnt, Local_Data_finish_evnt, data_len }
+    {MTEST-VME-KR842, Passive           , 0                 , Passive            , 0                 , 0                     , 32768    }
+}
+
+

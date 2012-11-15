@@ -1,0 +1,1 @@
+medm -macro 'IOC1=MTEST-VME-KR841,IOC2=MTEST-VME-KR842,IOC3=MTEST-VME-KR843' -x G_DRV_pev_Examples_VMEslave_Mainwindow.adl

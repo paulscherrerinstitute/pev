@@ -1,0 +1,153 @@
+# $Source: /cvs/G/DRV/pev/Examples/VMEslave/G_DRV_pev_Examples_VMEslave_USRtrigger.template,v $
+# $Date: 2012/11/15 14:16:53 $
+# $Revision: 1.1 $
+# $Author: kalt_r $
+#
+# Original Author: KR84
+# Date:            28.08.2012
+#
+# Important links:
+#  - IFC1210 Codebeamer   https://codebeamer.psi.ch/cb/project/104
+#  - IFC1210 User Guide   https://codebeamer.psi.ch/cb/doc/139156
+#  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
+#
+#
+# Purpose: Purpose: VME master and slave example for accessing TOSCA-II
+#           * slot 1 system is VME master
+#           * slot 2 and 3 systems are VME slaves
+#
+# Purpose of this file:
+#           * access to USERBLOCK interrupt/event control registers in Virtex-6 CENTRAL FPGA (Standard_IOC)
+
+# USER1 block of Standard_IOC project. Find details of memory map definition here:
+# https://codebeamer.psi.ch/cb/proj/sources/sccFileLog.do?proj_id=104&filename=IFC%2FIFC1210_applications%2FStandard_IOC%2FDocumentation%2FStandard_IOC_concept.doc&isDir=false
+
+
+
+################################################################################
+# Setup of Standard_IOC periodic interrupt generator registers in TCSR and TMEM
+################################################################################
+
+# scan PINI YES for power-up setup
+record(ao,"$(IOC):USER-INTRATE")
+{
+    field(DTYP, "regDevAsyn")
+    field(OUT,  "#C S @Usr1StdIOCUserRegisters/0xC T=UINT32")
+    field(VAL,  "$(PERIOD)") # = 10 ms periodic = 0xf4240
+    field(PINI, "YES")
+    field(EGU,  "x 10ns")
+    field(FLNK, "$(IOC):USER-INTLENGTH")
+}
+
+record(ao,"$(IOC):USER-INTLENGTH")
+{
+    field(DTYP, "regDevAsyn")
+    field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x10 T=UINT32")
+    field(VAL,  "0x1")
+    field(EGU,  "x 10ns")
+    field(FLNK, "$(IOC):USER-TCSR-INTMOD")
+}
+
+record(ao,"$(IOC):USER-TCSR-INTMOD")
+{
+    field(DESC, "int mode lvl/edge") # each bit: 0 = level / 1 = edge
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1008 @PIO")
+    field(VAL,  "0xffff") # set all 16 interrupts to edge
+    field(FLNK, "$(IOC):USER-TCSR-INTCSR")
+}
+
+record(ao,"$(IOC):USER-TCSR-INTCSR")
+{
+    field(DESC, "int csr")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1084 @PIO")
+    field(VAL,  "0x3") # clear all pending interrupts once at startup, enable INT16 ITC
+    field(FLNK, "$(IOC):USER-TCSR-INTREQ")
+}
+
+record(ao,"$(IOC):USER-TCSR-INTREQ")
+{
+    field(DESC, "int request")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x100C @PIO") 
+    field(VAL,  "$(USR_INTR)") # finally enable interrupt 1 by setting bit 0 = 0x0000_0001
+
+}
+
+
+################################################################################
+# some status for USER interrupt 1
+################################################################################
+#the interrupt counters for USER_INTERRUPT_1 out of 16 possible user interrupts
+record(ai,"$(IOC):USER-INTID1")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x18 T=UINT32")
+   field(SCAN, ".5 second")
+}
+
+
+#readout of INT_TIM_x timer status register to measure interrupt latency of USR1 interrupts
+#
+#The timer of corresponding interrupt is started at time if INTREQ (interrupt request) and can
+#be stopped at any time by software, e.g. via EPICS after a complete processing cycle of 
+#application finished.
+record(ao,"$(IOC):USER-INTTIM1-STOP")
+{
+   field(DTYP, "regDevAsyn")
+#   field(SCAN, "I/O Intr") # we disable scanning here, since we want to stop this counter by a FLNK of last processed record
+   field(SCAN, "Event")
+   field(EVNT, "$(INTTIM1_STOP_EVNT)")
+   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT1/0 T=UINT32")
+   field(VAL,  "0") # according doc, a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM1")
+}
+record(ai,"$(IOC):USER-INTTIM1")
+{
+   field(DTYP, "regDevAsyn")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT1/0 T=UINT32")
+   field(FLNK, "$(IOC):USER-INTTIM1-MAX")
+}
+record(calcout,"$(IOC):USER-INTTIM1-MAX") 
+{ 
+   field(DESC ,"calc. intr counter")
+   field(INPA ,"$(IOC):USER-INTTIM1.VAL NPP")
+   field(INPB ,"$(IOC):USER-INTTIM1-MAX.VAL NPP")
+   field(CALC ,"(A>=B)?A:B")
+   field(VAL  ,"0")
+   field(FLNK, "$(IOC):USER-INTTIM1-HIST")
+}
+record(histogram, "$(IOC):USER-INTTIM1-HIST")
+{
+    field(DESC, "histogram")
+    field(DTYP, "Soft Channel")
+    field(SVL , "$(IOC):USER-INTTIM1 NPP")
+    field(NELM, "2000")      # number of bins for region defined below
+    field(ULIM, "1000000")   # max in x10 ns = 10 ms
+    field(LLIM, "0")         # min in x10 ns
+}
+
+
+
+######################################################################
+# Listen to USER interrupt 1 an fire an EPICS soft event with nr. $(USER_INT_SOFTEVENT)
+
+# Here we make ai from offset 0x0, but this has no influence where we read.
+# It is important we listen to I/O Intr of correct virtual device.
+# This is some small overhead of one 32-bit read access before firing EPICS soft-event 1.
+record(ai,"$(IOC):USER-INTEVT-1-RX")
+{
+   field(DTYP, "regDevAsyn")
+   field(SCAN, "I/O Intr")
+   field(INP,  "#C S @Usr1StdIOCUserRegistersINT1/0x0 T=UINT32") 
+   field(FLNK, "$(IOC):USER-INTEVT-1") # fire EPICS soft-event
+}
+record(event,"$(IOC):USER-INTEVT-1")
+{
+    field(DESC,"user intr 1 evt")
+    field(DTYP,"Soft Channel")
+    field(VAL ,"$(USER_INT1_SOFTEVENT)")
+}
+
+
