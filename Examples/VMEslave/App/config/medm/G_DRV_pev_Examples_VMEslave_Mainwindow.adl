@@ -5,8 +5,8 @@ file {
 }
 display {
 	object {
-		x=400
-		y=246
+		x=21
+		y=180
 		width=1089
 		height=699
 	}
@@ -351,7 +351,7 @@ polyline {
 text {
 	object {
 		x=937
-		y=511
+		y=514
 		width=50
 		height=10
 	}
