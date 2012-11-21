@@ -8,7 +8,8 @@ BUILDCLASSES = Linux
 USR_CPPFLAGS = -DPPC -mlongcall -g -DLITTLE_ENDIAN -DDEBUG -Wall
 
 # find the pev librarx from IOxOS
-PEVDIR_embeddedlinux-e500v2 = /net/gfa-eldk/export/home/anicic/ELDK-my/driver/G/DRV/pev
+#PEVDIR_embeddedlinux-e500v2 = /net/gfa-eldk/export/home/anicic/ELDK-my/driver/G/DRV/pev
+PEVDIR_embeddedlinux-e500v2 = /opt/eldk-5.2/ifc
 #PEVDIR_SL5-x86 = ....
 #PEVDIR_embeddedlinux-e500v2 = ../
 USR_INCLUDES += -I$(PEVDIR_$(T_A))/include

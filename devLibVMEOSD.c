@@ -147,7 +147,7 @@ devLibVirtualOS pevVirtualOS = {
 /* 
 *  clean-up  at epics exit
  */
-static void pevDevLibAtexit(void)
+void pevDevLibAtexit(void)
 {
   pev_evt_queue_disable(pevIntrEvent);
   pev_evt_queue_free(pevIntrEvent);
@@ -169,8 +169,8 @@ static void pevDevLibAtexit(void)
     pev_map_clear(map_a24_base);
   if( map_a16_base )
     pev_map_clear(map_a16_base);
-*/
   exit(0);
+*/
 }
 
 /* PEV1100 specific initialization */
