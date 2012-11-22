@@ -57,7 +57,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.31 2012/11/21 13:55:22 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.32 2012/11/22 10:23:17 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -1714,7 +1714,8 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
   pev_vme_conf_read(&vme_conf);
   if( strcmp(addrSpace, "AM32")==0 && (vme_conf.a32_base != mainBase || vme_conf.a32_size != mainSize) )
   {
-    printf("  pevVmeSlaveMainConfig(): == ERROR == mapping failed current A32 slaveBase 0x%x [size 0x%x]\n", vme_conf.a32_base, vme_conf.a32_size);
+    printf("  pevVmeSlaveMainConfig(): == ERROR == mapping failed! \n\t current A32 slaveBase 0x%x [size 0x%x] \
+    		\n\t Address/Size Granularity must be 16MB=0x1000000\n", vme_conf.a32_base, vme_conf.a32_size);
     exit( -1);
   }
 
@@ -1795,7 +1796,8 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
   
   if( pev_map_alloc( &vme_slv_map) || vme_slv_map.win_size!=winSize )
   {
-    printf("  pevVmeSlaveTargetConfig(): == ERROR == translation window allocation failed! [mapped size 0x%x] \n", vme_slv_map.win_size);
+    printf("  pevVmeSlaveTargetConfig(): == ERROR == translation window allocation failed! \
+    		\n\t [allocated mapped size 0x%x] \n\t Address/Size Granularity must be 1MB=0x100000 \n", vme_slv_map.win_size);
     exit(-1);
   }
 
@@ -1808,7 +1810,7 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
       printf("  pevVmeSlaveTargetConfig(): == ERROR == devRegisterAddress() failed for slave at 0x%x\n", mainSlaveBase+winBase);
       exit(-1);
   }
-  printf("  pevVmeSlaveTargetConfig(): mapped offset 0x%x in \"%s\" to VMEslave [%s] at 0x%x [size 0x%x]\n"
+  printf("\t Mapped offset 0x%x in \"%s\" to VMEslave [%s] at 0x%x [size 0x%x]\n"
   		, targetOffset, target, slaveAddrSpace, mainSlaveBase+winBase, vme_slv_map.win_size);
   return 0;
 }
