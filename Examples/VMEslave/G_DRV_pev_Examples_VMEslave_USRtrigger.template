@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/G_DRV_pev_Examples_VMEslave_USRtrigger.template,v $
-# $Date: 2012/11/15 14:16:53 $
-# $Revision: 1.1 $
+# $Date: 2012/11/26 14:55:42 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -32,20 +32,19 @@
 record(ao,"$(IOC):USER-INTRATE")
 {
     field(DTYP, "regDevAsyn")
-    field(OUT,  "#C S @Usr1StdIOCUserRegisters/0xC T=UINT32")
+    field(OUT,  "#C S @Usr1Reg/0xC T=UINT32")
+    field(PINI, "YES")  
     field(VAL,  "$(PERIOD)") # = 10 ms periodic = 0xf4240
-    field(PINI, "YES")
     field(EGU,  "x 10ns")
-    field(FLNK, "$(IOC):USER-INTLENGTH")
 }
 
 record(ao,"$(IOC):USER-INTLENGTH")
 {
     field(DTYP, "regDevAsyn")
-    field(OUT,  "#C S @Usr1StdIOCUserRegisters/0x10 T=UINT32")
+    field(OUT,  "#C S @Usr1Reg/0x10 T=UINT32")
+    field(PINI, "YES")  
     field(VAL,  "0x1")
     field(EGU,  "x 10ns")
-    field(FLNK, "$(IOC):USER-TCSR-INTMOD")
 }
 
 record(ao,"$(IOC):USER-TCSR-INTMOD")
@@ -53,8 +52,8 @@ record(ao,"$(IOC):USER-TCSR-INTMOD")
     field(DESC, "int mode lvl/edge") # each bit: 0 = level / 1 = edge
     field(DTYP, "ifc1210")
     field(OUT , "#C S0x1008 @PIO")
+    field(PINI, "YES")  
     field(VAL,  "0xffff") # set all 16 interrupts to edge
-    field(FLNK, "$(IOC):USER-TCSR-INTCSR")
 }
 
 record(ao,"$(IOC):USER-TCSR-INTCSR")
@@ -62,8 +61,8 @@ record(ao,"$(IOC):USER-TCSR-INTCSR")
     field(DESC, "int csr")
     field(DTYP, "ifc1210")
     field(OUT , "#C S0x1084 @PIO")
+    field(PINI, "YES")  
     field(VAL,  "0x3") # clear all pending interrupts once at startup, enable INT16 ITC
-    field(FLNK, "$(IOC):USER-TCSR-INTREQ")
 }
 
 record(ao,"$(IOC):USER-TCSR-INTREQ")
@@ -71,8 +70,26 @@ record(ao,"$(IOC):USER-TCSR-INTREQ")
     field(DESC, "int request")
     field(DTYP, "ifc1210")
     field(OUT , "#C S0x100C @PIO") 
+    field(PINI, "YES")  
     field(VAL,  "$(USR_INTR)") # finally enable interrupt 1 by setting bit 0 = 0x0000_0001
+}
 
+record(ao,"$(IOC):USER-TCSR-INTIMC")
+{
+    field(DESC, "int IMC")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x1088 @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "0x1") # clear intr mask 1 (0x1)
+}
+
+record(ao,"$(IOC):USER-TCSR-INTIMS")
+{
+    field(DESC, "int IMS")
+    field(DTYP, "ifc1210")
+    field(OUT , "#C S0x108C @PIO")
+    field(PINI, "YES")  
+    field(VAL,  "0x0") # do not mask any interrupt
 }
 
 
@@ -83,7 +100,7 @@ record(ao,"$(IOC):USER-TCSR-INTREQ")
 record(ai,"$(IOC):USER-INTID1")
 {
    field(DTYP, "regDevAsyn")
-   field(INP,  "#C S @Usr1StdIOCUserRegisters/0x18 T=UINT32")
+   field(INP,  "#C S @Usr1Reg/0x18 T=UINT32")
    field(SCAN, ".5 second")
 }
 
@@ -99,14 +116,14 @@ record(ao,"$(IOC):USER-INTTIM1-STOP")
 #   field(SCAN, "I/O Intr") # we disable scanning here, since we want to stop this counter by a FLNK of last processed record
    field(SCAN, "Event")
    field(EVNT, "$(INTTIM1_STOP_EVNT)")
-   field(OUT,  "#C S @Usr1StdIOCUserRegistersINT1/0 T=UINT32")
+   field(OUT,  "#C S @Usr1INT1/0 T=UINT32")
    field(VAL,  "0") # according doc, a write stops the timer
    field(FLNK, "$(IOC):USER-INTTIM1")
 }
 record(ai,"$(IOC):USER-INTTIM1")
 {
    field(DTYP, "regDevAsyn")
-   field(INP,  "#C S @Usr1StdIOCUserRegistersINT1/0 T=UINT32")
+   field(INP,  "#C S @Usr1INT1/0 T=UINT32")
    field(FLNK, "$(IOC):USER-INTTIM1-MAX")
 }
 record(calcout,"$(IOC):USER-INTTIM1-MAX") 
@@ -131,7 +148,7 @@ record(histogram, "$(IOC):USER-INTTIM1-HIST")
 
 
 ######################################################################
-# Listen to USER interrupt 1 an fire an EPICS soft event with nr. $(USER_INT_SOFTEVENT)
+# Listen to USER interrupt 1 an fire an EPICS soft event with nr. USER_INT1_SOFTEVENT
 
 # Here we make ai from offset 0x0, but this has no influence where we read.
 # It is important we listen to I/O Intr of correct virtual device.
@@ -140,7 +157,7 @@ record(ai,"$(IOC):USER-INTEVT-1-RX")
 {
    field(DTYP, "regDevAsyn")
    field(SCAN, "I/O Intr")
-   field(INP,  "#C S @Usr1StdIOCUserRegistersINT1/0x0 T=UINT32") 
+   field(INP,  "#C S @Usr1INT1/0 T=UINT32") 
    field(FLNK, "$(IOC):USER-INTEVT-1") # fire EPICS soft-event
 }
 record(event,"$(IOC):USER-INTEVT-1")

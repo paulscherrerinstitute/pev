@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_startup.script,v $
-# $Date: 2012/11/26 13:31:07 $
-# $Revision: 1.2 $
+# $Date: 2012/11/26 14:55:42 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -69,8 +69,8 @@ require "VMEslave"
 #
 # This area is intended to read / write single 32-bit registers using single r/w access
 #
-pevAsynConfigure(0,"Usr1StdIOCUserRegisters"            ,"USR1"   , 0x100   , ""        , 0  , 0x158    ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT1"        ,"USR1"   , 0x158   , ""        , 1  , 0x8      ,0, "DS")
+pevAsynConfigure(0,"Usr1Reg"  ,"USR1"   , 0x100   , ""        , 0  , 0x58     ,0, "DS")
+pevAsynConfigure(0,"Usr1INT1" ,"USR1"   , 0x158   , ""        , 1  , 0x8      ,0, "DS")
 
 
 
@@ -83,11 +83,11 @@ pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 ,
 # IFC1210 VME definition:
 # since this MTEST-VME-KR841 is the slot-1 system we only have VME master and we configure
 # here the access towards VME_master controller to the VME_slaves in the different slots
-pevAsynConfigure(0,"VMEA32_Master_to_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, 0)
-pevAsynConfigure(0,"VMEA32_Master_to_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, 0)
+#pevAsynConfigure(0,"VMEA32_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, 0)
+#pevAsynConfigure(0,"VMEA32_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, 0)
 
 
 # disable VME_slave for slot-1 system
-pevVmeSlaveMainConfig("AM32", 0x01000000, 0x01000000)
+#pevVmeSlaveMainConfig("AM32", 0x01000000, 0x01000000)
 
 

@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/G_DRV_pev_Examples_VMEslave_remotedata.template,v $
-# $Date: 2012/11/15 14:16:53 $
-# $Revision: 1.1 $
+# $Date: 2012/11/26 14:55:42 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -32,7 +32,7 @@ record(aai,"$(IOC):REMOTE$(SLOT)-DATA-R")
    field(DTYP, "regDevAsyn")
    field(SCAN, "Event")
    field(EVNT, "$(Remote_Data_read_evnt)")
-   field(INP,  "#C S @VMEA32_Master_to_slot$(SLOT)/$(Remote_VMEslave_offset) T=UINT32")
+   field(INP,  "#C S @VMEA32_slot$(SLOT)/$(Remote_VMEslave_offset) T=UINT32")
    field(NELM, "$(Remote_Data_len)")
    field(FTVL, "ULONG")
    field(FLNK, "$(IOC):REMOTE$(SLOT)-FINISHEVENT")
