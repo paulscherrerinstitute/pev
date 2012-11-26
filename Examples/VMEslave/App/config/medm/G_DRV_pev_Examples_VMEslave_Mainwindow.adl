@@ -642,3 +642,59 @@ text {
 	limits {
 	}
 }
+text {
+	object {
+		x=611
+		y=21
+		width=50
+		height=13
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="INTIMS:"
+}
+"text entry" {
+	object {
+		x=790
+		y=21
+		width=150
+		height=14
+	}
+	control {
+		chan="$(IOC1):USER-TCSR-INTIMS"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
+text {
+	object {
+		x=611
+		y=34
+		width=50
+		height=13
+	}
+	"basic attribute" {
+		clr=14
+	}
+	textix="INTIMC:"
+}
+"text entry" {
+	object {
+		x=790
+		y=34
+		width=150
+		height=14
+	}
+	control {
+		chan="$(IOC1):USER-TCSR-INTIMC"
+		clr=14
+		bclr=56
+	}
+	format="hexadecimal"
+	limits {
+	}
+}
