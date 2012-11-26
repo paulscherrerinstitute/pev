@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_startup.script,v $
-# $Date: 2012/11/15 14:16:53 $
-# $Revision: 1.1 $
+# $Date: 2012/11/26 13:31:07 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -32,7 +32,7 @@ putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
 
 # load regDev and pev (=TOSCA-II) drivers
 require "regDev","test"
-require "pev"
+require "pev","kalantari"
 
 # for the histogram record, which is not in EPICS base for EPICS 3.14.12 / embeddedlinux-e500v2
 require "histogram"
@@ -51,6 +51,17 @@ require "VMEslave"
 #                   DS = 32 bit swapping
 #                   QS = 64 bit swapping
 
+## pev[Asyn]Configure(
+##    crate,
+##    name,
+##    resource,
+##    offset,
+##    vmeProtocol,
+##    intrVec,
+##    mapSize,
+##    blockMode,
+##    swap)
+
 # USER1 block of Standard_IOC project. Find details of memory map definition here:
 # https://codebeamer.psi.ch/cb/proj/sources/sccFileLog.do?proj_id=104&filename=IFC%2FIFC1210_applications%2FStandard_IOC%2FDocumentation%2FStandard_IOC_concept.doc&isDir=false
 # set up a data area in USER block of length 256 bytes starting at offset 256 bytes with 32-bit 
@@ -58,13 +69,13 @@ require "VMEslave"
 #
 # This area is intended to read / write single 32-bit registers using single r/w access
 #
-pevAsynConfigure(0,"Usr1StdIOCUserRegisters"            ,"USR1"   , 0x100   , "DS"      , 0              )
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT1"        ,"USR1"   , 0x158   , "DS"      , 1              )
+pevAsynConfigure(0,"Usr1StdIOCUserRegisters"            ,"USR1"   , 0x100   , ""        , 0  , 0x158    ,0, "DS")
+pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT1"        ,"USR1"   , 0x158   , ""        , 1  , 0x8      ,0, "DS")
 
 
-# data definition in USER and SMEM
-pevAsynConfigure(0,"USR_data" ,"USR1"   , 0x10000 , "DS"      , 0               )
-pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1) # use here pevConfigure since only block r/w allowed with SMEM
+
+# local data definition in SMEM
+pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 , "DS") # use here pevConfigure since only block r/w allowed with SMEM
 
 
 
@@ -72,11 +83,11 @@ pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1
 # IFC1210 VME definition:
 # since this MTEST-VME-KR841 is the slot-1 system we only have VME master and we configure
 # here the access towards VME_master controller to the VME_slaves in the different slots
-pevAsynConfigure(0,"VMEA32_Master_to_slot2","VME_A32",0x00100000,"2eSST320",0)
-pevAsynConfigure(0,"VMEA32_Master_to_slot3","VME_A32",0x00200000,"2eSST320",0)
+pevAsynConfigure(0,"VMEA32_Master_to_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, 0)
+pevAsynConfigure(0,"VMEA32_Master_to_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, 0)
 
 
-
-
+# disable VME_slave for slot-1 system
+pevVmeSlaveMainConfig("AM32", 0x01000000, 0x01000000)
 
 

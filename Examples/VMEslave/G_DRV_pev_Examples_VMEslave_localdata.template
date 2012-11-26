@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/G_DRV_pev_Examples_VMEslave_localdata.template,v $
-# $Date: 2012/11/15 14:16:53 $
-# $Revision: 1.1 $
+# $Date: 2012/11/26 13:31:07 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -17,42 +17,12 @@
 #           * slot 2 and 3 systems are VME slaves
 #
 # Purpose of this file:
-#           * provide records for data storage in USER and in SMEM
-#           * scanning on master/slot-1 is event-based, but only one for either USER or SMEM, not both at same time
+#           * provide records for data storage in SMEM
+#           * scanning on master/slot-1 is event-based
 #           * scanning at slaves is passive, since the master will fetch this data over VME periodically
 
 # USER1 block of Standard_IOC project. Find details of memory map definition here:
 # https://codebeamer.psi.ch/cb/proj/sources/sccFileLog.do?proj_id=104&filename=IFC%2FIFC1210_applications%2FStandard_IOC%2FDocumentation%2FStandard_IOC_concept.doc&isDir=false
-
-
-
-################################################################################
-# Data in USER TMEM
-################################################################################
-record(aai,"$(IOC):USER-DATA-R")
-{
-   field(DTYP, "regDevAsyn")
-   field(SCAN, "$(USRdata_read_scan)")
-   field(EVNT, "$(USRdata_read_evnt)")
-   field(INP,  "#C S @USR_data/0x0 T=UINT32")
-   field(NELM, "$(data_len)")
-   field(FTVL, "ULONG")
-   field(FLNK, "$(IOC):USER-DATA-R-FINISHEVENT")
-}
-record(event,"$(IOC):USER-DATA-R-FINISHEVENT")
-{
-    field(DTYP,"Soft Channel")
-    field(VAL ,"$(Local_Data_finish_evnt)")
-}
-
-record(aao,"$(IOC):USER-DATA-W")
-{
-   field(DTYP, "regDevAsyn")
-   field(OUT,  "#C S @USR_data/0x0 T=UINT32")
-   field(NELM, "$(data_len)")
-   field(FTVL, "ULONG")
-}
-
 
 
 
@@ -91,10 +61,10 @@ record(event,"$(IOC):SMEM-DATA-R-FINISHEVENT")
 record(aao,"$(IOC):SMEM-WAVEFORM-W")
 {
    field(DTYP, "regDev")
-   field(OUT,  "#C S @SMEM_data/0x100 T=UINT32")
+   field(OUT,  "#C S @SMEM_data/0 T=UINT32")
    field(NELM, "$(data_len)")
    field(FTVL, "ULONG")
-   field(FLNK, "SMEM-WriteInitiator")
+   field(FLNK, "$(IOC):SMEM-WriteInitiator")
 }
 record(bo,"$(IOC):SMEM-WriteInitiator")
 {

@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR843_startup.script,v $
-# $Date: 2012/11/15 14:16:53 $
-# $Revision: 1.1 $
+# $Date: 2012/11/26 13:31:07 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -32,7 +32,7 @@ putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
 
 # load regDev and pev (=TOSCA-II) drivers
 require "regDev","test"
-require "pev"
+require "pev","kalantari"
 
 
 
@@ -45,9 +45,19 @@ require "pev"
 #                   DS = 32 bit swapping
 #                   QS = 64 bit swapping
 
-# data definition in USER and SMEM
-pevAsynConfigure(0,"USR_data" ,"USR1"   , 0x10000 , "DS"      , 0               )
-pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1) # use here pevConfigure since only block r/w allowed with SMEM
+## pev[Asyn]Configure(
+##    crate,
+##    name,
+##    resource,
+##    offset,
+##    vmeProtocol,
+##    intrVec,
+##    mapSize,
+##    blockMode,
+##    swap)
+
+# local data definition in SMEM
+pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 , "DS") # use here pevConfigure since only block r/w allowed with SMEM
 
 
 
@@ -55,7 +65,26 @@ pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , "DS"      , 0 , 0x20000,   1
 # IFC1210 VME definition:
 # since this MTEST-VME-KR843 is the slot-3 system we only have to define VME-slave mapping
 
+## VME slave window setup
+## pevVmeSlaveMainConfig(addrSpace, mainBase, mainSize)
+## addrSpace 	: 	"AM32" or "AM24"
+## mainBase	:	start of main VME slave window
+## mainSize	:	size of main VME slave window
 
+##  pevVmeSlaveTargetConfig(slaveAddrSpace, winBase, winSize, vmeProtocol, target, targetOffset, swapping)
+##
+## slaveAddrSpace    :       "AM32" or "AM24"
+## winBase	     :       baseOffset in main VME slave space 	     
+## winSize	     :       window size
+## vmeProtocol	     :       "BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
+## target 	     :       "SH_MEM", "PCIE", "USR1/2"
+## targetOffset	     :       offset in the remote target
+## swapping	     :       "WS", "DS" or "QS" (NOT USED)
+
+
+pevVmeSlaveMainConfig("AM32", 0x03000000, 0x01000000)
+pevVmeSlaveTargetConfig("AM32", 0x000000,  0x100000, "2eSST320", "SH_MEM", 0x000000, 0)
+pevVmeSlaveTargetConfig("AM32", 0x100000,  0x100000, "2eSST320", "USR1"  , 0x000000, 0)
 
 
 

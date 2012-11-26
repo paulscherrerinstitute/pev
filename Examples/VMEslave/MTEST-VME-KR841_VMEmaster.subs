@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_VMEmaster.subs,v $
-# $Date: 2012/11/15 14:16:53 $
-# $Revision: 1.1 $
+# $Date: 2012/11/26 13:31:07 $
+# $Revision: 1.2 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -22,14 +22,14 @@
 
 
 ##########################################################################################
-# IFC1210 local data in USER and SMEM (on each card)
-# USRdata_len of 32768 * UNIT32 = 131 kByte (the same than defined in startup.script for SMEM readout via block read)
+# IFC1210 local data in SMEM (on each card)
+# data_len of 32768 * UNIT32 = 131 kByte (the same than defined in startup.script for SMEM readout via block read)
 # SET ONE read_evnt to 0 to disable !!!
 file G_DRV_pev_Examples_VMEslave_localdata.template
 {
     pattern
-    {IOC            , USRdata_read_scan , USRdata_read_evnt , SMEMdata_read_scan , SMEMdata_read_evnt, Local_Data_finish_evnt, data_len }
-    {MTEST-VME-KR841, Event             , 10                , Passive            , 0                 , 11                    , 32768    }
+    {IOC            , SMEMdata_read_scan , SMEMdata_read_evnt, Local_Data_finish_evnt, data_len }
+    {MTEST-VME-KR841, Event              , 10                , 11                    , 32768    }
 }
 
 
@@ -44,10 +44,10 @@ file G_DRV_pev_Examples_VMEslave_remotedata.template
 {
     pattern
     {IOC            , SLOT , Remote_VMEslave_offset , Remote_Data_len , Remote_Data_read_evnt, Remote_Data_finish_evnt }
-    {MTEST-VME-KR841, 2    , 0x0                    , 32768           , 11                   , 12                      }
-    {MTEST-VME-KR841, 3    , 0x0                    , 32768           , 12                   , 13                      }
+    {MTEST-VME-KR841, 2    , 0x000000               , 32768           , 11                   , 12                      }
+    {MTEST-VME-KR841, 3    , 0x000000               , 32768           , 12                   , 13                      }
 }
-
+# Remote_VMEslave_offset = 0x000000 = SH_MEM
 
 
 
