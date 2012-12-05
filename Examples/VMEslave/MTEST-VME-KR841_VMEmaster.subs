@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_VMEmaster.subs,v $
-# $Date: 2012/11/26 14:55:42 $
-# $Revision: 1.3 $
+# $Date: 2012/12/05 13:10:48 $
+# $Revision: 1.4 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -25,12 +25,12 @@
 # IFC1210 local data in SMEM (on each card)
 # data_len of 32768 * UNIT32 = 131 kByte (the same than defined in startup.script for SMEM readout via block read)
 # SET ONE read_evnt to 0 to disable !!!
-#file G_DRV_pev_Examples_VMEslave_localdata.template
-#{
-#    pattern
-#    {IOC            , SMEMdata_read_scan , SMEMdata_read_evnt, Local_Data_finish_evnt, data_len }
-#    {MTEST-VME-KR841, Event              , 10                , 11                    , 32768    }
-#}
+file G_DRV_pev_Examples_VMEslave_localdata.template
+{
+    pattern
+    {IOC            , SMEMdata_read_scan , SMEMdata_read_evnt, Local_Data_finish_evnt, data_len }
+    {MTEST-VME-KR841, Event              , 10                , 11                    , 32768    }
+}
 
 
 
@@ -40,13 +40,13 @@
 #                                          slot-3         0xaaaa_0000
 # remote offset in VME_A32 space are:      data from USR  0x122
 #                                          data from SMEM 0x444
-#file G_DRV_pev_Examples_VMEslave_remotedata.template
-#{
-#    pattern
-#    {IOC            , SLOT , Remote_VMEslave_offset , Remote_Data_len , Remote_Data_read_evnt, Remote_Data_finish_evnt }
-#    {MTEST-VME-KR841, 2    , 0x000000               , 32768           , 11                   , 12                      }
-#    {MTEST-VME-KR841, 3    , 0x000000               , 32768           , 12                   , 13                      }
-#}
+file G_DRV_pev_Examples_VMEslave_remotedata.template
+{
+    pattern
+    {IOC            , SLOT , Remote_VMEslave_offset , Remote_Data_len , Remote_Data_read_evnt, Remote_Data_finish_evnt }
+    {MTEST-VME-KR841, 2    , 0x000000               , 32768           , 11                   , 12                      }
+    {MTEST-VME-KR841, 3    , 0x000000               , 32768           , 12                   , 13                      }
+}
 # Remote_VMEslave_offset = 0x000000 = SH_MEM
 
 
@@ -59,20 +59,20 @@ file G_DRV_pev_Examples_VMEslave_USRtrigger.template
 {
     pattern
     {IOC            , USR_INTR, PERIOD  , USER_INT1_SOFTEVENT , INTTIM1_STOP_EVNT}
-    {MTEST-VME-KR841, 1       , 1000000 , 10                  , 10               }
+    {MTEST-VME-KR841, 1       , 1000000 , 10                  , 13               }
 }
 
 
 
 ##########################################################################################
 # time measure with genSub record, only on slot-1 system
-#file timeMeasure.template
-#{
-#    pattern
-#    {SECTION        , MAINDEV, MAINSUBDEV, BRD_TYPE, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
-#    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 1      , Event     , 10            , Event    , 11           } # readout of own (KR841) data
-#    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 2      , Event     , 11            , Event    , 12           } # readout of KR842 data
-#    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 3      , Event     , 12            , Event    , 13           } # readout of KR843 data
-#    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 4      , Event     , 10            , Event    , 13           } # all readouts
-#}
+file timeMeasure.template
+{
+    pattern
+    {SECTION        , MAINDEV, MAINSUBDEV, BRD_TYPE, TIME_ID, START_SCAN, START_EVENT-ID, STOP_SCAN, STOP_EVENT-ID}
+    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 1      , Event     , 10            , Event    , 11           } # readout of own (KR841) data
+    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 2      , Event     , 11            , Event    , 12           } # readout of KR842 data
+    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 3      , Event     , 12            , Event    , 13           } # readout of KR843 data
+    {MTEST-VME-KR841, RLLE   , RIOC      , IFC1210 , 4      , Event     , 10            , Event    , 13           } # all readouts
+}
 
