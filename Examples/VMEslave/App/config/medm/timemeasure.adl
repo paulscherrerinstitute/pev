@@ -107,7 +107,7 @@ rectangle {
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:1-TIME-MAX"
+		chan="$(SECTION)-RLLE-RIOC:$(ID)-TIME-MAX"
 		clr=14
 		bclr=45
 	}
@@ -134,7 +134,7 @@ text {
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:1-TIME-MAX.EGU"
+		chan="$(SECTION)-RLLE-RIOC:$(ID)-TIME-MAX.EGU"
 		clr=14
 		bclr=45
 	}
@@ -149,7 +149,7 @@ text {
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:1-TIME-ACT"
+		chan="$(SECTION)-RLLE-RIOC:$(ID)-TIME-ACT"
 		clr=14
 		bclr=45
 	}
@@ -176,7 +176,7 @@ text {
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:1-TIME-ACT.EGU"
+		chan="$(SECTION)-RLLE-RIOC:$(ID)-TIME-ACT.EGU"
 		clr=14
 		bclr=45
 	}
@@ -191,7 +191,7 @@ text {
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:1-TIME-MIN"
+		chan="$(SECTION)-RLLE-RIOC:$(ID)-TIME-MIN"
 		clr=14
 		bclr=45
 	}
@@ -218,7 +218,7 @@ text {
 		height=13
 	}
 	monitor {
-		chan="$(SECTION)-RLLE-RIOC:1-TIME-MIN.EGU"
+		chan="$(SECTION)-RLLE-RIOC:$(ID)-TIME-MIN.EGU"
 		clr=14
 		bclr=45
 	}
@@ -233,7 +233,7 @@ text {
 		height=21
 	}
 	control {
-		chan="$(SECTION)-RLLE-RIOC:#1-TIME-MEASURE-RESET.PROC"
+		chan="$(SECTION)-RLLE-RIOC:#$(ID)-TIME-MEASURE-RESET.PROC"
 		clr=14
 		bclr=4
 	}
