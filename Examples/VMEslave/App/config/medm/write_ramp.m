@@ -52,5 +52,5 @@ subplot(3,3,7);plot(remoteread1);title('Readback Data from IFC1');
 subplot(3,3,8);plot(remoteread2);title('Remote Data from IFC2');
 subplot(3,3,9);plot(remoteread3);title('Remote Data from IFC3');
 
-figure(2)
-plot(remoteread3)
+%figure(2)
+%plot(remoteread3)

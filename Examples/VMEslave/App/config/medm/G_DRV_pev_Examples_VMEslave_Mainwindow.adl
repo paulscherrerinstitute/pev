@@ -8,7 +8,7 @@ display {
 		x=1972
 		y=49
 		width=1089
-		height=901
+		height=702
 	}
 	clr=14
 	bclr=55
@@ -696,56 +696,5 @@ text {
 	}
 	format="hexadecimal"
 	limits {
-	}
-}
-"cartesian plot" {
-	object {
-		x=26
-		y=704
-		width=321
-		height=191
-	}
-	plotcom {
-		title="local data"
-		clr=14
-		bclr=45
-	}
-	trace[0] {
-		ydata="$(IOC1):SMEM-DATA-R"
-		data_clr=14
-	}
-}
-"cartesian plot" {
-	object {
-		x=364
-		y=705
-		width=321
-		height=191
-	}
-	plotcom {
-		title="remote data: slot 2"
-		clr=14
-		bclr=45
-	}
-	trace[0] {
-		ydata="$(IOC1):REMOTE2-DATA-R"
-		data_clr=14
-	}
-}
-"cartesian plot" {
-	object {
-		x=699
-		y=705
-		width=321
-		height=191
-	}
-	plotcom {
-		title="remote data: slot 3"
-		clr=14
-		bclr=45
-	}
-	trace[0] {
-		ydata="$(IOC1):REMOTE3-DATA-R"
-		data_clr=14
 	}
 }
