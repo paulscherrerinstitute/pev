@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/G_DRV_pev_Examples_VMEslave_localdata.template,v $
-# $Date: 2012/11/26 13:31:07 $
-# $Revision: 1.2 $
+# $Date: 2012/12/12 14:32:08 $
+# $Revision: 1.3 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -36,14 +36,14 @@ record(bi,"$(IOC):SMEM-ReadInitiator")
     field(DTYP, "regDev")
     field(INP , "#C S @SMEM_data/0")
     field(PRIO, "HIGH")
+    field(SCAN, "$(SMEMdata_read_scan)")
+    field(EVNT, "$(SMEMdata_read_evnt)")
 }
 # after the block-read is finished, this record is kicked I/O Intr
 record(aai,"$(IOC):SMEM-DATA-R")
 {
    field(DTYP, "regDev")
    field(SCAN, "I/O Intr")
-   field(SCAN, "$(SMEMdata_read_scan)")
-   field(EVNT, "$(SMEMdata_read_evnt)")
    field(INP,  "#C S @SMEM_data/0x0 T=UINT32")
    field(NELM, "$(data_len)")  # but warning here!!! should not exceed limit given for SMEM_data in startup.script, so max allowed value = 32768
    field(FTVL, "ULONG")
