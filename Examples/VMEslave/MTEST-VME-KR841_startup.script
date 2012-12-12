@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_startup.script,v $
-# $Date: 2012/12/03 08:37:40 $
-# $Revision: 1.4 $
+# $Date: 2012/12/12 14:33:47 $
+# $Revision: 1.5 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -83,11 +83,11 @@ pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 ,
 # IFC1210 VME definition:
 # since this MTEST-VME-KR841 is the slot-1 system we only have VME master and we configure
 # here the access towards VME_master controller to the VME_slaves in the different slots
-#pevAsynConfigure(0,"VMEA32_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, 0)
-#pevAsynConfigure(0,"VMEA32_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, 0)
+pevAsynConfigure(0,"VMEA32_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, "DS")
+pevAsynConfigure(0,"VMEA32_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, "DS")
 
 
 # disable VME_slave for slot-1 system
-#pevVmeSlaveMainConfig("AM32", 0x01000000, 0x01000000)
+pevVmeSlaveMainConfig("AM32", 0x0, 0x0)
 
 
