@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_startup.script,v $
-# $Date: 2012/12/12 14:33:47 $
-# $Revision: 1.5 $
+# $Date: 2012/12/13 12:56:47 $
+# $Revision: 1.6 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -75,7 +75,8 @@ pevAsynConfigure(0,"Usr1INT1" ,"USR1"   , 0x158   , ""        , 1  , 0x8      ,0
 
 
 # local data definition in SMEM
-pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 , "DS") # use here pevConfigure since only block r/w allowed with SMEM
+pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 , "DS")
+# use here pevConfigure since only block r/w allowed with SMEM
 
 
 
@@ -83,8 +84,8 @@ pevConfigure(    0,"SMEM_data","SH_MEM" , 0       , ""      , 0 , 0x20000,   1 ,
 # IFC1210 VME definition:
 # since this MTEST-VME-KR841 is the slot-1 system we only have VME master and we configure
 # here the access towards VME_master controller to the VME_slaves in the different slots
-pevAsynConfigure(0,"VMEA32_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, "DS")
-pevAsynConfigure(0,"VMEA32_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, "DS")
+pevAsynConfigure(0,"VMEA32_slot2","VME_A32",0x02000000,"2eSST320",0,0x01000000,0, "DS", 1024)
+pevAsynConfigure(0,"VMEA32_slot3","VME_A32",0x03000000,"2eSST320",0,0x01000000,0, "DS", 1024)
 
 
 # disable VME_slave for slot-1 system
