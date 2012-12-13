@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Basic/MTEST-PC-IFC8_startup.script,v $
-# $Date: 2012/12/05 11:42:32 $
-# $Revision: 1.4 $
+# $Date: 2012/12/13 12:59:02 $
+# $Revision: 1.5 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -54,7 +54,8 @@ require "histogram"
 ##    intrVec,
 ##    mapSize,
 ##    blockMode,
-##    swap)
+##    swap,
+##    VME_DMA_packet_size)
 
 ## Swapping options: 0  = no     swapping
 ##                   WS = 16 bit swapping
@@ -109,7 +110,7 @@ pevConfigure(    0,"SharedMemoryExampleBasicDataBlock_W","SH_MEM" , 0x20000 , ""
 # slot-1 system / VME_master interface
 # set up a data area in VME A32 address space of length 1NB starting at offset 0 bytes with no 
 # swapping, VME speed = fastest, and Asyn read-out with DMA for aai/aao bigger than 100 elements, else without DMA
-pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0x0       , "2eSST320", 0 , 0x100  ,   0, "DS")
+pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0x0       , "2eSST320", 0 , 0x100  ,   0, "DS", 1024)
 
 
 

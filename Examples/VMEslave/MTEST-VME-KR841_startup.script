@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR841_startup.script,v $
-# $Date: 2012/12/13 12:56:47 $
-# $Revision: 1.6 $
+# $Date: 2012/12/13 12:57:34 $
+# $Revision: 1.7 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -60,7 +60,8 @@ require "VMEslave"
 ##    intrVec,
 ##    mapSize,
 ##    blockMode,
-##    swap)
+##    swap,
+##    VME_DMA_packet_size)
 
 # USER1 block of Standard_IOC project. Find details of memory map definition here:
 # https://codebeamer.psi.ch/cb/proj/sources/sccFileLog.do?proj_id=104&filename=IFC%2FIFC1210_applications%2FStandard_IOC%2FDocumentation%2FStandard_IOC_concept.doc&isDir=false
