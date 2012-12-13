@@ -57,7 +57,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.32 2012/11/22 10:23:17 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.33 2012/12/13 13:37:28 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -106,6 +106,8 @@ struct regDevice {
     epicsBoolean dmaAllocFailed;
     int dmaStatus;
     epicsUInt8 dmaSpace;		/*  must be used also to contain user provided DMA_SPACE_W/D/QS */
+    epicsUInt8 vmeSwap;
+    epicsUInt32 vmePktSize;
 };
 
 struct regDeviceAsyn {
@@ -126,10 +128,22 @@ struct regDeviceAsyn {
     epicsBoolean dmaAllocFailed;
     int dmaStatus;
     epicsUInt8 dmaSpace;
+    epicsUInt8 vmeSwap;
+    epicsUInt32 vmePktSize;
 };
 
 static int pevDebug = 0;
 static int currConfCrates = 0;
+
+/* VME slave */
+typedef struct pevVmeSlaveMap {
+    unsigned int a32_base; 
+    unsigned int a32_size;
+    unsigned int a24_base; 
+    unsigned int a24_size;
+} pevVmeSlaveMap;
+
+static pevVmeSlaveMap glbVmeSlaveMap = {0, 0, 0, 0};	/* global slave map */
 
 /******** Support functions *****************************/ 
 
@@ -165,6 +179,7 @@ int pevRead(
 {
   int swap = 0;
   unsigned short srcMode = 0;
+  unsigned short desMode = 0;
   
     if (!device || device->magic != MAGIC)
     {
@@ -172,14 +187,16 @@ int pevRead(
             "pevRead: illegal device handle\n");
         return -1;
     }
-    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM) 
+    						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevRead %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -190,6 +207,7 @@ int pevRead(
 
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME )
     {
+      desMode = device->vmeSwap;
 #ifdef powerpc
       srcMode = DMA_SWAP;
       swap = 0;
@@ -215,14 +233,18 @@ int pevRead(
 	}
       else
         {
-          device->pev_dmaReq.size = nelem*dlen;              				
+          device->pev_dmaReq.size = nelem*dlen | device->vmePktSize;              				
           device->pev_dmaReq.src_addr = device->baseOffset + offset;  		
           device->pev_dmaReq.des_addr = (ulong)pdata;       	
 	}
       device->pev_dmaReq.src_space = device->dmaSpace;		
-      device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
+      device->pev_dmaReq.des_space = DMA_SPACE_PCIE | desMode;
       device->pev_dmaReq.src_mode = srcMode;
       device->pev_dmaReq.des_mode = 0;
+      if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
+        device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      else
+        device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
@@ -273,7 +295,8 @@ int pevWrite(
 {
   int swap = 0;
   unsigned short destMode = 0;
-   	
+  unsigned short srcMode = 0;
+  	
     if (!device || device->magic != MAGIC)
     {
         errlogSevPrintf(errlogMajor,
@@ -281,14 +304,16 @@ int pevWrite(
         return -1;
     }
 
-    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevWrite %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevWrite %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -298,6 +323,7 @@ int pevWrite(
     }
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
     {
+      srcMode = device->vmeSwap;
 #ifdef powerpc
       destMode = DMA_SWAP;
       swap = 0;
@@ -326,13 +352,17 @@ int pevWrite(
       else
         {
           device->pev_dmaReq.src_addr = (ulong)pdata;
-          device->pev_dmaReq.size = nelem*dlen;                  
+          device->pev_dmaReq.size = nelem*dlen | device->vmePktSize;                  
           device->pev_dmaReq.des_addr = device->baseOffset + offset;      
 	}
-      device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
+      device->pev_dmaReq.src_space = DMA_SPACE_PCIE | srcMode;
       device->pev_dmaReq.des_space = device->dmaSpace;
       device->pev_dmaReq.src_mode = 0;
       device->pev_dmaReq.des_mode = destMode;
+      if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
+        device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      else
+        device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
@@ -389,6 +419,7 @@ int pevAsynRead(
 {
   int swap = 0;
   unsigned short srcMode = 0;
+  unsigned short desMode = 0;
   pevDmaReqMsg pevDmaRequest;
   
     if (!device || device->magic != MAGIC)
@@ -397,14 +428,16 @@ int pevAsynRead(
             "pevAsynRead: illegal device handle\n");
         return -1;
     }
-    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& !(device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynRead %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& !(device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynRead %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -415,6 +448,7 @@ int pevAsynRead(
 
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME )
     {
+      desMode = device->vmeSwap;
 #ifndef powerpc
       srcMode = DMA_SWAP;
       swap = 1;
@@ -435,11 +469,15 @@ int pevAsynRead(
       epicsMutexLock(pevDmaReqLock);       
       device->pev_dmaReq.src_addr = device->baseOffset + offset;  		/* src bus address */ 
       device->pev_dmaReq.des_addr = (ulong)pdata;       			 /*  des bus address */
-      device->pev_dmaReq.size = nelem*dlen;              				
+      device->pev_dmaReq.size = nelem*dlen | device->vmePktSize;              				
       device->pev_dmaReq.src_space = device->dmaSpace;		
-      device->pev_dmaReq.des_space = DMA_SPACE_PCIE;
+      device->pev_dmaReq.des_space = DMA_SPACE_PCIE | desMode;
       device->pev_dmaReq.src_mode = srcMode;
       device->pev_dmaReq.des_mode = 0;
+      if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
+        device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      else
+        device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
@@ -491,6 +529,7 @@ int pevAsynWrite(
 {
   int swap = 0;
   unsigned short destMode = 0;
+  unsigned short srcMode = 0;
   pevDmaReqMsg pevDmaRequest;
    	
     if (!device || device->magic != MAGIC)
@@ -500,14 +539,16 @@ int pevAsynWrite(
         return -1;
     }
 
-    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynWrite %s: offset %d out of range (0-%d)\n",
             device->name, offset, device->pev_rmArea_map.win_size);
         return -1;
     }
-    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM))
+    if (offset+dlen*nelem > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
+    						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
         errlogSevPrintf(errlogMajor,
             "pevAsynWrite %s: offset %d + %d bytes length exceeds mapped size %d by %d bytes\n",
@@ -517,6 +558,7 @@ int pevAsynWrite(
     }
     if( device->pev_rmArea_map.mode & MAP_SPACE_VME)
     {
+      srcMode = device->vmeSwap;
 #ifndef powerpc
       destMode = DMA_SWAP;
       swap = 1;
@@ -544,11 +586,15 @@ int pevAsynWrite(
       epicsMutexLock(pevDmaReqLock);       
       device->pev_dmaReq.src_addr = (ulong)pdata;                   
       device->pev_dmaReq.des_addr = device->baseOffset + offset;       /* (ulong)pdata destination is DMA buffer    */
-      device->pev_dmaReq.size = nelem*dlen;                  
-      device->pev_dmaReq.src_space = DMA_SPACE_PCIE;
+      device->pev_dmaReq.size = nelem*dlen | device->vmePktSize;                  
+      device->pev_dmaReq.src_space = DMA_SPACE_PCIE | srcMode;
       device->pev_dmaReq.des_space = device->dmaSpace;
-      device->pev_dmaReq.src_mode = 0 | DMA_PCIE_RR2;
+      device->pev_dmaReq.src_mode = DMA_PCIE_RR2;
       device->pev_dmaReq.des_mode = destMode | DMA_PCIE_RR2;
+      if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
+        device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      else
+        device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
       device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
@@ -716,12 +762,13 @@ static void pevDrvAtexit(regDevice* device)
 {
   int i=0;
   struct pev_node* pev; 
-  pevDevLibAtexit();   
+
+  pevDevLibAtexit();
   printf("pevDrvAtexit(): we are at ioc exit**********\n");
   pev_evt_queue_disable(pevIntrEvent);
   pev_evt_queue_free(pevIntrEvent);
   free(pevIntrTable);
-       
+  
   for(i=0; i<=currConfCrates; i++) 
   {
      pev = pev_init(i);
@@ -768,7 +815,8 @@ int pevConfigure(
     int intrVec,
     int mapSize,
     int blockMode,
-    const char* swap)
+    const char* swap,
+    int vmePktSize)
 {
     
   regDevice* device;    
@@ -838,6 +886,7 @@ int pevConfigure(
   strcpy(tmpStrCpy, resource);
   device->resource = tmpStrCpy;
   device->dmaSpace = NO_DMA_SPACE;
+  device->vmePktSize = 0;
   if( blockMode == 1 )
    {
     device->flags = FLAG_BLKMD;
@@ -860,7 +909,6 @@ int pevConfigure(
     }
   }
   
-  epicsAtExit((void*)pevDrvAtexit, device);
   
   if( device->flags == FLAG_BLKMD )	/* use blockMode */
   {
@@ -943,7 +991,8 @@ int pevConfigure(
      }
    else
    if( strncmp(resource, "VME_", 4)==0 ) 
-     {
+     {  
+        device->pev_rmArea_map.mode = MAP_SPACE_VME;
         if( strcmp(resource, "VME_A16")==0 ) 
 	  addrType = atVMEA16;
         if( strcmp(resource, "VME_A24")==0 ) 
@@ -1021,14 +1070,54 @@ SKIP_PEV_RESMAP:
 
 TESTJUMP: 
   
+  if( strncmp(resource, "VME_", 4)!=0 )
+  {
   if( strcmp(swap, "WS")==0 )
     device->dmaSpace |= DMA_SPACE_WS;
-  if( strcmp(swap, "DS")==0 )
+  else if( strcmp(swap, "DS")==0 )
     device->dmaSpace |= DMA_SPACE_DS;
-  if( strcmp(swap, "QS")==0 )
+  else if( strcmp(swap, "QS")==0 )
     device->dmaSpace |= DMA_SPACE_QS;
+  }
+  else
+  {
+    if( strcmp(swap, "WS")==0 )
+      device->vmeSwap = DMA_SPACE_WS;
+    else if( strcmp(swap, "DS")==0 )
+      device->vmeSwap = DMA_SPACE_DS;
+    else if( strcmp(swap, "QS")==0 )
+      device->vmeSwap = DMA_SPACE_QS;
+    else
+      device->vmeSwap = 0;
+      
+    switch(vmePktSize) 
+    {
+      case 128:  
+        device->vmePktSize = DMA_SIZE_PKT_128;
+	break;
+      case 256:  
+        device->vmePktSize = DMA_SIZE_PKT_256;
+	break;
+      case 512:  
+        device->vmePktSize = DMA_SIZE_PKT_512;
+	break;
+      case 1024:  
+        device->vmePktSize = DMA_SIZE_PKT_1K;
+	break;
+      default:
+        printf("pevConfigure: vmePktSize parameter not specified/wrong - set to DMA_SIZE_PKT_128\n");
+        break;
+    }
+  }
 
   device->baseOffset = offset;
+  if( initHookregDone == epicsFalse )
+  {
+    initHookRegister((initHookFunction)pevHookFunc);
+    initHookregDone = epicsTrue;
+    epicsAtExit((void*)pevDrvAtexit, device);
+  }
+
   if( intrVec )
   {
     if( intrVec<0 || intrVec>255 || 
@@ -1109,7 +1198,8 @@ int pevAsynConfigure(
     int intrVec,
     int mapSize,
     int blockMode,
-    const char* swap)
+    const char* swap,
+    int vmePktSize)
 {
     
   regDeviceAsyn* device;    
@@ -1179,6 +1269,7 @@ int pevAsynConfigure(
   strcpy(tmpStrCpy, resource);
   device->resource = tmpStrCpy;
   device->dmaSpace = NO_DMA_SPACE;
+  device->vmePktSize = 0;
   
   /* get the current VME configuration */
   pev_vme_conf_read( &device->vme_conf);
@@ -1210,7 +1301,6 @@ int pevAsynConfigure(
       goto SKIP_PEV_RESMAP;
     }
      
-  epicsAtExit((void*)pevDrvAtexit, device);
   
   device->pev_dmaBuf.size = DMA_BUF_SIZE;
   if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED /*|| !device->pev_dmaBuf.b_addr*/ )
@@ -1275,6 +1365,7 @@ int pevAsynConfigure(
    else
    if( strncmp(resource, "VME_", 4)==0 ) 
      {
+        device->pev_rmArea_map.mode = MAP_SPACE_VME;
         if( strcmp(resource, "VME_A16")==0 ) 
 	  addrType = atVMEA16;
         if( strcmp(resource, "VME_A24")==0 ) 
@@ -1350,18 +1441,52 @@ SKIP_PEV_RESMAP:
   }
   
 TESTJUMP: 
+  if( strncmp(resource, "VME_", 4)!=0 )
+  {
   if( strcmp(swap, "WS")==0 )
     device->dmaSpace |= DMA_SPACE_WS;
-  if( strcmp(swap, "DS")==0 )
+  else if( strcmp(swap, "DS")==0 )
     device->dmaSpace |= DMA_SPACE_DS;
-  if( strcmp(swap, "QS")==0 )
+  else if( strcmp(swap, "QS")==0 )
     device->dmaSpace |= DMA_SPACE_QS;
+  }
+  else
+  {
+    if( strcmp(swap, "WS")==0 )
+      device->vmeSwap = DMA_SPACE_WS;
+    else if( strcmp(swap, "DS")==0 )
+      device->vmeSwap = DMA_SPACE_DS;
+    else if( strcmp(swap, "QS")==0 )
+      device->vmeSwap = DMA_SPACE_QS;
+    else
+      device->vmeSwap = 0;
+      
+    switch(vmePktSize) 
+    {
+      case 128:  
+        device->vmePktSize = DMA_SIZE_PKT_128;
+	break;
+      case 256:  
+        device->vmePktSize = DMA_SIZE_PKT_256;
+	break;
+      case 512:  
+        device->vmePktSize = DMA_SIZE_PKT_512;
+	break;
+      case 1024:  
+        device->vmePktSize = DMA_SIZE_PKT_1K;
+	break;
+      default:
+        printf("pevConfigure: vmePktSize parameter wrong/not specified - set to DMA_SIZE_PKT_128\n");
+        break;
+    }
+  }
     
   device->baseOffset = offset;
   if( initHookregDone == epicsFalse )
   {
     initHookRegister((initHookFunction)pevHookFunc);
     initHookregDone = epicsTrue;
+    epicsAtExit((void*)pevDrvAtexit, device);
   }
 
   if( intrVec )
@@ -1383,7 +1508,9 @@ TESTJUMP:
       device->ioscanpvt = pevIntrTable[intrVec];
       
     if(device->pev_rmArea_map.mode & MAP_SPACE_USR1)
+    {
       device->ioscanpvt = pevIntrTable[255+intrVec];
+    }
     
     if(device->pev_rmArea_map.mode & MAP_SPACE_SHM)
       device->ioscanpvt = pevIntrTable[272];
@@ -1465,8 +1592,18 @@ void *pev_dmaRequetServer(int *crate)
      /* usleep(1); */
      if( (*(msgptr.reqStatus) = pev_dma_move(&msgptr.pev_dmaReq)) )
        {
-     	 printf("pev_dmaRequetServer(): DMA failure or Timeout! dma status = 0x%x\n",
+     	 printf("pev_dmaRequetServer(): DMA failure or Timeout! dma status = 0x%x src = ",
 	 msgptr.pev_dmaReq.dma_status);
+     	 if(msgptr.pev_dmaReq.src_space &  DMA_SPACE_VME) printf(" \"VME\" ");
+     	 else if(msgptr.pev_dmaReq.src_space &  DMA_SPACE_PCIE) printf(" \"PCIE\" ");
+     	 else if(msgptr.pev_dmaReq.src_space &  DMA_SPACE_USR1) printf(" \"USR1\" ");
+     	 else if(msgptr.pev_dmaReq.src_space &  DMA_SPACE_SHM) printf(" \"SHM\" ");
+	 printf(", dest = ");
+     	 if(msgptr.pev_dmaReq.des_space &  DMA_SPACE_VME) printf(" \"VME\"\n");
+     	 else if(msgptr.pev_dmaReq.des_space &  DMA_SPACE_PCIE) printf(" \"PCIE\"\n");
+     	 else if(msgptr.pev_dmaReq.des_space &  DMA_SPACE_USR1) printf(" \"USR1\"\n");
+     	 else if(msgptr.pev_dmaReq.des_space &  DMA_SPACE_SHM) printf(" \"SHM\"\n");
+	 printf("\n");
        }
      else
        {
@@ -1532,25 +1669,28 @@ return 0;
 **/
 int pevExpertReport(int level, int debug)
 {
- int dummyMsg = 0;
  struct pev_ioctl_dma_sts dmaStatus;
  
- printf("pevExpertReport:\t\n");
- printf("\t dmaMessageQueue: ");
- epicsMessageQueueShow(pevDmaMsgQueueId, level);
- pevDrvDebug = debug;
- pev_dma_status( &dmaStatus );
- if(pevDrvDebug>2)
+ printf("pevExpertReport:");
+ if(glbVmeSlaveMap.a32_size == 0)
+   printf("\n\t Main VME slave window (A32) has been turned OFF!\n");
+ else
+   printf("\n\t Main VME slave window (A32) at 0x%x [size = 0x%x]\n", glbVmeSlaveMap.a32_base, glbVmeSlaveMap.a32_size);
+ 
+ if(level > 1)
  {
-   printf("\n sending an emty message to dmaMessageQueue...: ");
-   epicsMessageQueueSend(pevDmaMsgQueueId, &dummyMsg, 0); 
+   printf("\t dmaMessageQueue: ");
+   epicsMessageQueueShow(pevDmaMsgQueueId, level);
+   pevDrvDebug = debug;
+   pev_dma_status( &dmaStatus );
+ 
+   printf("\n\t dmaServerDebug = %d dmaStat = %d",dmaServerDebug, pev_dma_status( &dmaStatus ));
+   printf("\n\t Last DMA transfer Status : 0x%x = ", dmaLastTransferStat);
+   if(dmaLastTransferStat & DMA_STATUS_WAITING) printf(" START_WAITING, ");
+   if(dmaLastTransferStat & DMA_STATUS_TMO) printf("TIMEOUT, ");
+   if(dmaLastTransferStat & DMA_STATUS_ENDED) printf("ENDED_WAITING, ");
+   if(dmaLastTransferStat & DMA_STATUS_DONE) printf("DONE, ");
  }
- printf("\n\t dmaServerDebug = %d dmaStat = %d",dmaServerDebug, pev_dma_status( &dmaStatus ));
- printf("\n\t Last DMA transfer Status : 0x%x = ", dmaLastTransferStat);
- if(dmaLastTransferStat & DMA_STATUS_WAITING) printf(" START_WAITING, ");
- if(dmaLastTransferStat & DMA_STATUS_TMO) printf("TIMEOUT, ");
- if(dmaLastTransferStat & DMA_STATUS_ENDED) printf("ENDED_WAITING, ");
- if(dmaLastTransferStat & DMA_STATUS_DONE) printf("DONE, ");
  printf("\n");
 
  return 0;
@@ -1658,18 +1798,10 @@ void pevIntrHandler(int sig)
 **  addrSpace : "AM32" or "AM24"
 **/
 
-typedef struct pevVmeSlaveMap {
-    unsigned int a32_base; 
-    unsigned int a32_size;
-    unsigned int a24_base; 
-    unsigned int a24_size;
-} pevVmeSlaveMap;
-
-static pevVmeSlaveMap glbVmeSlaveMap = {0, 0, 0, 0};	/* global slave map */
-
 int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned int mainSize)
 {
   struct pev_ioctl_vme_conf vme_conf;
+  struct pev_ioctl_map_ctl vme_slv_map;
   
   if( !pev_init(0) )
   {
@@ -1686,17 +1818,26 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
       				glbVmeSlaveMap.a32_size, glbVmeSlaveMap.a32_base);
       return -1;
     }
+    vme_slv_map.sg_id = MAP_SLAVE_VME;	/* first clear all default winodws */
+    pev_map_clear(&vme_slv_map);
     vme_conf.a32_size = mainSize;
     vme_conf.a32_base = mainBase;
     glbVmeSlaveMap.a32_size = vme_conf.a32_size;
     glbVmeSlaveMap.a32_base = vme_conf.a32_base;
+    if( mainSize == 0 )			/* turn off slave window */
+    {
+      vme_conf.slv_ena = 0;
+      printf("\t => pevVmeSlaveMainConfig(): turnning OFF the whole vme slave window !!\n");
+    }
+    else 
+      vme_conf.slv_ena = 1; 
   }
   else
   if( strcmp(addrSpace, "AM24")==0 )
   { 
     if( glbVmeSlaveMap.a24_size != 0 )
     {
-      printf("pevVmeSlaveMainConfig(): ERROR, Main Config can be done only once, current \
+      printf("\t => pevVmeSlaveMainConfig(): ERROR, Main Config can be done only once, current \
               a24_size = 0x%x a24_base = 0x%x \n", glbVmeSlaveMap.a24_size, glbVmeSlaveMap.a24_base);
       return -1;
     }
@@ -1707,12 +1848,12 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
   }
   else
   {
-    printf("pevVmeSlaveMainConfig(): ERROR, invalid addrSpace (must be \"AM32\" or \"AM24\")\n");
+    printf("\t => pevVmeSlaveMainConfig(): ERROR, invalid addrSpace (must be \"AM32\" or \"AM24\")\n");
     return -1;
   }
   pev_vme_conf_write(&vme_conf);
   pev_vme_conf_read(&vme_conf);
-  if( strcmp(addrSpace, "AM32")==0 && (vme_conf.a32_base != mainBase || vme_conf.a32_size != mainSize) )
+  if( strcmp(addrSpace, "AM32")==0 && vme_conf.slv_ena && (vme_conf.a32_base != mainBase || vme_conf.a32_size != mainSize) )
   {
     printf("  pevVmeSlaveMainConfig(): == ERROR == mapping failed! \n\t current A32 slaveBase 0x%x [size 0x%x] \
     		\n\t Address/Size Granularity must be 16MB=0x1000000\n", vme_conf.a32_base, vme_conf.a32_size);
@@ -1740,6 +1881,7 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
   unsigned int mainSlaveBase = 0;
   epicsAddressType addrType; int dummyMap;
   regDevice* device = (regDevice*)malloc(sizeof(regDevice));
+  epicsUInt8 dmaSpace = 0;		/*  must be used also to contain user provided DMA_SPACE_W/D/QS */
 
   if( strcmp(slaveAddrSpace, "AM32")==0 )
   { 
@@ -1769,7 +1911,27 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
     printf("pevVmeSlaveTargetConfig(): ERROR, invalid slaveAddrSpace (must be \"AM32\" or \"AM24\")\n");
     return -1;
   }
-
+  if( strcmp(swapping, "WS")==0 )
+    dmaSpace = DMA_SPACE_WS;
+  if( strcmp(swapping, "DS")==0 )
+    dmaSpace = DMA_SPACE_DS;
+  if( strcmp(swapping, "QS")==0 )
+    dmaSpace = DMA_SPACE_QS;
+  
+/*
+  if(strcmp(vmeProtocol, "BLT")==0) 
+    dmaSpace = DMA_SPACE_VME|DMA_VME_BLT;
+  else if(strcmp(vmeProtocol, "MBLT")==0) 
+    dmaSpace = DMA_SPACE_VME|DMA_VME_MBLT;
+  else if(strcmp(vmeProtocol, "2eVME")==0) 
+    dmaSpace = DMA_SPACE_VME|DMA_VME_2eVME;
+  else if(strcmp(vmeProtocol, "2eSST160")==0) 
+    dmaSpace = DMA_SPACE_VME|DMA_VME_2e160;
+  else if(strcmp(vmeProtocol, "2eSST233")==0) 
+    dmaSpace = DMA_SPACE_VME|DMA_VME_2e233;
+  else if(strcmp(vmeProtocol, "2eSST320")==0) 
+    dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
+*/    
   vme_slv_map.loc_addr = winBase;	       /* offset within main VME slave window */
   vme_slv_map.rem_addr = targetOffset;  	       /* offset within target space */
   vme_slv_map.mode = MAP_ENABLE|MAP_ENABLE_WR;
@@ -1777,13 +1939,13 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
   vme_slv_map.sg_id = MAP_SLAVE_VME;
   vme_slv_map.size = winSize;
   if( strcmp(target, "SH_MEM")==0 )
-    vme_slv_map.mode |= MAP_SPACE_SHM;
+    vme_slv_map.mode |= MAP_SPACE_SHM | dmaSpace;
   else
   if( strcmp(target, "USR1")==0 )
-    vme_slv_map.mode |= MAP_SPACE_USR1;
+    vme_slv_map.mode |= MAP_SPACE_USR1 | dmaSpace;
   else
   if( strcmp(target, "PCIE")==0 )
-    vme_slv_map.mode |= MAP_SPACE_PCIE;
+    vme_slv_map.mode |= MAP_SPACE_PCIE | dmaSpace;
   else
   {
     printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid target [valid options: SH_MEM, USR1, PCIE]\n");
@@ -1829,6 +1991,7 @@ static const iocshArg pevConfigureArg5 = { "intrVec", iocshArgInt };
 static const iocshArg pevConfigureArg6 = { "mapSize", iocshArgInt };
 static const iocshArg pevConfigureArg7 = { "blockMode", iocshArgInt };
 static const iocshArg pevConfigureArg8 = { "swap", iocshArgString };
+static const iocshArg pevConfigureArg9 = { "vmePktSize", iocshArgInt };
 static const iocshArg * const pevConfigureArgs[] = {
     &pevConfigureArg0,
     &pevConfigureArg1,
@@ -1839,15 +2002,16 @@ static const iocshArg * const pevConfigureArgs[] = {
     &pevConfigureArg6,
     &pevConfigureArg7,
     &pevConfigureArg8,
+    &pevConfigureArg9,
 };
 
 static const iocshFuncDef pevConfigureDef =
-    { "pevConfigure", 9, pevConfigureArgs };
+    { "pevConfigure", 10, pevConfigureArgs };
     
 static void pevConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevConfigure(
-        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival, args[6].ival, args[7].ival, args[8].sval);
+        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival, args[6].ival, args[7].ival, args[8].sval, args[9].ival);
     if (status != 0) epicsExit(1);
 }
 
@@ -1860,12 +2024,12 @@ epicsExportRegistrar(pevRegistrar);
 
 
 static const iocshFuncDef pevAsynConfigureDef =
-    { "pevAsynConfigure", 9, pevConfigureArgs };
+    { "pevAsynConfigure", 10, pevConfigureArgs };
     
 static void pevAsynConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevAsynConfigure(
-        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival,args[6].ival, args[7].ival, args[8].sval);
+        args[0].ival, args[1].sval, args[2].sval, args[3].ival, args[4].sval, args[5].ival,args[6].ival, args[7].ival, args[8].sval, args[9].ival);
     if (status != 0) epicsExit(1);
 }
 

@@ -31,6 +31,7 @@
 #include <vmedefs.h>
 #include <drvSup.h>            
 #include <epicsExport.h>
+#include <epicsTypes.h>
 
 #define VME32_MAP_SIZE 	0x40000000      /* 1024 MB A32 - fixed via PMEM */
 #define VME24_MAP_SIZE 	0x1000000      	/* 8 MB A24 - fixed */
@@ -57,12 +58,13 @@ static void * map_a32_base;
 static void * map_csr_base;
 
 int pevDevLibVMEInit();
-LOCAL struct pev_ioctl_evt *pevIntrEvent;
+LOCAL struct pev_ioctl_evt *pevDevLibIntrEvent;
 LOCAL void (*pevIsrFuncTable[256])(void*);
 LOCAL void*  pevIsrParmTable[256];
 LOCAL void pevDevIntrHandler(int sig);
 
 LOCAL int pevDevLibDebug = 0;
+LOCAL epicsBoolean pevDevLibAtexitCalled = epicsFalse;
 
 /*
  * this routine needs to be in the symbol table
@@ -149,20 +151,49 @@ devLibVirtualOS pevVirtualOS = {
  */
 void pevDevLibAtexit(void)
 {
-  pev_evt_queue_disable(pevIntrEvent);
-  pev_evt_queue_free(pevIntrEvent);
+  struct pev_ioctl_map_ctl pev_ctl; 
+  
+  if( pevDevLibAtexitCalled )
+    return;
+
+  pev_evt_queue_disable(pevDevLibIntrEvent);
+  pev_evt_queue_free(pevDevLibIntrEvent);
 
   printf(">>>> pevDevLibAtexit exiting....\n");
   if( vme_mas_map_a32.win_size != 0 )
+  {
+    pev_ctl.sg_id = vme_mas_map_a32.sg_id;
+    pev_map_clear( &pev_ctl );
+    pev_munmap(&vme_mas_map_a32);
     pev_map_free(&vme_mas_map_a32);
+  }
   if( vme_mas_map_a16.win_size != 0 )
+  {
+    pev_ctl.sg_id = vme_mas_map_a16.sg_id;
+    pev_map_clear( &pev_ctl );
+    pev_munmap(&vme_mas_map_a16);
     pev_map_free(&vme_mas_map_a16);
+  }
   if( vme_mas_map_a24.win_size != 0 )
+  {
+    pev_ctl.sg_id = vme_mas_map_a24.sg_id;
+    pev_map_clear( &pev_ctl );
+    pev_munmap(&vme_mas_map_a24);
     pev_map_free(&vme_mas_map_a24);
+  } 
   if( vme_mas_map_csr.win_size != 0 )
+  {
+    pev_ctl.sg_id = vme_mas_map_csr.sg_id;
+    pev_map_clear( &pev_ctl );
+    pev_munmap(&vme_mas_map_csr);
     pev_map_free(&vme_mas_map_csr);
+  } 
+  
+  pevDevLibAtexitCalled = epicsTrue;
   
 /*
+  pev_exit( pev);
+  exit(0);
   if( map_a32_base )
     pev_map_clear(map_a32_base);
   if( map_a24_base )
@@ -246,9 +277,9 @@ pevDevInit(void)
     pevIsrFuncTable[i] = 0;
     pevIsrParmTable[i] = 0;
   }
-  pevIntrEvent = pev_evt_queue_alloc( SIGUSR2);  
-  pevIntrEvent->wait = -1;
-  signal(pevIntrEvent->sig, pevDevIntrHandler);
+  pevDevLibIntrEvent = pev_evt_queue_alloc( SIGUSR1);  
+  pevDevLibIntrEvent->wait = -1;
+  signal(pevDevLibIntrEvent->sig, pevDevIntrHandler);
   /* intr setup end */
   
   epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  
@@ -268,17 +299,17 @@ LOCAL void pevDevIntrHandler(int sig)
 { 
   do
   {
-    pev_evt_read( pevIntrEvent, 0);
-    if(pevIntrEvent->src_id & ISRC_VME)	
+    pev_evt_read( pevDevLibIntrEvent, 0);
+    if(pevDevLibIntrEvent->src_id & ISRC_VME)	
     {
       if(pevDevLibDebug)
-        printf("pevDevIntrHandler(): src_id = 0x%x vec_id = 0x%x evt_count = %d \n", pevIntrEvent->src_id, pevIntrEvent->vec_id, pevIntrEvent->evt_cnt);
-      if( *pevIsrFuncTable[pevIntrEvent->vec_id] )
-          (*pevIsrFuncTable[pevIntrEvent->vec_id])(pevIsrParmTable[pevIntrEvent->vec_id]);
-      pev_evt_clear(pevIntrEvent,  pevIntrEvent->src_id);
-      pev_evt_unmask( pevIntrEvent, pevIntrEvent->src_id);
+        printf("pevDevIntrHandler(): src_id = 0x%x vec_id = 0x%x evt_count = %d \n", pevDevLibIntrEvent->src_id, pevDevLibIntrEvent->vec_id, pevDevLibIntrEvent->evt_cnt);
+      if( *pevIsrFuncTable[pevDevLibIntrEvent->vec_id] )
+          (*pevIsrFuncTable[pevDevLibIntrEvent->vec_id])(pevIsrParmTable[pevDevLibIntrEvent->vec_id]);
+      pev_evt_clear(pevDevLibIntrEvent,  pevDevLibIntrEvent->src_id);
+      pev_evt_unmask( pevDevLibIntrEvent, pevDevLibIntrEvent->src_id);
     }
-  } while(pevIntrEvent->evt_cnt);
+  } while(pevDevLibIntrEvent->evt_cnt);
   return;
 }
 
@@ -335,8 +366,8 @@ long pevDevEnableInterruptLevelVME (unsigned level)
     if(level <=0 || level > 7)
       return S_dev_intEnFail; 
     
-    pev_evt_register( pevIntrEvent, ISRC_VME + level);
-    pev_evt_queue_enable(pevIntrEvent);
+    pev_evt_register( pevDevLibIntrEvent, ISRC_VME + level);
+    pev_evt_queue_enable(pevDevLibIntrEvent);
     return 0; 
 }
 
@@ -348,7 +379,7 @@ long pevDevDisableInterruptLevelVME (unsigned level)
     if(level <=0 || level > 7)
       return S_dev_intEnFail; 
     
-    pev_evt_unregister( pevIntrEvent, ISRC_VME + level);
+    pev_evt_unregister( pevDevLibIntrEvent, ISRC_VME + level);
     return 0; 
 }
 
