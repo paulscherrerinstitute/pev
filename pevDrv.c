@@ -57,7 +57,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.33 2012/12/13 13:37:28 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.34 2012/12/19 13:02:03 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -245,7 +245,7 @@ int pevRead(
         device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       else
         device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
-      device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      /* device->pev_dmaReq.start_mode = DMA_MODE_BLOCK; */
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_RES | (1<<4);
@@ -363,7 +363,7 @@ int pevWrite(
         device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       else
         device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
-      device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      /* device->pev_dmaReq.start_mode = DMA_MODE_BLOCK; */
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_RES | (1<<4);
@@ -478,7 +478,7 @@ int pevAsynRead(
         device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       else
         device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
-      device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      /* device->pev_dmaReq.start_mode = DMA_MODE_BLOCK; */
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_RES | (1<<4);
@@ -595,7 +595,7 @@ int pevAsynWrite(
         device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
       else
         device->pev_dmaReq.start_mode = DMA_MODE_PIPE;
-      device->pev_dmaReq.start_mode = DMA_MODE_BLOCK;
+      /* device->pev_dmaReq.start_mode = DMA_MODE_BLOCK; */
       device->pev_dmaReq.end_mode = 0;
       device->pev_dmaReq.intr_mode = DMA_INTR_ENA;
       device->pev_dmaReq.wait_mode = DMA_WAIT_INTR | DMA_WAIT_RES | (1<<4);
@@ -1608,7 +1608,7 @@ void *pev_dmaRequetServer(int *crate)
      else
        {
         dmaServerDebug = 2;
-        dmaStatRet = pev_dma_status( &dmaStatus );
+        dmaStatRet = pev_dma_status(0, &dmaStatus );
         if( dmaStatRet < 0 )
      	  { 
 	    printf("pev_dmaRequetServer(): DMA transfer failed! dma status = 0x%x\n", dmaStatRet);
@@ -1682,9 +1682,9 @@ int pevExpertReport(int level, int debug)
    printf("\t dmaMessageQueue: ");
    epicsMessageQueueShow(pevDmaMsgQueueId, level);
    pevDrvDebug = debug;
-   pev_dma_status( &dmaStatus );
+   pev_dma_status(0, &dmaStatus );
  
-   printf("\n\t dmaServerDebug = %d dmaStat = %d",dmaServerDebug, pev_dma_status( &dmaStatus ));
+   printf("\n\t dmaServerDebug = %d dmaStat = %d",dmaServerDebug, pev_dma_status(0, &dmaStatus ));
    printf("\n\t Last DMA transfer Status : 0x%x = ", dmaLastTransferStat);
    if(dmaLastTransferStat & DMA_STATUS_WAITING) printf(" START_WAITING, ");
    if(dmaLastTransferStat & DMA_STATUS_TMO) printf("TIMEOUT, ");

@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/10/31 12:45:51 $*/
-/*$Revision: 1.10 $*/
+/*$Date: 2012/12/19 13:02:03 $*/
+/*$Revision: 1.11 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -65,8 +65,12 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
     p->address = link->value.vmeio.signal;
     p->card  = link->value.vmeio.card;;
     
-    if(strcmp(link->value.vmeio.parm, "ELB") == 0) 
-    	p->devType = IFC_ELB;
+    if(strncmp(link->value.vmeio.parm, "ELB", 3) == 0)
+      { 
+    	  p->devType = IFC_ELB;
+	  if(strncmp(link->value.vmeio.parm, "ELB ", 4) == 0)
+	    p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+       }
     else 
     if(strcmp(link->value.vmeio.parm, "SMON") == 0) 
     	p->devType = IFC_SMON;
@@ -375,3 +379,64 @@ struct {
     NULL,
     devIfc1210LonginRead
 };
+
+/* stringin *********************************************************/
+
+#include <stringinRecord.h>
+
+long devIfc1210InitRecordStringin(stringinRecord *);
+long devIfc1210ReadStringin(stringinRecord *);
+
+struct {
+    long      number;
+    DEVSUPFUN report;
+    DEVSUPFUN init;
+    DEVSUPFUN init_record;
+    DEVSUPFUN get_ioint_info;
+    DEVSUPFUN read_stringin;
+} devIfc1210Stringin = {
+    5,
+    NULL,
+    NULL,
+    devIfc1210InitRecordStringin,
+    NULL,
+    devIfc1210ReadStringin
+};
+
+long devIfc1210InitRecordStringin(stringinRecord* record)
+{
+   int status=0;
+   ifcPrivate* p;
+   status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
+   if (status != 0) return status;
+   p = record->dpvt; 
+   if (p->count > 40)
+    {
+        recGblRecordError(S_db_badField, record,
+            "devIfc1210InitRecordStringin: string can NOT be greater than 40 characters!");
+        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+        return -1;
+    }
+   record->udf = 0;
+   return 0;
+}
+
+long devIfc1210ReadStringin(stringinRecord* record)
+{
+   ifcPrivate* p = record->dpvt;
+   int i = 0;
+    
+   if (p == NULL || (p->devType != IFC_ELB))
+    {
+        recGblRecordError(S_db_badField, record,
+            "devIfc1210ReadStringin: uninitialized record or no ELB request");
+        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+        return -1;
+    }
+    printf("devIfc1210ReadStringin(): p->address = %d p->count = %d\n", p->address, p->count);
+    
+    for(i=0; i < p->count; i++) 
+       *(char*)record->val[i] = (char)pev_elb_rd( p->address + i );
+  
+   return 0;      
+}
