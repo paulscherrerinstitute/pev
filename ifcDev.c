@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: kalantari $*/
-/*$Date: 2012/12/19 13:02:03 $*/
-/*$Revision: 1.11 $*/
+/*$Date: 2012/12/20 11:10:24 $*/
+/*$Revision: 1.12 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -63,7 +63,7 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
          return errno;
     }
     p->address = link->value.vmeio.signal;
-    p->card  = link->value.vmeio.card;;
+    p->card  = link->value.vmeio.card;
     
     if(strncmp(link->value.vmeio.parm, "ELB", 3) == 0)
       { 
@@ -433,10 +433,10 @@ long devIfc1210ReadStringin(stringinRecord* record)
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;
     }
-    printf("devIfc1210ReadStringin(): p->address = %d p->count = %d\n", p->address, p->count);
+    /* printf("devIfc1210ReadStringin(): p->address = %d p->count = %d\n", p->address, p->count); */
     
-    for(i=0; i < p->count; i++) 
-       *(char*)record->val[i] = (char)pev_elb_rd( p->address + i );
+    for(i=0; i < p->count/4; i++) 
+      ((int*)record->val)[i] = pev_elb_rd( 0xe000 + p->address + i*4);
   
    return 0;      
 }
