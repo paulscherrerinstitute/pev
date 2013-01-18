@@ -7,7 +7,7 @@
 #include <errno.h>
 #include <signal.h>
 #include <devLib.h>
-#include "../regDev/regDev.h"
+#include <regDev.h>
 
 #include <epicsTypes.h>
 #include <epicsExit.h>
@@ -57,7 +57,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.34 2012/12/19 13:02:03 kalantari Exp $";
+    "$Id: pevDrv.c,v 1.35 2013/01/18 13:46:40 kalantari Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
