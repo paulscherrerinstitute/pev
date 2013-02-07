@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2013/02/07 12:47:32 $
-# $Revision: 1.7 $
+# $Date: 2013/02/07 12:48:27 $
+# $Revision: 1.8 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -12,7 +12,7 @@
 #  - EPICS PEV driver     https://controls.web.psi.ch/cgi-bin/twiki/view/Main/IFC1210PEV100Driver
 #
 #
-# Purpose: Timing Example for accessing TOSCA-II
+# Purpose: Timing Example for accessing TOSCA-II on IFC1210 board
 #           * Provide example for VME-EVG-230 card in slot 20
 #           * Provide example for VME-EVR-230RF card in slot 21
 #
