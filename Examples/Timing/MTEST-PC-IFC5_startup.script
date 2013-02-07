@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2012/11/13 12:38:55 $
-# $Revision: 1.6 $
+# $Date: 2013/02/07 12:47:32 $
+# $Revision: 1.7 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -23,7 +23,7 @@
 
 #######################################################################
 # EPICS specific environment variablees
-putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
+epicsEnvSet EPICS_CA_MAX_ARRAY_BYTES 40000000
 
 
 
@@ -31,7 +31,7 @@ putenv("EPICS_CA_MAX_ARRAY_BYTES=40000000" )
 # load EPICS specific drivers
 
 # load regDev and pev (=TOSCA-II) drivers
-require "regDev","test"
+require "regDev"
 require "pev"
 require "mrf200evt","test"
 
