@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/VMEslave/MTEST-VME-KR843_startup.script,v $
-# $Date: 2012/12/13 12:58:18 $
-# $Revision: 1.4 $
+# $Date: 2013/02/07 12:46:08 $
+# $Revision: 1.5 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -31,8 +31,8 @@ epicsEnvSet EPICS_CA_MAX_ARRAY_BYTES 40000000
 # load EPICS specific drivers
 
 # load regDev and pev (=TOSCA-II) drivers
-require "regDev","test"
-require "pev","kalantari"
+require "regDev"
+require "pev"
 
 
 
