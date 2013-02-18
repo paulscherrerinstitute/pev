@@ -6,7 +6,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <devLib.h>
-#include "../regDev/regDev.h"
+#include <regDev.h>
 
 #include <epicsTypes.h>
 #include <epicsExit.h>
@@ -41,7 +41,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.17 2012/11/07 14:40:37 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.18 2013/02/18 09:43:28 kalantari Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
