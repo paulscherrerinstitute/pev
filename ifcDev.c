@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: zimoch $*/
-/*$Date: 2013/03/13 09:22:54 $*/
-/*$Revision: 1.13 $*/
+/*$Date: 2013/03/13 15:58:31 $*/
+/*$Revision: 1.14 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -148,33 +148,31 @@ long devIfc1210AiRead(aiRecord* record)
     if(p->devType == PCI_IO)
     	rval = pev_csr_rd( p->address | 0x80000000 );
     else
-      {
         status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-        if(p->devType == BMR_11U)
-          {
-	    rval = pev_bmr_conv_11bit_u(rval);
-            usleep( 10000);
-          }
-        else
-        if(p->devType == BMR_11S)
-          {
-	    rval = pev_bmr_conv_11bit_s(rval);
-            usleep( 10000);
-          }
-        else
-        if(p->devType == BMR_16U)
-          {
-	    rval = pev_bmr_conv_16bit_u(rval);
-            usleep( 10000);
-          }
-      }
+
     if(status != 0 && (status&I2CEXEC_MASK) != I2CEXEC_OK) 
       {
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;	  
       }
+     
+    switch (p->devType)
+      {
+        case BMR_11U:
+    	    record->val = pev_bmr_conv_11bit_u(rval);
+            break;
+        case BMR_11S:
+	    record->val = pev_bmr_conv_11bit_s(rval);
+            break;
+        case BMR_16U:
+	    record->val = pev_bmr_conv_16bit_u(rval);
+            break;
+        default:
+            record->rval = rval;
+            return 0; 	/* with conversion */
+      }
+    usleep( 10000);
     record->udf = 0;
-    record->val = rval;
     return 2; 	/* no conversion */
 }
 
@@ -293,33 +291,32 @@ long devIfc1210LonginRead(longinRecord* record)
     if(p->devType == PCI_IO)
     	rval = pev_csr_rd( p->address | 0x80000000 );
     else
-      {
         status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-        if(p->devType == BMR_11U)
-          {
-	    rval = pev_bmr_conv_11bit_u(rval);
-            usleep( 10000);
-          }
-        else
-        if(p->devType == BMR_11S)
-          {
-	    rval = pev_bmr_conv_11bit_s(rval);
-            usleep( 10000);
-          }
-        else
-        if(p->devType == BMR_16U)
-          {
-	    rval = pev_bmr_conv_16bit_u(rval);
-            usleep( 10000);
-          }
-      }
+        
     if(status != 0 && (status&I2CEXEC_MASK) != I2CEXEC_OK) 
       {
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;	  
       }
-    record->val = rval;
-    return 0; 	/* no conversion */
+      
+    switch (p->devType)
+      {
+        case BMR_11U:
+    	    record->val = pev_bmr_conv_11bit_u(rval);
+            break;
+        case BMR_11S:
+	    record->val = pev_bmr_conv_11bit_s(rval);
+            break;
+        case BMR_16U:
+	    record->val = pev_bmr_conv_16bit_u(rval);
+            break;
+        default:
+            record->val = rval;
+            return 0;
+      }
+      
+    usleep( 10000);
+    return 0;
 }
 
 struct {
