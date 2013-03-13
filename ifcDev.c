@@ -1,7 +1,7 @@
 /*$Name:  $*/
-/*$Author: kalantari $*/
-/*$Date: 2012/12/20 11:10:24 $*/
-/*$Revision: 1.12 $*/
+/*$Author: zimoch $*/
+/*$Date: 2013/03/13 09:22:54 $*/
+/*$Revision: 1.13 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -148,57 +148,32 @@ long devIfc1210AiRead(aiRecord* record)
     if(p->devType == PCI_IO)
     	rval = pev_csr_rd( p->address | 0x80000000 );
     else
-    if(p->devType == BMR)
       {
         status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
-	  {
-            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-            return -1;	  
-	  }
-        record->val = (unsigned short)rval;
-	return 2;
+        if(p->devType == BMR_11U)
+          {
+	    rval = pev_bmr_conv_11bit_u(rval);
+            usleep( 10000);
+          }
+        else
+        if(p->devType == BMR_11S)
+          {
+	    rval = pev_bmr_conv_11bit_s(rval);
+            usleep( 10000);
+          }
+        else
+        if(p->devType == BMR_16U)
+          {
+	    rval = pev_bmr_conv_16bit_u(rval);
+            usleep( 10000);
+          }
       }
-    else
-    if(p->devType == BMR_11U)
+    if(status != 0 && (status&I2CEXEC_MASK) != I2CEXEC_OK) 
       {
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	record->val = pev_bmr_conv_11bit_u(rval);
-        usleep( 10000);
-	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
-	  {
-            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-            return -1;	  
-	  }
-	return 2;
+        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+        return -1;	  
       }
-    else
-    if(p->devType == BMR_11S)
-      {
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	record->val = pev_bmr_conv_11bit_s(rval);
-        usleep( 10000);
-	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
-	  {
-            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-            return -1;	  
-	  }
-	return 2;
-      }
-    else
-    if(p->devType == BMR_16U)
-      {
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	record->val = pev_bmr_conv_16bit_u(rval);
-        usleep( 10000);
-	if((status&I2CEXEC_MASK) != I2CEXEC_OK) 
-	  {
-            recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-            return -1;	  
-	  }
-	return 2;
-      }
-    
+    record->udf = 0;
     record->val = rval;
     return 2; 	/* no conversion */
 }
@@ -318,48 +293,31 @@ long devIfc1210LonginRead(longinRecord* record)
     if(p->devType == PCI_IO)
     	rval = pev_csr_rd( p->address | 0x80000000 );
     else
-    if(p->devType == BMR)
       {
         status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
-	{
-          record->val = (unsigned short)rval;
-	  return 0;
-	}
+        if(p->devType == BMR_11U)
+          {
+	    rval = pev_bmr_conv_11bit_u(rval);
+            usleep( 10000);
+          }
+        else
+        if(p->devType == BMR_11S)
+          {
+	    rval = pev_bmr_conv_11bit_s(rval);
+            usleep( 10000);
+          }
+        else
+        if(p->devType == BMR_16U)
+          {
+	    rval = pev_bmr_conv_16bit_u(rval);
+            usleep( 10000);
+          }
       }
-    else
-    if(p->devType == BMR_11U)
+    if(status != 0 && (status&I2CEXEC_MASK) != I2CEXEC_OK) 
       {
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	record->val = pev_bmr_conv_11bit_u(rval);
-        usleep( 10000);
-	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
-	  return 0;
+        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+        return -1;	  
       }
-    else
-    if(p->devType == BMR_11S)
-      {
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	record->val = pev_bmr_conv_11bit_s(rval);
-        usleep( 10000);
-	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
-	  return 0;
-      }
-    else
-    if(p->devType == BMR_16U)
-      {
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-	record->val = pev_bmr_conv_16bit_u(rval);
-        usleep( 10000);
-	if((status&I2CEXEC_MASK) == I2CEXEC_OK) 
-	  return 0;
-      }
-    if((status&I2CEXEC_MASK) != I2CEXEC_OK && status!=0) 
-      {
-	recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-	return -1;    
-      }
-    
     record->val = rval;
     return 0; 	/* no conversion */
 }
