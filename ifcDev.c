@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: zimoch $*/
-/*$Date: 2013/03/13 15:58:31 $*/
-/*$Revision: 1.14 $*/
+/*$Date: 2013/03/18 09:33:15 $*/
+/*$Revision: 1.15 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -140,22 +140,26 @@ long devIfc1210AiRead(aiRecord* record)
         return -1;
     }
     
-    if(p->devType == IFC_ELB)
-    	rval = pev_elb_rd( p->address );
-    else
-    if(p->devType == IFC_SMON)
-    	rval = pev_smon_rd( p->address );
-    if(p->devType == PCI_IO)
-    	rval = pev_csr_rd( p->address | 0x80000000 );
-    else
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-
-    if(status != 0 && (status&I2CEXEC_MASK) != I2CEXEC_OK) 
+    switch (p->devType)
       {
-        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-        return -1;	  
+        case IFC_ELB:
+    	    rval = pev_elb_rd( p->address );
+            break;
+        case IFC_SMON:
+    	    rval = pev_smon_rd( p->address );
+            break;
+        case PCI_IO:
+            rval = pev_csr_rd( p->address | 0x80000000 );
+            break;
+        default:
+            status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+            if((status&I2CEXEC_MASK) != I2CEXEC_OK)
+             {
+               recGblSetSevr(record, READ_ALARM, INVALID_ALARM);
+               return -1;	  
+             }
       }
-     
+    
     switch (p->devType)
       {
         case BMR_11U:
@@ -171,7 +175,6 @@ long devIfc1210AiRead(aiRecord* record)
             record->rval = rval;
             return 0; 	/* with conversion */
       }
-    usleep( 10000);
     record->udf = 0;
     return 2; 	/* no conversion */
 }
@@ -283,22 +286,25 @@ long devIfc1210LonginRead(longinRecord* record)
         return -1;
     }
     
-    if(p->devType == IFC_ELB)
-    	rval = pev_elb_rd( p->address );
-    else
-    if(p->devType == IFC_SMON)
-    	rval = pev_smon_rd( p->address );
-    if(p->devType == PCI_IO)
-    	rval = pev_csr_rd( p->address | 0x80000000 );
-    else
-        status = pev_bmr_read( p->card,  p->address, &rval, p->count);
-        
-    if(status != 0 && (status&I2CEXEC_MASK) != I2CEXEC_OK) 
+    switch (p->devType)
       {
-        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
-        return -1;	  
-      }
-      
+        case IFC_ELB:
+    	    rval = pev_elb_rd( p->address );
+            break;
+        case IFC_SMON:
+    	    rval = pev_smon_rd( p->address );
+            break;
+        case PCI_IO:
+            rval = pev_csr_rd( p->address | 0x80000000 );
+            break;
+        default:
+            status = pev_bmr_read( p->card,  p->address, &rval, p->count);
+            if((status&I2CEXEC_MASK) != I2CEXEC_OK)
+             {
+               recGblSetSevr(record, READ_ALARM, INVALID_ALARM);
+               return -1;	  
+             }
+    }
     switch (p->devType)
       {
         case BMR_11U:
@@ -312,10 +318,7 @@ long devIfc1210LonginRead(longinRecord* record)
             break;
         default:
             record->val = rval;
-            return 0;
       }
-      
-    usleep( 10000);
     return 0;
 }
 
