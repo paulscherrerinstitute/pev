@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: zimoch $*/
-/*$Date: 2013/03/18 09:33:15 $*/
-/*$Revision: 1.15 $*/
+/*$Date: 2013/03/18 12:30:18 $*/
+/*$Revision: 1.16 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -37,7 +37,7 @@ struct {
 };
 
 
-typedef enum { IFC_ELB, IFC_SMON, PCI_IO, BMR, BMR_11U, BMR_11S, BMR_16U } IfcDevType;
+typedef enum { IFC_ELB, IFC_SMON, IFC_SMON_10S, PCI_IO, BMR, BMR_11U, BMR_11S, BMR_16U } IfcDevType;
 
 typedef struct ifcPrivate{
     unsigned int address;
@@ -74,6 +74,9 @@ static long devIfc1210InitRecord(dbCommon* record, struct link* link)
     else 
     if(strcmp(link->value.vmeio.parm, "SMON") == 0) 
     	p->devType = IFC_SMON;
+    else 
+    if(strcmp(link->value.vmeio.parm, "SMON_10S") == 0) 
+    	p->devType = IFC_SMON_10S;
     else 
     if(strcmp(link->value.vmeio.parm, "PIO") == 0) 
     	p->devType = PCI_IO;
@@ -146,6 +149,7 @@ long devIfc1210AiRead(aiRecord* record)
     	    rval = pev_elb_rd( p->address );
             break;
         case IFC_SMON:
+        case IFC_SMON_10S:
     	    rval = pev_smon_rd( p->address );
             break;
         case PCI_IO:
@@ -171,6 +175,8 @@ long devIfc1210AiRead(aiRecord* record)
         case BMR_16U:
 	    record->val = pev_bmr_conv_16bit_u(rval);
             break;
+        case IFC_SMON_10S:
+            rval >>= 6;
         default:
             record->rval = rval;
             return 0; 	/* with conversion */
@@ -292,6 +298,7 @@ long devIfc1210LonginRead(longinRecord* record)
     	    rval = pev_elb_rd( p->address );
             break;
         case IFC_SMON:
+        case IFC_SMON_10S:
     	    rval = pev_smon_rd( p->address );
             break;
         case PCI_IO:
@@ -316,6 +323,8 @@ long devIfc1210LonginRead(longinRecord* record)
         case BMR_16U:
 	    record->val = pev_bmr_conv_16bit_u(rval);
             break;
+        case IFC_SMON_10S:
+            rval >>= 6;
         default:
             record->val = rval;
       }
