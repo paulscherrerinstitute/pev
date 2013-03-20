@@ -18,6 +18,7 @@
 #include <initHooks.h>
 #include <epicsThread.h>
 #include <epicsMessageQueue.h>
+#include <dbAccess.h>
 
 
 #include <stdlib.h>
@@ -41,7 +42,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.18 2013/02/18 09:43:28 kalantari Exp $";
+    "$Id: i2cDrv.c,v 1.19 2013/03/20 16:06:18 zimoch Exp $";
 */
 static void pevI2cHookFunc(initHookState state);
 epicsBoolean initHookpevI2cDone = epicsFalse;
@@ -170,7 +171,7 @@ void pevI2cAsynReport(
 {
     if (device && device->magic == MAGIC)
     {
-        printf("pevI2cAsyn driver: for i2cDevice 0x\"%8x\" \n",
+        printf("pevI2cAsyn driver: for i2cDevice %#010x\n",
             device->i2cDevice);
     }
 }
@@ -212,11 +213,17 @@ int pevAsynI2cConfigure(
   char* tmpStrCpy;
   struct pev_node *pev;
    
+  if (!name)
+  {
+    printf("usage: pevAsynI2cConfigure (crate, name, i2cControlWord, command)\n");
+    return -1;
+  }
+
   if( regDevFind(name) ) 
   {
     printf("pevAsynI2cConfigure: ERROR, device \"%s\" on an IFC/PEV already configured as synchronous device\n", 
     		name);
-    exit( -1);
+    return -1;
   }
 
   /* call PEV1100 user library initialization function */
@@ -224,13 +231,13 @@ int pevAsynI2cConfigure(
   if( !pev)
   {
     printf("pevAsynI2cConfigure: Cannot allocate data structures to control PEV1100\n");
-    exit( -1);
+    return -1;
   }
   /* verify if the PEV1100 is accessible */
   if( pev->fd < 0)
   {
     printf("pevAsynI2cConfigure: Cannot find PEV1100 interface\n");
-    exit( -1);
+    return -1;
   }
   
   if( !ellFirst(&pevRegDevAsynList) )
@@ -259,7 +266,7 @@ int pevAsynI2cConfigure(
   {
     printf("pevAsynI2cConfigure: illegal command value (must be 0 or 1)\n");
     free(device);
-    exit( -1);
+    return -1;
   }
 
   if( initHookpevI2cDone == epicsFalse )
@@ -489,7 +496,7 @@ static void pevAsynI2cConfigureFunc (const iocshArgBuf *args)
 {
     int status = pevAsynI2cConfigure(
         args[0].ival, args[1].sval, args[2].ival, args[3].ival);
-    if (status != 0) epicsExit(1);
+    if (status != 0 && !interruptAccept) epicsExit(1);
 }
 
 static void pevI2cRegistrar ()
