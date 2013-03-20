@@ -58,7 +58,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.36 2013/03/20 15:45:49 zimoch Exp $";
+    "$Id: pevDrv.c,v 1.37 2013/03/20 16:07:09 zimoch Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -781,7 +781,6 @@ static void pevDrvAtexit(void)
      	findMappedPevResource(pev, 0, 0, 0, 0, epicsTrue);
   }
   
-/*
   for (device = (regDevice *)ellFirst(&pevRegDevList);
   	device != NULL;
   	device = (regDevice *)ellNext(&device->node)) {
@@ -792,8 +791,6 @@ static void pevDrvAtexit(void)
       pev_exit( device->pev);
       free(device);
   }
-*/
-/*
   for (deviceAsyn = (regDeviceAsyn *)ellFirst(&pevRegDevAsynList);
   	deviceAsyn != NULL;
   	deviceAsyn = (regDeviceAsyn *)ellNext(&deviceAsyn->node)) {
@@ -804,7 +801,6 @@ static void pevDrvAtexit(void)
       pev_exit( deviceAsyn->pev);
       free(deviceAsyn);
   }
-*/
 }
 
 /**
