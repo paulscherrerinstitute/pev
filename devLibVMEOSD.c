@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <setjmp.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/mman.h>
@@ -32,6 +33,7 @@
 #include <drvSup.h>            
 #include <epicsExport.h>
 #include <epicsTypes.h>
+#include <epicsAssert.h>
 
 #define VME32_MAP_SIZE 	0x40000000      /* 1024 MB A32 - fixed via PMEM */
 #define VME24_MAP_SIZE 	0x1000000      	/* 8 MB A24 - fixed */
@@ -149,6 +151,9 @@ devLibVirtualOS pevVirtualOS = {
 /* 
 *  clean-up  at epics exit
  */
+ 
+void pevDevLibAtexit(void)  __attribute__((destructor));
+
 void pevDevLibAtexit(void)
 {
   struct pev_ioctl_map_ctl pev_ctl; 
@@ -204,6 +209,27 @@ void pevDevLibAtexit(void)
 */
 }
 
+LOCAL void pevDevLibSigHandler(int sig)
+{
+    /* Signal handler for "terminate" signals:
+       SIGHUP, SIGINT, SIGPIPE, SIGALRM, SIGTERM
+       as well as "core dump" signals:
+       SIGQUIT, SIGILL, SIGABRT, SIGFPE, SIGSEGV         
+    */
+    
+    /* clean up before exit */
+    pevDevLibAtexit();
+    switch (sig) {
+        case SIGQUIT:
+        case SIGILL:
+        case SIGABRT:
+        case SIGFPE:
+        case SIGSEGV:
+            abort();
+    }
+    _exit(0);
+}
+ 
 /* PEV1100 specific initialization */
 LOCAL long
 pevDevInit(void)
@@ -232,32 +258,43 @@ pevDevInit(void)
     return( -1);
   }
 
-
+  /* make sure that even at abnormal termination the clean up is called */
+  signal(SIGHUP, pevDevLibSigHandler);
+  signal(SIGINT, pevDevLibSigHandler);
+  signal(SIGPIPE, pevDevLibSigHandler);
+  signal(SIGALRM, pevDevLibSigHandler);
+  signal(SIGTERM, pevDevLibSigHandler);
+  signal(SIGQUIT, pevDevLibSigHandler);
+  signal(SIGILL, pevDevLibSigHandler);
+  signal(SIGABRT, pevDevLibSigHandler);
+  signal(SIGFPE, pevDevLibSigHandler);
+  signal(SIGSEGV, pevDevLibSigHandler);
+  
   vme_mas_map_a16.rem_addr = 0x0;
   vme_mas_map_a16.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A16;
   vme_mas_map_a16.flag = 0x0;
   vme_mas_map_a16.sg_id = MAP_MASTER_32;
   vme_mas_map_a16.size = VME16_MAP_SIZE;
-  pev_map_alloc( &vme_mas_map_a16);
+  assert (pev_map_alloc( &vme_mas_map_a16) == 0);
 
   vme_mas_map_a32.rem_addr = 0x0;
   vme_mas_map_a32.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A32;
   vme_mas_map_a32.flag = 0x0;
   vme_mas_map_a32.sg_id = MAP_MASTER_64;
   vme_mas_map_a32.size = VME32_MAP_SIZE;
-  pev_map_alloc( &vme_mas_map_a32);
+  assert (pev_map_alloc( &vme_mas_map_a32) == 0);
   
   vme_mas_map_a24.rem_addr = 0x0;		
   vme_mas_map_a24.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A24;
   vme_mas_map_a24.sg_id = MAP_MASTER_32;
   vme_mas_map_a24.size = VME24_MAP_SIZE;
-  pev_map_alloc( &vme_mas_map_a24);
+  assert (pev_map_alloc( &vme_mas_map_a24) == 0);
   
   vme_mas_map_csr.rem_addr = 0x0;		
   vme_mas_map_csr.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_CR;
   vme_mas_map_csr.sg_id = MAP_MASTER_32;
   vme_mas_map_csr.size = VMECR_MAP_SIZE;
-  pev_map_alloc( &vme_mas_map_csr);
+  assert (pev_map_alloc( &vme_mas_map_csr) == 0);
   
   if( !vme_mas_map_a16.win_size || !vme_mas_map_a24.win_size 
       || !vme_mas_map_a32.win_size || !vme_mas_map_csr.win_size )
@@ -267,9 +304,13 @@ pevDevInit(void)
   }
   
   map_a16_base = pev_mmap(&vme_mas_map_a16);
+  assert (map_a16_base);
   map_a24_base = pev_mmap(&vme_mas_map_a24);
+  assert (map_a24_base);
   map_a32_base = pev_mmap(&vme_mas_map_a32);
+  assert (map_a32_base);
   map_csr_base = pev_mmap(&vme_mas_map_csr);
+  assert (map_csr_base);
   
   /* intr setup start */
   for(i=0; i<256; i++)
@@ -282,7 +323,7 @@ pevDevInit(void)
   signal(pevDevLibIntrEvent->sig, pevDevIntrHandler);
   /* intr setup end */
   
-  epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  
+  /*epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  */
   return 0; /*bspExtInit();*/
 }
 
@@ -444,15 +485,29 @@ LOCAL long pevDevMapAddr (epicsAddressType addrType, unsigned options,
  * a bus error safe "wordSize" read at the specified address which returns 
  * unsuccessful status if the device isnt present
  */
+ 
+jmp_buf pevDevReadProbeFail;
+
+void pevDevReadProbeSigHandler(int sig)
+{
+    longjmp(pevDevReadProbeFail,1);
+}
 
 long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
 {
     volatile uint sts; 
+    struct sigaction sa, oldsa;
 
     /* clear BERR */
     sts = pev_csr_rd(0x41c | 0x80000000);
 
     /* check address */
+    sa.sa_handler = pevDevReadProbeSigHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_restorer = NULL;
+    sigaction(SIGSEGV, &sa, &oldsa);
+    if (setjmp(pevDevReadProbeFail) == 0)
     switch(wordSize)
     {
       case 1: *(char *)pValue = *(char *)(ptr);
@@ -462,8 +517,16 @@ long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
       case 4: *(unsigned long *)pValue = *(unsigned long *)(ptr);
         break;
       default:
+        sigaction(SIGSEGV, &oldsa, NULL);
 	return S_dev_badArgument;
     }
+    else
+    {
+        printf ("pevDevReadProbe: address %p not mapped\n", pValue);
+        sigaction(SIGSEGV, &oldsa, NULL);
+        return S_dev_noDevice;
+    }
+    sigaction(SIGSEGV, &oldsa, NULL);
     
     /* check BERR */
     sts = pev_csr_rd( 0x41c | 0x80000000);
@@ -479,14 +542,29 @@ long pevDevReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
  * KB: does not currently work on ifc!
  *
  */
+
+jmp_buf pevDevWriteProbeFail;
+
+void pevDevWriteProbeSigHandler(int sig)
+{
+    longjmp(pevDevWriteProbeFail,1);
+}
+
 long pevDevWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue)
 {
     volatile uint sts; 
+    struct sigaction sa, oldsa;
 
     /* clear BERR */
     sts = pev_csr_rd(0x41c | 0x80000000);
 
     /* check address */
+    sa.sa_handler = pevDevWriteProbeSigHandler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sa.sa_restorer = NULL;
+    sigaction(SIGSEGV, &sa, &oldsa);
+    if (setjmp(pevDevWriteProbeFail) == 0)
     switch(wordSize)
     {
       case 1: *(char *)(ptr) = *(char *)pValue;
@@ -496,11 +574,20 @@ long pevDevWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue
       case 4: *(unsigned long *)(ptr) = *(unsigned long *)pValue;
         break;
       default:
+        sigaction(SIGSEGV, &oldsa, NULL);
 	return S_dev_badArgument;
     }
-    
+    else
+    {
+        printf ("pevDevWriteProbe: address %p not mapped\n", pValue);
+        sigaction(SIGSEGV, &oldsa, NULL);
+        return S_dev_noDevice;
+    }
     /* wait for writes to get posted */
     usleep(10);
+    
+    sigaction(SIGSEGV, &oldsa, NULL);
+    
     /* check BERR */
     sts = pev_csr_rd( 0x41c | 0x80000000);
     if( sts & 0x80000000)
