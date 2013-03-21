@@ -58,7 +58,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.37 2013/03/20 16:07:09 zimoch Exp $";
+    "$Id: pevDrv.c,v 1.38 2013/03/21 12:27:40 zimoch Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -104,7 +104,6 @@ struct regDevice {
     long  baseOffset;  		
     IOSCANPVT ioscanpvt;
     int flags;
-    epicsBoolean dmaAllocFailed;
     int dmaStatus;
     epicsUInt8 dmaSpace;		/*  must be used also to contain user provided DMA_SPACE_W/D/QS */
     epicsUInt8 vmeSwap;
@@ -126,7 +125,6 @@ struct regDeviceAsyn {
     IOSCANPVT ioscanpvt;
     int flags;
     CALLBACK* callback;			/* callback struct pointer of record */
-    epicsBoolean dmaAllocFailed;
     int dmaStatus;
     epicsUInt8 dmaSpace;
     epicsUInt8 vmeSwap;
@@ -716,6 +714,7 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
 	  pev_map_clear( &pev_ctl );
           pev_munmap( &device->pev_rmArea_map );
           pev_map_free( &device->pev_rmArea_map );
+          if(device->pev_dmaBuf.k_addr) pev_buf_free( &device->pev_dmaBuf );
        }
        else
        if ( pev == device->pev && !strcmp(device->resource, resource) ) {
@@ -740,6 +739,7 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
 	  pev_map_clear( &pev_ctl );
           pev_munmap( &asdevice->pev_rmArea_map );
           pev_map_free( &asdevice->pev_rmArea_map );
+          if(asdevice->pev_dmaBuf.k_addr) pev_buf_free( &asdevice->pev_dmaBuf );
        }
        else
        if ( pev == asdevice->pev && !strcmp(asdevice->resource, resource) ) {
@@ -759,8 +759,6 @@ static struct pev_ioctl_map_pg findMappedPevResource(struct pev_node *pev, const
 
 extern void pevDevLibAtexit(void);
 
-static void pevDrvAtexit(void) __attribute__((destructor));
-
 static void pevDrvAtexit(void)
 {
   int i=0;
@@ -768,39 +766,13 @@ static void pevDrvAtexit(void)
   regDevice* device;
   regDeviceAsyn* deviceAsyn;
 
-  pevDevLibAtexit();
-  printf("pevDrvAtexit(): we are at ioc exit**********\n");
+/*  pevDevLibAtexit(); */
+  printf("pevDrvAtexit...\n");
   pev_evt_queue_disable(pevIntrEvent);
   pev_evt_queue_free(pevIntrEvent);
   free(pevIntrTable);
   
-  for(i=0; i<=currConfCrates; i++) 
-  {
-     pev = pev_init(i);
-     if( pev ) 
-     	findMappedPevResource(pev, 0, 0, 0, 0, epicsTrue);
-  }
-  
-  for (device = (regDevice *)ellFirst(&pevRegDevList);
-  	device != NULL;
-  	device = (regDevice *)ellNext(&device->node)) {
-      printf("pevDrvAtexit(): feeing %s **********\n", device->name);
-      if(!device->dmaAllocFailed) 
-  	    pev_buf_free( &device->pev_dmaBuf);
-
-      pev_exit( device->pev);
-      free(device);
-  }
-  for (deviceAsyn = (regDeviceAsyn *)ellFirst(&pevRegDevAsynList);
-  	deviceAsyn != NULL;
-  	deviceAsyn = (regDeviceAsyn *)ellNext(&deviceAsyn->node)) {
-      printf("pevDrvAtexit(): feeing %s **********\n", deviceAsyn->name);
-      if(!deviceAsyn->dmaAllocFailed) 
-  	    pev_buf_free( &deviceAsyn->pev_dmaBuf);
-
-      pev_exit( deviceAsyn->pev);
-      free(deviceAsyn);
-  }
+  findMappedPevResource(0, 0, 0, 0, 0, epicsTrue);
 }
 
 /**
@@ -839,7 +811,6 @@ int pevConfigure(
 {
     
   regDevice* device;    
-  char* tmpStrCpy;
   struct pev_node *pev;
   struct pev_ioctl_map_pg pev_rmArea_map = null_pev_rmArea_map;
   epicsBoolean mapExists = epicsFalse;
@@ -898,7 +869,7 @@ int pevConfigure(
   }
 */
   
-  device = (regDevice*)malloc(sizeof(regDevice));
+  device = (regDevice*)calloc(1,sizeof(regDevice));
   if (device == NULL)
   {
       errlogSevPrintf(errlogFatal,
@@ -909,12 +880,8 @@ int pevConfigure(
   
   device->pev = pev;
   device->magic = MAGIC;
-  tmpStrCpy = malloc(strlen(name)+1);
-  strcpy(tmpStrCpy, name);
-  device->name = tmpStrCpy;
-  tmpStrCpy = malloc(strlen(resource)+1);
-  strcpy(tmpStrCpy, resource);
-  device->resource = tmpStrCpy;
+  device->name = strdup(name);
+  device->resource = strdup(resource);
   device->dmaSpace = NO_DMA_SPACE;
   device->vmePktSize = 0;
   if( blockMode == 1 )
@@ -946,11 +913,8 @@ int pevConfigure(
     if( pev_buf_alloc( &device->pev_dmaBuf) == MAP_FAILED )
       {
         printf("pevConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
-        device->dmaAllocFailed = epicsTrue;
         return -1;
       }
-    else
-      device->dmaAllocFailed = epicsFalse;
    }
   
   if( mapExists )
@@ -1155,7 +1119,7 @@ TESTJUMP:
   {
     initHookRegister((initHookFunction)pevHookFunc);
     initHookregDone = epicsTrue;
-/*    epicsAtExit((void*)pevDrvAtexit, device);*/
+    epicsAtExit((void*)pevDrvAtexit, NULL);
   }
 
   if( intrVec )
@@ -1243,7 +1207,6 @@ int pevAsynConfigure(
 {
     
   regDeviceAsyn* device;    
-  char* tmpStrCpy;
   struct pev_node *pev;
   struct pev_ioctl_map_pg pev_rmArea_map = null_pev_rmArea_map;
   epicsBoolean mapExists = epicsFalse;
@@ -1302,7 +1265,7 @@ int pevAsynConfigure(
   }
 */
   
-  device = (regDeviceAsyn*)malloc(sizeof(regDeviceAsyn));
+  device = (regDeviceAsyn*)calloc(1,sizeof(regDeviceAsyn));
   if (device == NULL)
   {
       errlogSevPrintf(errlogFatal,
@@ -1313,12 +1276,8 @@ int pevAsynConfigure(
   
   device->pev = pev;
   device->magic = MAGIC;
-  tmpStrCpy = malloc(strlen(name)+1);
-  strcpy(tmpStrCpy, name);
-  device->name = tmpStrCpy;
-  tmpStrCpy = malloc(strlen(resource)+1);
-  strcpy(tmpStrCpy, resource);
-  device->resource = tmpStrCpy;
+  device->name = strdup(name);
+  device->resource = strdup(resource);
   device->dmaSpace = NO_DMA_SPACE;
   device->vmePktSize = 0;
   
@@ -1357,12 +1316,8 @@ int pevAsynConfigure(
   if( pev_buf_alloc( &device->pev_dmaBuf)==MAP_FAILED /*|| !device->pev_dmaBuf.b_addr*/ )
     {
       printf("pevAsynConfigure: ERROR, could not allocate dma buffer; bus %p user %p\n", device->pev_dmaBuf.b_addr, device->pev_dmaBuf.u_addr);
-      device->dmaAllocFailed = epicsTrue;
       return -1;
-    }
-  else
-    device->dmaAllocFailed = epicsFalse;
-  
+    }  
   
 
  /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
@@ -1547,7 +1502,7 @@ TESTJUMP:
   {
     initHookRegister((initHookFunction)pevHookFunc);
     initHookregDone = epicsTrue;
-    /*epicsAtExit((void*)pevDrvAtexit, device);*/
+    epicsAtExit((void*)pevDrvAtexit, NULL);
   }
 
   if( intrVec )

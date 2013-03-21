@@ -14,9 +14,11 @@
  */
 
 
+#define _GNU_SOURCE  /* for strsignal */
 #include <stdlib.h>
 #include <stdio.h>
 #include <signal.h>
+#include <string.h>
 #include <setjmp.h>
 #include <unistd.h>
 #include <sys/types.h>
@@ -152,8 +154,6 @@ devLibVirtualOS pevVirtualOS = {
 *  clean-up  at epics exit
  */
  
-void pevDevLibAtexit(void)  __attribute__((destructor));
-
 void pevDevLibAtexit(void)
 {
   struct pev_ioctl_map_ctl pev_ctl; 
@@ -164,7 +164,7 @@ void pevDevLibAtexit(void)
   pev_evt_queue_disable(pevDevLibIntrEvent);
   pev_evt_queue_free(pevDevLibIntrEvent);
 
-  printf(">>>> pevDevLibAtexit exiting....\n");
+  printf("pevDevLibAtexit....\n");
   if( vme_mas_map_a32.win_size != 0 )
   {
     pev_ctl.sg_id = vme_mas_map_a32.sg_id;
@@ -217,17 +217,11 @@ LOCAL void pevDevLibSigHandler(int sig)
        SIGQUIT, SIGILL, SIGABRT, SIGFPE, SIGSEGV         
     */
     
-    /* clean up before exit */
-    pevDevLibAtexit();
-    switch (sig) {
-        case SIGQUIT:
-        case SIGILL:
-        case SIGABRT:
-        case SIGFPE:
-        case SIGSEGV:
-            abort();
-    }
-    _exit(0);
+    /* try to clean up before exit */
+    printf ("\npevDevLibSigHandler %s\n", strsignal(sig));
+    epicsExitCallAtExits();
+    signal(sig, SIG_DFL);
+    raise(sig);
 }
  
 /* PEV1100 specific initialization */
@@ -323,7 +317,7 @@ pevDevInit(void)
   signal(pevDevLibIntrEvent->sig, pevDevIntrHandler);
   /* intr setup end */
   
-  /*epicsAtExit((void*)pevDevLibAtexit, map_a32_base);  */
+  epicsAtExit((void*)pevDevLibAtexit, NULL);
   return 0; /*bspExtInit();*/
 }
 
