@@ -58,7 +58,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.38 2013/03/21 12:27:40 zimoch Exp $";
+    "$Id: pevDrv.c,v 1.39 2013/05/14 14:01:22 zimoch Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -132,6 +132,8 @@ struct regDeviceAsyn {
 };
 
 static int pevDebug = 0;
+epicsExportAddress(int, pevDebug);
+
 static int currConfCrates = 0;
 
 /* VME slave */
@@ -186,6 +188,9 @@ int pevRead(
             "pevRead: illegal device handle\n");
         return -1;
     }
+    if (pevDebug & 2)
+        printf("pevRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d)\n",
+            device->name, offset, dlen, nelem, pdata, prio);
     if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM) 
     						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
@@ -303,6 +308,9 @@ int pevWrite(
         return -1;
     }
 
+    if (pevDebug & 4)
+        printf("pevWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, priority=%d)\n",
+            device->name, offset, dlen, nelem, pdata, pmask, priority);
     if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
     						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
@@ -427,6 +435,9 @@ int pevAsynRead(
             "pevAsynRead: illegal device handle\n");
         return -1;
     }
+    if (pevDebug & 2)
+        printf("pevAsynRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, cbStruct=@%p, prio=%d, rdStat=@%p)\n",
+            device->name, offset, dlen, nelem, pdata, cbStruct, prio, rdStat);
     if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
     						&& !(device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
@@ -538,6 +549,9 @@ int pevAsynWrite(
         return -1;
     }
 
+    if (pevDebug & 4)
+        printf("pevAsynWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, cbStruct=@%p, pmask=@%p, priority=%d, rwStat=@%p)\n",
+            device->name, offset, dlen, nelem, pdata, cbStruct, pmask, priority, wrStat);
     if (offset > device->pev_rmArea_map.win_size && !(device->dmaSpace & DMA_SPACE_SHM)
     						&& (device->pev_rmArea_map.mode & MAP_SPACE_VME))
     {
@@ -610,6 +624,19 @@ int pevAsynWrite(
       pevDmaRequest.pev_dmaBuf_usr = (ulong)device->pev_dmaBuf.u_addr;
       epicsMutexUnlock(pevDmaReqLock);       
       
+      if (pevDebug & 4)
+      {
+        int i;
+        printf("pevAsynWrite %s:%d %d*%d bytes: starting DMA transfer from @%p to @%p pev_dmaBuf_usr=@%p\n",
+            device->name, offset, nelem, dlen, pdata, (void*)device->pev_dmaReq.des_addr, device->pev_dmaBuf.u_addr);
+/*
+        for (i = 0; i < nelem*dlen && i < 128; i++)
+        {
+            printf (" %02x", ((char*)pdata)[i]);
+            if ((i&15)==15) printf("\n");
+        }
+*/
+      }
       if( !epicsMessageQueueSend(pevDmaMsgQueueId, (void*)&pevDmaRequest, sizeof(pevDmaReqMsg)) )
          return (1);   /* to tell regDev that this is first phase of record processing (to let recSupport set PACT to true) */
       else 
@@ -671,7 +698,9 @@ int pevAlloc(
   else
     {
       *(unsigned long*)usrBufPtr = (unsigned long)pev_dma_Buf.u_addr;
-      *(unsigned long*)busBufPtr = (unsigned long)pev_dma_Buf.b_addr;	
+      *(unsigned long*)busBufPtr = (unsigned long)pev_dma_Buf.b_addr;
+      if (pevDebug & 1)
+        printf ("pevAlloc usrBufPtr=@%p busBufPtr=@%p\n", *usrBufPtr, *busBufPtr);
    }
   return status;
 } 
@@ -761,12 +790,6 @@ extern void pevDevLibAtexit(void);
 
 static void pevDrvAtexit(void)
 {
-  int i=0;
-  struct pev_node* pev; 
-  regDevice* device;
-  regDeviceAsyn* deviceAsyn;
-
-/*  pevDevLibAtexit(); */
   printf("pevDrvAtexit...\n");
   pev_evt_queue_disable(pevIntrEvent);
   pev_evt_queue_free(pevIntrEvent);
