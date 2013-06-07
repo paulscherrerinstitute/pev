@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: maplib.c,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.9  2013/04/15 14:28:52  ioxos
+ * correct bug in map_blk_force() [JFG]
+ *
+ * Revision 1.8  2012/11/14 13:48:34  ioxos
+ * allow to force local address in afrress mapping [JFG]
  *
  * Revision 1.7  2012/08/29 11:29:09  ioxos
  * initialize loc_addr to -1 [JFG]
@@ -75,6 +81,64 @@
 #else
 #define debugk(x) 
 #endif
+
+int
+map_blk_force( struct pev_ioctl_map_ctl *map_ctl_p,
+               struct pev_ioctl_map_pg *map_pg_p)
+{
+  struct pev_map_blk *p;
+  int i;
+  u32 size;
+  ushort npg;
+  int off;
+  int retval = -1;
+
+  /* check address alignment */
+  if( (map_pg_p->loc_addr % map_ctl_p->pg_size) ||
+      (map_pg_p->rem_addr % map_ctl_p->pg_size)    )
+  {
+    return( retval);
+  }
+
+  p = map_ctl_p->map_p;
+  size = map_pg_p->size;
+  npg = (ushort)(((size-1)/map_ctl_p->pg_size) + 1);
+  off = map_pg_p->loc_addr / map_ctl_p->pg_size;
+   /* scan list block per block */
+  for( i = 0; i < map_ctl_p->pg_num; i += p[i].npg)
+  {
+    if( ((i<= off) && ((off+npg) <= (i+p[i].npg))) && (p[i].flag == MAP_FLAG_FREE))
+    {
+      if((off+npg) <=(i+p[i].npg))
+      {
+	p[off+npg].npg = (i+p[i].npg) - (off+npg);
+	p[off+npg].flag = MAP_FLAG_FREE;
+      }
+      if( off > i)
+      {
+	p[i].npg = off-i;
+	p[i].flag = MAP_FLAG_FREE;
+      }
+      p[off].npg = npg;
+      p[off].flag = MAP_FLAG_BUSY;
+      if( map_pg_p->flag & MAP_FLAG_PRIVATE)
+      {
+         p[off].flag |= MAP_FLAG_PRIVATE;
+      }
+      p[off].usr = 1;
+      p[off].rem_addr = map_pg_p->rem_addr;
+      p[off].mode = map_pg_p->mode;
+
+      /* return local address in map parameters */
+      map_pg_p->win_size = map_ctl_p->pg_size * p[off].npg;
+      map_pg_p->loc_base = off * map_ctl_p->pg_size;
+      retval = off;
+      break;
+    }
+  }
+  map_pg_p->offset = retval;
+  return(retval);
+}
 
 int
 map_blk_alloc( struct pev_ioctl_map_ctl *map_ctl_p,

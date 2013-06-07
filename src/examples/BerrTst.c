@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: BerrTst.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.5  2012/12/13 15:40:51  ioxos
+ * support for IFC1210 CSR access [JFG]
  *
  * Revision 1.4  2012/06/01 14:00:14  ioxos
  * -Wall cleanup [JFG]
@@ -60,6 +63,7 @@ typedef unsigned int u32;
 struct pev_node *pev;
 struct pev_ioctl_map_pg vme_mas_map;
 struct pev_reg *pev_reg = 0;
+int pev_reg_mode = 0;
 
 int
 main( int argc,
@@ -69,6 +73,7 @@ main( int argc,
   int data;
   volatile uint sts, addr, addr_err;
   uint crate;
+  uint board;
 
   crate = 0;
   if( argc > 1)
@@ -87,7 +92,14 @@ main( int argc,
     exit( -1);
   }
 
-  printf("entering XVME542 control program\n");
+  board = pev_board();
+
+  printf("entering XVME542 control program [%08x]\n", board);
+  if( board == PEV_BOARD_IFC1210)
+  {
+    pev_reg_mode = 0x80000000;
+  }
+
 
   vme_mas_map.rem_addr = 0x000000;
   vme_mas_map.mode = 0x1203;
@@ -99,7 +111,8 @@ main( int argc,
   printf("local address = %lx\n", vme_mas_map.loc_addr);
 
   printf("perform memory mapping...");
-  my_addr = mmap( NULL, 0x1000000, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, vme_mas_map.loc_addr);
+  //my_addr = mmap( NULL, 0x1000000, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, vme_mas_map.loc_addr);
+  my_addr = pev_mmap( &vme_mas_map);
   printf("%p\n", my_addr);
   if( my_addr == MAP_FAILED)
   {
@@ -109,25 +122,24 @@ main( int argc,
   printf("Done\n");
 
  /* make sur berr is not forwarded to host */
-  sts = pev_csr_rd(0x404);
+  sts = pev_csr_rd( pev_reg_mode | 0x404);
   sts |= 0x80;
-  pev_csr_wr( 0x404, sts);
-
+  pev_csr_wr( pev_reg_mode | 0x404, sts);
 
   /* scan short io */
   for( addr = 0x0; addr < 0x1000000; addr += 0x80000)
   {
     /* make sure BERR status is cleared */
-    sts = pev_csr_rd(0x41c);
+    sts = pev_csr_rd( pev_reg_mode | 0x41c);
 
     /* check address */
     data = *(short *)((char *)my_addr + addr);
 
     /* check bus error status */
-    sts = pev_csr_rd( 0x41c);
+    sts = pev_csr_rd( pev_reg_mode | 0x41c);
     if( sts & 0x80000000)
     {
-      addr_err = pev_csr_rd( 0x418);
+      addr_err = pev_csr_rd( pev_reg_mode | 0x418);
       printf("VME BERR detected at address %x [%x]\n", addr_err, sts);
     }
     else

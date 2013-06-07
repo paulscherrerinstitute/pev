@@ -27,8 +27,23 @@
  *  Change History
  *  
  * $Log: pevdrvr.h,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.23  2013/04/15 14:30:37  ioxos
+ * support for APX2300 [JFG]
+ *
+ * Revision 1.22  2013/02/19 13:56:24  ioxos
+ * check X86 32 bit [JFG]
+ *
+ * Revision 1.21  2013/02/05 11:07:00  ioxos
+ * add dma_shm_offset field [JFG]
+ *
+ * Revision 1.20  2012/12/13 15:24:11  ioxos
+ * support for 2 DMA controllers [JFG]
+ *
+ * Revision 1.19  2012/11/14 08:53:35  ioxos
+ * support for APX2300 + support for second DMA channel [JFG]
  *
  * Revision 1.18  2012/10/12 13:28:25  ioxos
  * keep local_crate in pev_drv structure [JFG]
@@ -93,7 +108,7 @@
 
 // Number of pev devices
 #ifndef PEV_COUNT
-#define PEV_COUNT 16
+#define PEV_COUNT 64
 #endif
 
 // Name of the pev driver
@@ -209,7 +224,7 @@ struct pev_dev
   struct pci_dev *dev; 
   u32 board;
   u32 fpga;
-#ifdef PPC
+#if defined(PPC) || defined(X86_32)
   u32 pmem_base;
 #else
   u64 pmem_base;
@@ -223,8 +238,11 @@ struct pev_dev
   u32 csr_len;
   u32 elb_base;
   u32 elb_len;
+  u32 usr_base;
+  u32 usr_len;
   void *csr_ptr;
   void *elb_ptr;
+  void *usr_ptr;
   u32 crate;
   u32 msi;
   u32 irq_pending;
@@ -232,15 +250,12 @@ struct pev_dev
   u32 irq_cnt;
   struct pev_irq_handler *irq_tbl;
   struct semaphore sem_remap;
-  dma_addr_t dma_baddr;
-  void *dma_kaddr;
-  u32 dma_status;
   struct pev_ioctl_map_ctl map_mas32;   /*      */
   struct pev_ioctl_map_ctl map_mas64;   /*      */
   struct pev_ioctl_map_ctl map_slave;   /*      */
   struct pev_ioctl_map_ctl map_elb;     /*      */
   struct pci_dev *pex;                  /* pointer to the PEX8624 device structure      */
-#ifdef PPC
+#if defined(PPC) || defined(X86_32)
   u32 pex_base;                         /* PEX8624 PCI MEM base address                 */
 #else
   u64 pex_base;                         /* PEX8624 PCI MEM base address                 */
@@ -248,7 +263,7 @@ struct pev_dev
   u32 pex_len;                          /* PEX8624 PCI MEM window size                  */
   void *pex_ptr;                        /* PEX8624 PCI MEM kernel pointer               */
   struct pci_dev *plx;                  /* pointer to the PLX8112 device structure      */
-#ifdef PPC
+#if defined(PPC) || defined(X86_32)
   u32 plx_base;                         /* PEX8624 PCI MEM base address                 */
 #else
   u64 plx_base;                         /* PEX8624 PCI MEM base address                 */
@@ -256,22 +271,25 @@ struct pev_dev
   u32 plx_len;                          /* PEX8624 PCI MEM window size                  */
   void *plx_ptr;                        /* PEX8624 PCI MEM kernel pointer               */
   u32 shm_len;                          /* size of on board shared memory (SHM)         */
-#ifdef PPC
-  u32 dma_shm_base;                     /* base address of SHM buffer reserved for DMA  */
+  u32 dma_shm_offset;                   /* offset in SHM of buffer reserved for DMA  */
+#if defined(PPC) || defined(X86_32)
+  u32 dma_shm_base;                      /* PCI address of SHM buffer reserved for DMA  */
 #else
-  u64 dma_shm_base;                     /* base address of SHM buffer reserved for DMA  */
+  u64 dma_shm_base;                      /* PCI address of SHM buffer reserved for DMA  */
 #endif
   u32 dma_shm_len;                      /* size of SHM buffer reserved for DMA          */
   void *dma_shm_ptr;                    /* pointer to SHM buffer reserved for DMA       */
+  void *dma_ctl;
+  u32 dma_status[2];
 #ifdef XENOMAI
   rtdm_user_info_t *user_info;
   rtdm_irq_t rtdm_irq;                  /* xenomai irq handle                           */
   xnarch_cpumask_t affinity;
-  rtdm_sem_t dma_done;
-  rtdm_lock_t dma_lock;
+  rtdm_sem_t dma_done[2];
+  rtdm_lock_t dma_lock[2];
 #else
-  struct semaphore dma_sem;             /* semaphore to synchronize with DMA interrput  */
-  struct semaphore dma_lock;            /* mutex to lock DMA access                     */
+  struct semaphore dma_sem[2];             /* semaphore to synchronize with DMA interrput  */
+  struct semaphore dma_lock[2];            /* mutex to lock DMA access                     */
 #endif
   //struct pev_reg_remap io_remap;
   struct pev_reg_remap io_remap[2];
@@ -301,6 +319,9 @@ struct pev_drv
   dev_t dev_id;
   struct pev_dev *pev[16];
   int pev_local_crate;
+  struct pev_dev *xmc0[16];
+  struct pev_dev *xmc1[16];
+  struct pev_dev *xmc2[16];
 };
 
 struct pev_irq_handler

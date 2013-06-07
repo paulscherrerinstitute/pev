@@ -31,8 +31,8 @@
  *  Change History
  *  
  * $Log: fpgabuild.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
  *
  * Revision 1.4  2010/08/13 09:35:48  ioxos
  * get company and board from cfg file [JFG]
@@ -47,7 +47,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: fpgabuild.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: fpgabuild.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #include <stdlib.h>

@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: sflash.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.14  2013/02/14 10:05:53  ioxos
+ * bug in xprs_sign [JFG]
+ *
+ * Revision 1.13  2012/11/14 13:59:16  ioxos
+ * add support for Tosca on XMC [JFG]
  *
  * Revision 1.12  2012/06/01 13:59:44  ioxos
  * -Wall cleanup [JFG]
@@ -69,7 +75,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: sflash.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: sflash.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
@@ -704,6 +710,14 @@ xprs_sflash( struct cli_cmd_para *c)
           printf("SFLASH %d identifier %02x:%02x:%02x\n", i, id[0], id[1], id[2]);
 	}
       }
+      else if( pev_board() == PEV_BOARD_APX2300)
+      {
+	for( i = 2; i < 4; i++)
+	{
+          pev_sflash_id( (char *)id, i);
+          printf("SFLASH %d identifier %02x:%02x:%02x\n", i, id[0], id[1], id[2]);
+	}
+      }
       else
       {
         pev_sflash_id( (char *)id, 0);
@@ -719,6 +733,14 @@ xprs_sflash( struct cli_cmd_para *c)
       if( pev_board() == PEV_BOARD_IFC1210)
       {
 	for( i = 1; i < 4; i++)
+	{
+	  sr = (unsigned short)pev_sflash_rdsr( i);
+	  printf("SFLASH %d status %04x\n", i, sr);
+	}
+      }
+      else if( pev_board() == PEV_BOARD_APX2300)
+      {
+	for( i = 2; i < 4; i++)
 	{
 	  sr = (unsigned short)pev_sflash_rdsr( i);
 	  printf("SFLASH %d status %04x\n", i, sr);
@@ -1082,7 +1104,8 @@ xprs_sign( struct cli_cmd_para *c)
   int sign_offset;
   char *p;
 
-  if( pev_board() != PEV_BOARD_IFC1210)
+  if( (pev_board() != PEV_BOARD_IFC1210) &&
+      (pev_board() != PEV_BOARD_APX2300)    )
   {
     printf("Board signature not supported on this type of board\n");
     return(-1);

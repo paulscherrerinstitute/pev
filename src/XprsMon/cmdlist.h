@@ -35,6 +35,133 @@ int xprs_func_xxx( struct cli_cmd_para *);
 int xprs_func_help( struct cli_cmd_para *);
 int xprs_csr_status( struct cli_cmd_para *);
 
+#ifdef PPC
+char *adc3110_msg[] = 
+{
+  "ADC3110 read/write operations operations",
+  "adc3110.<x> <dev> read <reg>",
+  "adc3110.<x> <dev> write <reg> <data>",
+  "adc3110.<x> <dev> acqfif <offset> <size>",
+  "adc3110.<x> <file> save <offset> <size>",
+  "adc3110.<x> tmp102 show",
+  "adc3110.<x> eeprom sign",
+  "   where <dev> = lmk, ads01,ads23,ads45,ads67",
+  "         <reg> = register",
+  "         <data> = data",
+  "         <offset> = offset of data buffer",
+  "         <size> = size of data buffer",
+  "         <file> = filename",
+0};
+#endif
+char *cb_msg[]= 
+{ 
+  "read/write data from/to system bus address space  ",
+  "pc.<ds> <addr> <data>"
+  "   where <ds> = b,s,w, (data size 1,2,4)",
+  "         <addr> = physical address in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cc_msg[]= 
+{ 
+  "read/write data from/to PEV1100 PCI configuration space  ",
+  "pc.<ds> <reg> <data>"
+  "   where <ds> = b,s,w, (data size 1,2,4)",
+  "         <reg> = register offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cio_msg[]= 
+{ 
+  "read/write data from/to PEV1100 PCI IO space  ",
+  "pio.<ds> <addr> <data>"
+  "   where <ds> = b,s,w, (data size 1,2,4)",
+  "         <addr> = address offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cm_msg[]= 
+{ 
+  "read/write data from/to PEV1100 system memory ",
+  "pm.<ds> <addr> <data>"
+  "   where <ds> = b,s,w,l (data size 1,2,4,8)",
+  "         <addr> = address offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cp_msg[]= 
+{ 
+  "read/write data from/to PEV1100 PCI MEM space ",
+  "pp.<ds> <addr> <data>"
+  "   where <ds> = b,s,w,l (data size 1,2,4,8)",
+  "         <addr> = address offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cd_msg[] = 
+{ "read/write data from/to PEV1100 device  ",
+  "pd.<ds> <dev> <reg> <data>",
+  "   where <ds> = b,s,w, (data size 1,2,4)",
+  "         <dev> = csr, smon [device to be read/written] ",
+  "         <reg> = register offset ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cr_msg[] = 
+{ "read/write data from/to PEV1100 register  ",
+  "pr.<ds> <addr> <data>"
+  "   where <ds> = b,s,w,l (data size 1,2,4)",
+  "         <addr> = register offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *ce_msg[] = 
+{ "read/write data from/to P2020 ELB bus  ",
+  "pe.<ds> <addr> <data>"
+  "   where <ds> = b,s,w,l (data size 1,2,4)",
+  "         <addr> = register offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cs_msg[]= 
+{ 
+  "read/write data from/to PEV1100 shared memory ",
+  "ps<i>.<ds> <addr> <data>"
+  "   where <i> = 1,2 [shm index]",
+  "         <ds> = b,s,w,l [data size 1,2,4,8]",
+  "         <addr> = address offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cu_msg[]= 
+{ 
+  "read/write data from/to FPGA user area ",
+  "pu<i>.<ds> <addr> <data>"
+  "   where <i> = 1,2 [user area index]",
+  "         <ds> = b,s,w,l [data size 1,2,4,8]",
+  "         <addr> = address offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
+char *cv_msg[] = 
+{ 
+  "read/write single data from/to VME address space ",
+  "pv.<ds> <addr> <data> m:<am>" 
+  "   where <ds>   = b,s,w,l (data size 1,2,4,8)",
+  "         <addr> = address in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]  "
+  "         <am>   = cr, a16, a24, a32, blt iack ",
+0};
+
+char *cx_msg[]= 
+{ 
+  "read/write data from/to PCI Express switch registers ",
+  "px.<ds> <reg> <data>"
+  "   where <ds> = b,s,w,l (data size 1,2,4,8)",
+  "         <reg> = register offset in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
+
 char *conf_msg[] = 
 {
   "show PEV1100 configuration",
@@ -55,6 +182,14 @@ char *map_msg[] =
   "map show <map>",
   "map clear <map>",
   "   where <map> = mas_32, mas_64, slv_vme",
+0};
+
+char *db_msg[] = 
+{
+  "display data buffer from system bus address space",
+  "db.<ds> <addr>",
+  "   where <ds> = b,s,w,l [data size 1,2,4,8]",
+  "         <addr> = physical address in hexadecimal ",
 0};
 
 char *dm_msg[] = 
@@ -166,6 +301,23 @@ char *fifo_msg[] =
   "fifo.<idx> read ",
   "fifo.<idx> write <data> ",
   "   where <idx> = fifo indexl [from 0 to 3]",
+0};
+
+char *fb_msg[]  = 
+{
+  "fill data buffer in system bus address space",
+  "fb.<ds> <start..end> <data>",
+  "fb.<ds> <start..end> r:<seed>",
+  "fb.<ds> <start..end> s:<data>..<inc>",
+  "fb.<ds> <start..end> w:<data>..<mask>",
+  "fb.<ds> <start..end> f:<file>",
+  "   where <ds> = b,s,w,l [data size 1,2,4,8]",
+  "         <addr> = phisical address in hexadecimal ",
+  "         <data> = data in hexadecimal ",
+  "         <seed> = seed for random generator in hexadecimal ",
+  "         <inc> = increment in hexadecimal ",
+  "         <mask> = mask in hexadecimal ",
+  "         <file> = name of a data file ",
 0};
 
 char *fm_msg[]  = 
@@ -291,6 +443,21 @@ char *i2c_msg[]     =
   "                 plx8624",
 0};
 
+char *idt_msg[]     = 
+{
+  "perform idt PCIe switch command ",
+  "   idt conf",
+  "   idt init",
+  "   idt load <filename>",
+  "   idt rid <op> [<part>.<bus>.<dev>.<func>]",
+  "   idt.<x> map BAR<i> <rem_addr>",
+  "   idt.<x> msg<i> <op> <data>",
+  "   where <x> = port number",
+  "         <x> = index",
+  "         <op> = operation : for rid -> show, add, del",
+  "                            for msg -> status, post, get",
+0};
+
 char *ls_msg[]     = 
 { 
   "read/write loop  from/to PEV1100 shared memory ",
@@ -333,9 +500,21 @@ char *mpc_msg[] =
   "mpc.<x> sflash id",
   "mpc.<x> sflash load SP1 <filename>",
   "mpc.<x> sflash load SP23#<i> <filename>",
+  "mpc.<x> sflash load PON#<i> <filename>",
   "mpc.<x> sflash load VX6#<i> <filename>",
+  "mpc.<x> sflash load S10 <filename>",
+  "mpc.<x> sflash load S20 <filename>",
 0};
 #endif
+
+char *pb_msg[]= 
+{ 
+  "read/write data from/to system bus address space  ",
+  "pc.<ds> <addr> <data>"
+  "   where <ds> = b,s,w, (data size 1,2,4)",
+  "         <addr> = physical address in hexadecimal ",
+  "         <data> = data in hexadecimal [write cyle]",
+0};
 
 char *pc_msg[]= 
 { 
@@ -430,7 +609,7 @@ char *pv_msg[] =
 
 char *px_msg[]= 
 { 
-  "read/write data from/to PEX86XX registers ",
+  "read/write data from/to PCI Express switch registers ",
   "px.<ds> <reg> <data>"
   "   where <ds> = b,s,w,l (data size 1,2,4,8)",
   "         <reg> = register offset in hexadecimal ",
@@ -544,6 +723,16 @@ char *sign_msg[]=
   "board signature ",
   "sign show",
   "sign set",
+0};
+
+char *tb_msg[]  = 
+{
+  "perform read/write test on system address space",
+  "tb.<ds> <start>..<end> <data>",
+  "   where <ds> = b,s,w,l [data size 1,2,4,8]",
+  "         <start> = physical address in hexadecimal of first  location",
+  "         <end> = physical address in hexadecimal of last location",
+  "         <data> = data in hexadecimal used for test initialization",
 0};
 
 char *ts_msg[]  = 
@@ -672,7 +861,26 @@ char *lql_msg[] =
 
 struct cli_cmd_list cmd_list[] =
 {
+#ifdef PPC
+  { "adc3110", xprs_adc3110,      adc3110_msg, 0},
+#endif
+  { "cb"     , xprs_rdwr_cm,      cb_msg     , 0},
+  { "cc"     , xprs_rdwr_cm,      cc_msg     , 0},
+  { "ce"     , xprs_rdwr_cm,      ce_msg     , 0},
+  { "cio"    , xprs_rdwr_cm,      cio_msg    , 0},
+  { "cm"     , xprs_rdwr_cm,      cm_msg     , 0},
+  { "cp"     , xprs_rdwr_cm,      cp_msg     , 0},
+  { "cr"     , xprs_rdwr_cm,      cr_msg     , 0},
+  { "cs"     , xprs_rdwr_cm,      cs_msg     , 0},
+  { "cs1"    , xprs_rdwr_cm,      cs_msg     , 0},
+  { "cs2"    , xprs_rdwr_cm,      cs_msg     , 0},
+  { "cu"     , xprs_rdwr_cm,      cu_msg     , 0},
+  { "cu1"    , xprs_rdwr_cm,      cu_msg     , 0},
+  { "cu2"    , xprs_rdwr_cm,      cu_msg     , 0},
+  { "cv"     , xprs_rdwr_cm,      cv_msg     , 0},
+  { "cx"     , xprs_rdwr_cm,      cx_msg     , 0},
   { "conf"   , xprs_conf_show,    conf_msg   , 0},
+  { "db"     , xprs_rdwr_dm,      db_msg     , 0},
   { "dm"     , xprs_rdwr_dm,      dm_msg     , 0},
   { "dma"    , xprs_rdwr_dma,     dma_msg    , 0},
   { "de"     , xprs_rdwr_dm,      de_msg     , 0},
@@ -688,6 +896,7 @@ struct cli_cmd_list cmd_list[] =
 /*{ "evt"    , xprs_rdwr_evt,     evt_msg    , 0},*/
   { "eeprom" , xprs_eeprom,       eeprom_msg , 0},
   { "fifo"   , xprs_fifo,         fifo_msg   , 0},
+  { "fb"     , xprs_rdwr_fm,      fm_msg     , 0},
   { "fm"     , xprs_rdwr_fm,      fm_msg     , 0},
   { "fp"     , xprs_rdwr_fm,      fp_msg     , 0},
   { "fpga"   , xprs_fpga,         fpga_msg   , 0},
@@ -700,6 +909,7 @@ struct cli_cmd_list cmd_list[] =
   { "fv"     , xprs_rdwr_fm,      fv_msg     , 0},
   { "help"   , xprs_func_help,    help_msg   , 0},
   { "i2c"    , xprs_i2c,          i2c_msg    , 0},
+  { "idt"    , xprs_idt,          idt_msg    , 0},
   { "lql"    , xprs_func_xxx,     lql_msg    , 0},
   { "ls"     , xprs_rdwr_lm,      ls_msg     , 0},
   { "ls1"    , xprs_rdwr_lm,      ls_msg     , 0},
@@ -712,6 +922,7 @@ struct cli_cmd_list cmd_list[] =
 #ifdef MPC
   { "mpc"    , xprs_mpc,          mpc_msg    , 0},
 #endif
+  { "pb"     , xprs_rdwr_pm,      pb_msg     , 0},
   { "pc"     , xprs_rdwr_pm,      pc_msg     , 0},
   { "pe"     , xprs_rdwr_pm,      pe_msg     , 0},
   { "pio"    , xprs_rdwr_pm,      pio_msg    , 0},
@@ -740,6 +951,7 @@ struct cli_cmd_list cmd_list[] =
   { "rmw"    , xprs_rdwr_rmw,     rmw_msg    , 0},
   { "sflash" , xprs_sflash,       sflash_msg , 0},
   { "sign"   , xprs_sign,         sign_msg   , 0},
+  { "tb"     , xprs_rdwr_tm,      ts_msg     , 0},
   { "ts"     , xprs_rdwr_tm,      ts_msg     , 0},
   { "ts1"    , xprs_rdwr_tm,      ts_msg     , 0},
   { "ts2"    , xprs_rdwr_tm,      ts_msg     , 0},

@@ -33,8 +33,8 @@
  *  Change History
  *  
  * $Log: hpdrvr.c,v $
- * Revision 1.11  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 15:03:26  zimoch
+ * update to latest version
  *
  * Revision 1.5  2011/09/06 09:14:35  ioxos
  * use unlocked_ioctl instead of ioctl [JFG]

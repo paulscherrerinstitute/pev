@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: vme.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.8  2012/12/18 08:40:17  ioxos
+ * allow to enable/disable vme slave [JFG]
  *
  * Revision 1.7  2012/06/01 13:59:44  ioxos
  * -Wall cleanup [JFG]
@@ -55,7 +58,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: vme.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: vme.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
@@ -129,6 +132,22 @@ set_para_dec( char *prompt,
   return( 0);
 }
 
+int
+set_para_char( char *prompt,
+	       char *data)
+{
+  char *para;
+
+  para = cli_get_cmd( &vme_history, prompt);
+  para = strtok(para,"\n\r");
+  if( para)
+  {
+    *data = para[0];
+    return( 0);
+  }
+  return( -1);
+}
+
 int 
 xprs_vme( struct cli_cmd_para *c)
 {
@@ -151,6 +170,7 @@ xprs_vme( struct cli_cmd_para *c)
       struct pev_ioctl_vme_conf *vc;
       char prompt[32];
       uint size;
+      char yn;
 
       vc = &vme_conf;
 
@@ -174,6 +194,21 @@ xprs_vme( struct cli_cmd_para *c)
 	else
         { 
   	  vc->slv_ena &= ~VME_SLV_1MB;
+        }
+      }
+
+      yn = 'n';
+      if( vc->slv_ena & VME_SLV_ENA) yn = 'y';
+      sprintf(prompt, "vme slv ena [%c] -> ", yn);
+      if( !set_para_char( prompt, &yn))
+      {
+        if( yn == 'y')
+        {
+  	  vc->slv_ena |= VME_SLV_ENA;
+        }
+        else
+        {
+	  vc->slv_ena &= ~VME_SLV_ENA;
         }
       }
       pev_vme_conf_write( vc);

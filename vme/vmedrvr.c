@@ -33,8 +33,14 @@
  *  Change History
  *  
  * $Log: vmedrvr.c,v $
- * Revision 1.1  2012/10/30 08:25:11  kalantari
- * added vme folder
+ * Revision 1.2  2013/06/07 15:03:26  zimoch
+ * update to latest version
+ *
+ * Revision 1.4  2012/12/13 15:46:54  ioxos
+ * add irq_wait + buf in ELB window size [JFG]
+ *
+ * Revision 1.3  2012/11/14 15:21:23  ioxos
+ * release 4.23 [JFG]
  *
  * Revision 1.2  2012/10/15 13:40:12  ioxos
  * cleanup code [JFG]
@@ -82,6 +88,7 @@ struct pev_dev *pev;
 uint vme_itc_reg = 0;
 char *vme_cpu_addr = NULL;
 struct vme_board vme_board;
+struct semaphore vme_sem;
 
 void
 vme_irq( struct pev_dev *pev,
@@ -105,6 +112,8 @@ vme_irq( struct pev_dev *pev,
   {
     debugk((" - No mapping\n"));
   }
+  up( &vme_sem);
+  outl( 0xfe, vme_itc_reg+0x8);
 }
 
 void
@@ -116,23 +125,44 @@ vme_board_register( struct vme_board *v,
   uint elb_off;
   uint vme_am;
   uint vme_size;
+  int i, data;
 
-  pev_irq_register( pev, EVT_SRC_VME + v->irq, func, arg);
+  for( i = 1; i < 8; i++)
+  {
+    pev_irq_register( pev, EVT_SRC_VME + i, func, arg);
+  }
   vme_itc_reg = pev->io_base + pev->io_remap[0].vme_itc;
 
-  if( v->am == 0x0d)      vme_am = MAP_VME_ELB_A32 | MAP_VME_ELB_SP;
-  else if( v->am == 0x39) vme_am = MAP_VME_ELB_A24;
-  else if( v->am == 0x3d) vme_am = MAP_VME_ELB_A24 | MAP_VME_ELB_SP;
-  else if( v->am == 0x29) vme_am = MAP_VME_ELB_A16;
-  else if( v->am == 0x2d) vme_am = MAP_VME_ELB_A16 | MAP_VME_ELB_SP;
-  else if( v->am == 0x00) vme_am = MAP_VME_ELB_IACK;
-  else                    vme_am = MAP_VME_ELB_A32;
+  if( v->am == 0x0d)      vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_A32 | MAP_VME_ELB_SP;
+  else if( v->am == 0x39) vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_A24;
+  else if( v->am == 0x3d) vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_A24 | MAP_VME_ELB_SP;
+  else if( v->am == 0x29) vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_A16;
+  else if( v->am == 0x2d) vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_A16 | MAP_VME_ELB_SP;
+  else if( v->am == 0x00) vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_IACK;
+  else                    vme_am = MAP_VME_ELB_256M | MAP_VME_ELB_D32 | MAP_VME_ELB_A32;
 
   vme_size =  (v->size + 0xfff) & 0x0ffff000; /* align to multiple of 4k */
   elb_off = v->base & 0x0ffff000;             /* align to multiple of 4k */
   vme_cpu_addr = ioremap( pev->elb_base + elb_off, vme_size); /* map vme base address through ELB bus */
   vme_cpu_addr +=  (v->base & 0x0fffffff) - elb_off;
-  *(uint *)(pev->csr_ptr + PEV_CSR_VME_ELB) = (vme_am << 24) | ((v->base&0xf0000000) >> 24);
+  if( pev->csr_ptr)
+  {
+    data = (vme_am << 24) | ((v->base&0xf0000000) >> 24);
+    *(uint *)(pev->csr_ptr + PEV_CSR_VME_ELB) = data;
+  }
+  else
+  {
+    data = vme_am | (v->base&0xf0000000);
+    if( pev->io_remap[0].short_io)
+    {
+      outl( data, pev->io_base +  PEV_SCSR_VME_ELB);
+    }
+    else
+    {
+      outl( data, pev->io_base +  PEV_CSR_VME_ELB);
+    }
+  }
+  sema_init( &vme_sem, 0);
 
   return;
 }
@@ -140,13 +170,15 @@ vme_board_register( struct vme_board *v,
 void
 vme_irq_mask( int irq_level)
 {
-  outl( 1<<irq_level, vme_itc_reg+0xc);
+  //outl( 1<<irq_level, vme_itc_reg+0xc);
+  outl( 0xfe, vme_itc_reg+0xc);
 }
 
 void
 vme_irq_unmask( int irq_level)
 {
-  outl( 1<<irq_level, vme_itc_reg+0x8);
+  //outl( 1<<irq_level, vme_itc_reg+0x8);
+  outl( 0xfe, vme_itc_reg+0x8);
 }
 
 /*
@@ -194,6 +226,11 @@ vme_ioctl( struct file *filp,
 	return( -EINVAL);
       }
       vme_irq_unmask( vme_board.irq);
+      break;
+    }
+    case VME_IRQ_WAIT:
+    {
+      retval = down_interruptible( &vme_sem);
       break;
     }
     default:

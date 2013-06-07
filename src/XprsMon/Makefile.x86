@@ -33,9 +33,9 @@ INCDIR = ../../include
 
 OLIB = $(LIBDIR)/libpev.a
 ifeq ($(EXTRAFLAG),-DMPC)
-OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o fifo.o eeprom.o mpc.o
+OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o idt.o fpga.o fifo.o eeprom.o mpc.o
 else
-OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o fifo.o eeprom.o
+OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o idt.o fpga.o fifo.o eeprom.o
 endif
 HFILES = $(INCDIR)/cli.h 
 
@@ -48,7 +48,7 @@ FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DXENOMAI -Wall
 INC = -I $(INCDIR) -I /usr/xenomai/include
 LIB = -L $(LIBDIR)
 XprsMon:$(OFILES)  $(OLIB)
-	gcc $(LIB) -o XprsMon $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm
+	gcc $(LIB) -o XprsMon $(OFILES) -lpev -lrt -lpevrt -lnative -lrtdm -lm
 else
 ifeq ($(EXTRAFLAG),-DMPC)
 FLAGS = -g -DLITTLE_ENDIAN -DDEBUG -DMPC -Wall
@@ -94,6 +94,9 @@ vme.o: vme.c cmdlist.h Makefile.x86
 
 i2c.o: i2c.c cmdlist.h Makefile.x86
 	$(CC) $(FLAGS) $(INC) -c i2c.c
+
+idt.o: idt.c cmdlist.h Makefile.ppc
+	$(CC) $(FLAGS) $(INC) -c idt.c
 
 fpga.o: fpga.c cmdlist.h Makefile.x86
 	$(CC) $(FLAGS) $(INC) -c fpga.c

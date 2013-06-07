@@ -27,8 +27,41 @@
  *  Change History
  *  
  * $Log: pevioctl.h,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 15:02:43  zimoch
+ * update to latest version
+ *
+ * Revision 1.54  2013/05/14 06:57:58  ioxos
+ * release 4.31 [JFG]
+ *
+ * Revision 1.53  2013/04/15 14:13:53  ioxos
+ * support for ADN4003 [JFG]
+ *
+ * Revision 1.52  2013/03/13 15:39:03  ioxos
+ * problem with uchar declaration [JFG]
+ *
+ * Revision 1.51  2013/03/13 08:04:35  ioxos
+ * set version to 4.30 [JFG]
+ *
+ * Revision 1.50  2013/02/26 15:35:03  ioxos
+ * release 4.29 [JFG]
+ *
+ * Revision 1.49  2013/02/26 15:11:10  ioxos
+ * more typedef [JFG]
+ *
+ * Revision 1.48  2013/01/14 11:06:30  ioxos
+ * support user mapping for CSR space [JFG]
+ *
+ * Revision 1.47  2012/12/18 16:17:30  ioxos
+ * cosmetics [JFG]
+ *
+ * Revision 1.46  2012/12/13 14:58:48  ioxos
+ * support for bus address access and 2 DMA controllers [JFG]
+ *
+ * Revision 1.45  2012/11/14 13:57:43  ioxos
+ * allow to force local address in address mapping [JFG]
+ *
+ * Revision 1.44  2012/11/14 08:49:53  ioxos
+ * support for APX2300 + support for second DMA channel [JFG]
  *
  * Revision 1.43  2012/10/25 12:34:23  ioxos
  * add evt_clear() [JFG]
@@ -165,7 +198,14 @@
 #ifndef _H_PEVIOCTL
 #define _H_PEVIOCTL
 
+#define PEV1100_RELEASE "4.31"
+
+#ifndef _LINUX_TYPES_H
 typedef unsigned char uchar;
+typedef unsigned short ushort;
+typedef unsigned int uint;
+typedef unsigned long  ulong;
+#endif
 
 #define PEV_SCSR_ILOC_BASE  0x00
 #define PEV_SCSR_ILOC_SIGN  0x04
@@ -176,7 +216,11 @@ typedef unsigned char uchar;
 #define PEV_SCSR_SHM_BASE   0x40
 #define PEV_SCSR_DMA_RD     0x50
 #define PEV_SCSR_DMA_WR     0x60
-#define PEV_SCSR_VME_TIMER   0x70
+#define PEV_SCSR_DMA_RD0    0x50
+#define PEV_SCSR_DMA_WR0    0x60
+#define PEV_SCSR_DMA_RD1    0xd0
+#define PEV_SCSR_DMA_WR1    0xe0
+#define PEV_SCSR_VME_TIMER  0x70
 #define PEV_SCSR_ITC        0x80
 #define PEV_SCSR_ITC_ILOC   PEV_SCSR_ITC
 #define PEV_SCSR_ITC_VME    0x90
@@ -209,6 +253,10 @@ typedef unsigned char uchar;
 #define PEV_CSR_SHM_BASE  0x840
 #define PEV_CSR_DMA_RD    0x900
 #define PEV_CSR_DMA_WR    0xa00
+#define PEV_CSR_DMA_RD0   0x900
+#define PEV_CSR_DMA_WR0   0xa00
+#define PEV_CSR_DMA_RD1   0x940
+#define PEV_CSR_DMA_WR1   0xa40
 #define PEV_CSR_USR_BASE  0xc00
 #define PEV_CSR_USR_FIFO  0xc00
 #define PEV_CSR_ITC       0x80
@@ -255,6 +303,8 @@ struct pev_reg_remap
   uint usr_fifo;
   uint usr1_itc;
   uint usr2_itc;
+  uint dma_rd1;
+  uint dma_wr1;
 };
 
 #define PEV_BOARD_PEV1100 0x73571100
@@ -264,6 +314,11 @@ struct pev_reg_remap
 #define PEV_BOARD_IFC1210 0x73571210
 #define PEV_BOARD_MPC1200 0x73571200
 #define PEV_BOARD_ADN4001 0x73574001
+#define PEV_BOARD_ADN4003 0x73574003
+#define PEV_BOARD_APX2300 0x73572300
+
+#define PEV_FPGA_VX5      1
+#define PEV_FPGA_VX6      2
 
 #define PEV_IOCTL_OP_MASK    0x0FFF0000
 
@@ -345,8 +400,14 @@ struct pev_reg_remap
 #define PEV_IOCTL_DMA             0x00040000
 #define PEV_IOCTL_DMA_MOVE        0x00040001
 #define PEV_IOCTL_DMA_STATUS      0x00040002
+#define PEV_IOCTL_DMA0_STATUS     0x00040002
+#define PEV_IOCTL_DMA1_STATUS     0x00040012
 #define PEV_IOCTL_DMA_WAIT        0x00040003
+#define PEV_IOCTL_DMA0_WAIT       0x00040003
+#define PEV_IOCTL_DMA1_WAIT       0x00040013
 #define PEV_IOCTL_DMA_KILL        0x00040004
+#define PEV_IOCTL_DMA0_KILL       0x00040004
+#define PEV_IOCTL_DMA1_KILL       0x00040014
 
 #define PEV_IOCTL_SFLASH          0x00050000
 #define PEV_IOCTL_SFLASH_ID       0x00050000
@@ -502,6 +563,7 @@ struct pev_ioctl_rw_reg
 #define RDWR_PEX_MEM     0x14       /* PEX8624 PCI MEM window */
 #define RDWR_ELB         0x18       /* P2020 ELB bus */
 #define RDWR_KMEM        0x20
+#define RDWR_BADDR       0x40
 
 
 struct pev_ioctl_rdwr
@@ -531,6 +593,7 @@ struct pev_ioctl_rdwr
 #define MAP_SLAVE_VME     4
 #define MAP_VME_SLAVE     4
 #define MAP_VME_ELB       8
+#define MAP_PCIE_CSR      3
 
 #define MAP_SPACE_PCIE    0x0000
 #define MAP_SPACE_VME     0x1000
@@ -561,6 +624,11 @@ struct pev_ioctl_rdwr
 #define MAP_VME_ELB_A24       0x02
 #define MAP_VME_ELB_A32       0x04
 #define MAP_VME_ELB_IACK      0x06
+#define MAP_VME_ELB_32M       0x00
+#define MAP_VME_ELB_64M       0x10
+#define MAP_VME_ELB_128M      0x20
+#define MAP_VME_ELB_256M      0x30
+#define MAP_VME_ELB_D32       0x08
 
 #define MAP_PCIE_TC0      0x0000
 #define MAP_PCIE_TC1      0x0004
@@ -576,6 +644,7 @@ struct pev_ioctl_rdwr
 #define MAP_FLAG_FREE           0
 #define MAP_FLAG_BUSY           1
 #define MAP_FLAG_PRIVATE        2
+#define MAP_FLAG_FORCE          4
 #define MAP_MODE_MASK           0xffff
 
 struct pev_map_blk
@@ -770,6 +839,10 @@ struct pev_ioctl_buf
 #define DMA_MODE_LIST_WR  0x03  /* destination is a chain descriptor */
 #define DMA_START_BLOCK   0x00  /* move one block from src to des */
 #define DMA_START_PIPE    0x01
+#define DMA_START_LIST_RD  0x02  /* source is a chain descriptor      */
+#define DMA_START_LIST_WR  0x03  /* destination is a chain descriptor */
+#define DMA_START_CTLR_0  0x00
+#define DMA_START_CTLR_1  0x10
 #define DMA_SIZE_MAX_BLK  0xff800  
 #define DMA_SIZE_MAX_LIST 0x3f  
 #define DMA_SIZE_PKT_128  0x00000000 
@@ -805,13 +878,34 @@ struct pev_ioctl_buf
 #define DMA_STATUS_TMO                 0x80
 #define DMA_STATUS_ERR                 0x40
 
+#define DMA_IRQ_MASK                   0xFF
+#define DMA_IRQ_RD0                    0x03
+#define DMA_IRQ_RD0_OK                 0x01
+#define DMA_IRQ_RD0_ERR                0x02
+#define DMA_IRQ_RD1                    0x0c
+#define DMA_IRQ_RD1_OK                 0x04
+#define DMA_IRQ_RD1_ERR                0x08
+#define DMA_IRQ_WR0                    0x30
+#define DMA_IRQ_WR0_OK                 0x10
+#define DMA_IRQ_WR0_ERR                0x20
+#define DMA_IRQ_WR1                    0xc0
+#define DMA_IRQ_WR1_OK                 0x40
+#define DMA_IRQ_WR1_ERR                0x80
+
+#define DMA_CTLR_RD                     0x00
+#define DMA_CTLR_WR                     0x10
+#define DMA_CTLR_RD0                    0x00
+#define DMA_CTLR_WR0                    0x10
+#define DMA_CTLR_RD1                    0x01
+#define DMA_CTLR_WR1                    0x11
+
 struct pev_ioctl_dma_req
 {
   ulong src_addr;
   ulong des_addr;
   uint size;
-  uchar src_space; uchar src_mode; uchar des_space; uchar des_mode;
-  uchar start_mode; uchar end_mode; uchar intr_mode; uchar wait_mode;
+  unsigned char src_space; unsigned char src_mode; unsigned char des_space; unsigned char des_mode;
+  unsigned char start_mode; unsigned char end_mode; unsigned char intr_mode; unsigned char wait_mode;
   uint dma_status;
 };
 struct pev_ioctl_dma_list

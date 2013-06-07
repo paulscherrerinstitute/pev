@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fifo.c,v $
- * Revision 1.9  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.10  2013/06/07 14:59:54  zimoch
+ * update to latest version
  *
  * Revision 1.3  2012/06/01 13:59:43  ioxos
  * -Wall cleanup [JFG]
@@ -42,7 +42,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: fifo.c,v 1.9 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: fifo.c,v 1.10 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno

@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: evtlib.h,v $
- * Revision 1.8  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.9  2013/06/07 14:58:31  zimoch
+ * update to latest version
  *
  * Revision 1.3  2012/10/25 12:27:57  ioxos
  * eeprom delay set to 5 msec + clear evt + mask SMI while reading event (need new FPGA)[JFG]

@@ -27,8 +27,38 @@
  *  Change History
  *  
  *  $Log: pevulib.c,v $
- *  Revision 1.13  2012/10/29 10:06:56  kalantari
- *  added the tosca driver version 4.22 from IoxoS
+ *  Revision 1.14  2013/06/07 15:03:26  zimoch
+ *  update to latest version
+ *
+ *  Revision 1.77  2013/04/15 14:18:33  ioxos
+ *  support for ADN400x [JFG]
+ *
+ *  Revision 1.76  2013/02/26 15:35:03  ioxos
+ *  release 4.29 [JFG]
+ *
+ *  Revision 1.75  2013/02/21 15:27:59  ioxos
+ *  cosmetics & optimizations -> release 4.28 [JFG]
+ *
+ *  Revision 1.74  2013/02/15 11:32:30  ioxos
+ *  release 4.27 [JFG]
+ *
+ *  Revision 1.73  2013/02/14 15:15:57  ioxos
+ *  tagging 4.26 [JFG]
+ *
+ *  Revision 1.72  2013/01/14 11:04:50  ioxos
+ *  support user mapping for CSR space [JFG]
+ *
+ *  Revision 1.71  2012/12/14 10:48:54  ioxos
+ *  cometics [JFG]
+ *
+ *  Revision 1.70  2012/12/13 14:57:00  ioxos
+ *  support for 2 DMA controllers [JFG]
+ *
+ *  Revision 1.69  2012/11/14 15:21:22  ioxos
+ *  release 4.23 [JFG]
+ *
+ *  Revision 1.68  2012/11/14 13:56:28  ioxos
+ *  add support for Tosca on XMC [JFG]
  *
  *  Revision 1.67  2012/10/25 12:31:46  ioxos
  *  add evt_clear() + version 4.22 [JFG]
@@ -235,7 +265,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: pevulib.c,v 1.13 2012/10/29 10:06:56 kalantari Exp $";
+static char rcsid[] = "$Id: pevulib.c,v 1.14 2013/06/07 15:03:26 zimoch Exp $";
 #endif
 
 #include <stdlib.h>
@@ -257,7 +287,7 @@ static struct pev_node *pevx[16]={ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
 static char pev_drv_id[16] = {0,};
 static struct pev_reg_remap io_remap;
 char pev_driver_version[16];
-char pev_lib_version[] = "4.22";
+char pev_lib_version[] = PEV1100_RELEASE;
 uint pev_board_id = 0;
 static char ioxos_board_name[16];
 static struct ioxos_boards
@@ -274,6 +304,9 @@ ioxos_boards[] =
   {3, PEV_BOARD_VCC1105, "VCC1105"},
   {4, PEV_BOARD_IFC1210, "IFC1210"},
   {5, PEV_BOARD_MPC1200, "MPC1200"},
+  {6, PEV_BOARD_APX2300, "APX2300"},
+  {7, PEV_BOARD_ADN4001, "ADN4001"},
+  {8, PEV_BOARD_ADN4003, "ADN4003"},
   {-1, 0, NULL}
 };
 
@@ -289,11 +322,17 @@ struct pev_node
 {
   char dev_name[16];
   struct ioxos_boards *ib;
+  int dev_type;
 
-  if( crate > 15)
+  printf("init crate 0x%x\n", crate);
+  if( crate > 0x2f)
   {
     return( (struct pev_node *)0);
   }
+  dev_type = 0;
+  if( (crate & 0x30) == 0x10) dev_type = 1;
+  if( (crate & 0x30) == 0x20) dev_type = 2;
+  crate &= 0xf;
   if( !pevx[crate])
   {
     pev = (struct pev_node *)malloc( sizeof( struct pev_node));
@@ -311,8 +350,12 @@ struct pev_node
   }
   if( pev->fd < 0)
   {
-    sprintf( dev_name, "/dev/pev%d", crate);
+    if( dev_type == 0) sprintf( dev_name, "/dev/pev%d", crate);
+    if( dev_type == 1) sprintf( dev_name, "/dev/xmc1_%d", crate);
+    if( dev_type == 2) sprintf( dev_name, "/dev/xmc2_%d", crate);
+    printf("open %s\n", dev_name);
     pev->fd = open(dev_name, O_RDWR);
+    printf("file descriptor = %d\n", pev->fd);
     ioctl( pev->fd, PEV_IOCTL_ID, pev_drv_id);
     ioctl( pev->fd, PEV_IOCTL_BOARD, &pev_board_id);
     ioctl( pev->fd, PEV_IOCTL_IO_REMAP, &io_remap);
@@ -637,6 +680,12 @@ pev_mmap( struct pev_ioctl_map_pg *map)
     map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0xa0000000);
 #endif
   }
+  if( map->sg_id == MAP_PCIE_CSR)
+  {
+#if defined(PPC)
+    map->usr_addr = mmap( NULL, map->size, PROT_READ|PROT_WRITE, MAP_SHARED, pev->fd, map->loc_addr | 0xb0000000);
+#endif
+  }
 
   return( map->usr_addr);
 }
@@ -776,9 +825,38 @@ pev_dma_vme_list_rd( void *uaddr,
 }
 
 int
-pev_dma_status( struct pev_ioctl_dma_sts *ds_p)
+pev_dma_status( int ctrl,
+		struct pev_ioctl_dma_sts *ds_p)
 {
-  return( ioctl( pev->fd, PEV_IOCTL_DMA_STATUS, ds_p));
+  if( ctrl & 1)
+  {
+    return( ioctl( pev->fd, PEV_IOCTL_DMA1_STATUS, ds_p));
+  }
+  else
+  {
+    return( ioctl( pev->fd, PEV_IOCTL_DMA0_STATUS, ds_p));
+  }
+}
+
+int
+pev_dma_wait( int ctlr,
+	      int mode,
+	      int *sts)
+{
+  int retval;
+  int arg;
+
+  arg = mode;
+  if( ctlr & 1)
+  {
+    retval = ioctl( pev->fd, PEV_IOCTL_DMA1_WAIT, &arg);
+  }
+  else
+  {
+    retval = ioctl( pev->fd, PEV_IOCTL_DMA0_WAIT, &arg);
+  }
+  *sts = arg;
+  return( retval);
 }
 
 int

@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: pevulib.h,v $
- * Revision 1.16  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.17  2013/06/07 15:02:43  zimoch
+ * update to latest version
+ *
+ * Revision 1.31  2012/12/14 10:51:47  ioxos
+ * dma_status/wait [JFG]
+ *
+ * Revision 1.30  2012/12/13 14:57:39  ioxos
+ * support for 2 DMA controllers [JFG]
  *
  * Revision 1.29  2012/10/25 12:34:23  ioxos
  * add evt_clear() [JFG]
@@ -197,7 +203,8 @@ void *pev_buf_map( struct pev_ioctl_buf *);
 int pev_buf_unmap( struct pev_ioctl_buf *);
 int pev_dma_move( struct pev_ioctl_dma_req *);
 int pev_dma_vme_list_rd( void *, struct pev_ioctl_dma_list *, int);
-int pev_dma_status( struct pev_ioctl_dma_sts *);
+int pev_dma_status( int, struct pev_ioctl_dma_sts *);
+int pev_dma_wait( int, int, int *);
 int pev_vme_init( void);
 void pev_vme_irq_init( void);
 void pev_vme_sysreset( int);

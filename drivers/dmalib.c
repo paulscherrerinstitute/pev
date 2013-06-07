@@ -27,8 +27,26 @@
  *  Change History
  *  
  * $Log: dmalib.c,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:23  zimoch
+ * update to latest version
+ *
+ * Revision 1.31  2013/02/21 15:11:21  ioxos
+ * optimize pipe mode [JFG]
+ *
+ * Revision 1.30  2013/02/21 11:10:28  ioxos
+ * re-organize dma chains [JFG]
+ *
+ * Revision 1.29  2013/02/19 10:52:50  ioxos
+ * correct bug for dma ctlr #1 [JFG]
+ *
+ * Revision 1.28  2013/02/18 16:32:50  ioxos
+ * no need to wait for trigger in descriptor [JFG]
+ *
+ * Revision 1.27  2012/12/13 15:21:40  ioxos
+ * support for 2 DMA controllers [JFG]
+ *
+ * Revision 1.26  2012/11/14 08:56:52  ioxos
+ * prepare for second DMA channel [JFG]
  *
  * Revision 1.25  2012/09/27 09:47:18  ioxos
  * generate interrupt in case of error when DMA are linked [JFG]
@@ -154,8 +172,8 @@ struct dma_ctl
   uint rd_chain_offset;
   uint buf_offset;
   uint shm_size;
-  uint io_base_rd;
-  uint io_base_wr;
+  char *io_base_rd;
+  char *io_base_wr;
   uint wr_chain_cnt;
   uint rd_chain_cnt;
   void *dma_buf_kaddr;
@@ -163,7 +181,7 @@ struct dma_ctl
 #ifdef XENOMAI
   rtdm_user_info_t *dma_user_info;
 #endif
-} dma_ctl[16];
+};
 
 struct pev_ioctl_dma_list vme_list[63];
 struct pev_ioctl_dma_list shm_list[63];
@@ -188,55 +206,169 @@ int rdwr_swap_32( int);
 #define debugk(x) 
 #endif
 
-
-int
-dma_init( int crate,
-	  void *shm_ptr,
-	  ulong shm_base,
-	  uint shm_size,
-	  uint io_base_rd,
-	  uint io_base_wr)
+#ifdef PPC
+void
+dma_write_io( void *dma_ctl,
+	      uint offset,
+	      uint data,
+	      uint ctlr)
 {
   struct dma_ctl *dc;
+
+  dc = (struct dma_ctl *)dma_ctl;
+  if( ctlr & 1) dc++;
+  if( ctlr & DMA_CTLR_WR)
+  {
+    //printk("dma_write_io: %p - %x - %x\n", dc->io_base_wr, offset, data);
+    *(uint *)(dc->io_base_wr + offset) = SWAP32(data);
+  }
+  else
+  {
+    //printk("dma_write_io: %p - %x - %x\n", dc->io_base_rd, offset, data);
+    *(uint *)(dc->io_base_rd + offset) = SWAP32(data);
+  }
+  return;
+}
+
+uint
+dma_read_io( void *dma_ctl,
+	     uint offset,
+	     uint ctlr)
+{
+  struct dma_ctl *dc;
+  uint data;
+
+  dc = (struct dma_ctl *)dma_ctl;
+  if( ctlr & 1) dc++;
+  if( ctlr & DMA_CTLR_WR)
+  {
+    data = *(uint *)(dc->io_base_wr + offset);
+  }
+  else
+  {
+    data = *(uint *)(dc->io_base_rd + offset);
+  }
+  return( SWAP32(data));
+}
+#else
+void
+dma_write_io( void *dma_ctl,
+	      uint offset,
+	      uint data,
+	      uint ctlr)
+{
+  struct dma_ctl *dc;
+
+  dc = (struct dma_ctl *)dma_ctl;
+  if( ctlr & 1) dc++;
+  if( ctlr & DMA_CTLR_WR)
+  {
+    //printk("dma_write_io: %p - %x - %x\n", dc->io_base_wr, offset, data);
+    outl( data, (long)dc->io_base_wr + offset);
+  }
+  else
+  {
+    //printk("dma_write_io: %p - %x - %x\n", dc->io_base_rd, offset, data);
+    outl( data, (long)dc->io_base_rd + offset);
+  }
+  return;
+}
+
+uint
+dma_read_io( void *dma_ctl,
+	     uint offset,
+	     uint ctlr)
+{
+  struct dma_ctl *dc;
+  uint data;
+
+  dc = (struct dma_ctl *)dma_ctl;
+  if( ctlr & 1) dc++;
+  if( ctlr & DMA_CTLR_WR)
+  {
+    data = inl( (long)dc->io_base_wr + offset);
+  }
+  else
+  {
+    data = inl( (long)dc->io_base_rd + offset);
+  }
+  return( data);
+}
+#endif
+
+void *
+dma_init( void *shm_ptr,
+	  ulong shm_base,
+	  uint shm_size,
+	  char * io_base_rd0,
+	  char * io_base_wr0,
+	  char * io_base_rd1,
+	  char * io_base_wr1)
+{
+  struct dma_ctl *dc, *dma_ctl;
 
   /* allocate a buffer in SHM and map it */
   debugk(("in dma_init( %p, %lx, %x)...\n", shm_ptr, shm_base, shm_size));
 
-  dc = &dma_ctl[crate];
-  dc->shm_ptr = shm_ptr;
-  dc->shm_base = shm_base;
-  dc->shm_size = shm_size;
+  //dc = &dma_ctl[crate];
+  dma_ctl = (struct dma_ctl *)kmalloc( 2*sizeof(struct dma_ctl), GFP_KERNEL);
+  if( !dma_ctl)
+  {
+    return( (void *)dma_ctl);
+  }
+
+  dc = (struct dma_ctl *)dma_ctl;
+  dc->shm_size = shm_size -  4*sizeof( struct dma_chain);
   dc->wr_chain_p = (struct dma_chain *)shm_ptr;
   dc->rd_chain_p = (struct dma_chain *)(shm_ptr + sizeof( struct dma_chain));
-  dc->buf_ptr = (char *)(shm_ptr + 2*sizeof( struct dma_chain));
+  dc->buf_ptr = (char *)(shm_ptr + 4*sizeof( struct dma_chain));
   dc->wr_chain_offset = (uint)shm_base;
   dc->rd_chain_offset = (uint)shm_base + sizeof( struct dma_chain);
-  dc->buf_offset = (uint)shm_base + 2*sizeof( struct dma_chain);
-  dc->io_base_rd = io_base_rd;
-  dc->io_base_wr = io_base_wr;
+  dc->buf_offset = (uint)shm_base + 4*sizeof( struct dma_chain);
+  dc->io_base_rd = io_base_rd0;
+  dc->io_base_wr = io_base_wr0;
   dc->wr_chain_cnt = 1;
   dc->rd_chain_cnt = 1;
   dc->dma_buf_kaddr = NULL;
   dc->dma_buf_baddr = 0;
 
-  return( 0);
-}
+  dc++;
+  dc->shm_size = shm_size/2;
+  dc->wr_chain_p = (struct dma_chain *)(shm_ptr + 2*sizeof( struct dma_chain));
+  dc->rd_chain_p = (struct dma_chain *)(shm_ptr + 3*sizeof( struct dma_chain));
+  dc->buf_ptr = (char *)(shm_ptr + shm_size/2);
+  dc->wr_chain_offset = (uint)shm_base + 2*sizeof( struct dma_chain);
+  dc->rd_chain_offset = (uint)shm_base + 3*sizeof( struct dma_chain);
+  dc->buf_offset = (uint)shm_base + shm_size/2;
+  dc->io_base_rd = io_base_rd1;
+  dc->io_base_wr = io_base_wr1;
+  dc->wr_chain_cnt = 1;
+  dc->rd_chain_cnt = 1;
+  dc->dma_buf_kaddr = NULL;
+  dc->dma_buf_baddr = 0;
 
+  return( (void *)dma_ctl);
+}
+void
+dma_exit( void *dma_ctl)
+{
+  kfree(dma_ctl);
+}
 #ifdef XENOMAI
 int
-dma_init_xeno( int crate,
+dma_init_xeno( void *dma_ctl,
 	       rtdm_user_info_t *user_info)
 {
   struct dma_ctl *dc;
 
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
   dc->dma_user_info = user_info;
   return( 0);
 }
 #endif
 
 int
-dma_alloc_kmem( int crate,
+dma_alloc_kmem( void *dma_ctl,
 	        void *kaddr,
 		ulong baddr)
 {
@@ -245,7 +377,7 @@ dma_alloc_kmem( int crate,
   /* allocate a buffer in SHM and map it */
   debugk(("in dma_alloc_kmem( %p, %lx)...\n", kaddr, baddr));
 
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
   dc->dma_buf_kaddr = kaddr;
   dc->dma_buf_baddr = baddr;
 
@@ -254,18 +386,18 @@ dma_alloc_kmem( int crate,
 
 
 void *
-dma_get_buf_kaddr( int crate)
+dma_get_buf_kaddr( void *dma_ctl)
 {
   struct dma_ctl *dc;
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
   return( dc->dma_buf_kaddr);
 }
  
 ulong
-dma_get_buf_baddr( int crate)
+dma_get_buf_baddr( void *dma_ctl)
 {
   struct dma_ctl *dc;
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
   return( dc->dma_buf_baddr);
 }
 
@@ -308,7 +440,7 @@ dma_set_ctl( uint space,
 }
  
 int
-dma_set_rd_desc( int crate, 
+dma_set_rd_desc( void *dma_ctl, 
 		 ulong  shm_addr, 
 		 ulong des_addr, 
 		 uint size,
@@ -321,7 +453,12 @@ dma_set_rd_desc( int crate,
   volatile uint sync_desc;
 
   debugk(("in dma_set_rd_desc( %lx, %lx, %x, %x)...\n", shm_addr, des_addr, size, space));
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
+  if( mode & 0x1000)
+  {
+    dc++;
+    mode &= ~0x1000;
+  }
   dd = (struct dma_desc *)dc->rd_chain_p;
   debugk(("chain pointer = %p\n", dd));
   next = 0x10;                    /*last descriptor   */
@@ -329,8 +466,6 @@ dma_set_rd_desc( int crate,
   {
     /* allocate temporary buffer */
     shm_addr = dc->buf_offset;
-    /* wait for trigger from write engine */
-    next |= 0x6;
   }
   dc->rd_chain_cnt = 1;
 
@@ -347,7 +482,7 @@ dma_set_rd_desc( int crate,
 }
 
 int
-dma_set_wr_desc( int crate,
+dma_set_wr_desc( void *dma_ctl,
 		 ulong  shm_addr,
 		 ulong src_addr, 
 		 uint size,
@@ -361,7 +496,12 @@ dma_set_wr_desc( int crate,
   volatile uint sync_desc;
 
   debugk(("in dma_set_wr_desc( %lx, %lx, %x, %x)...\n", shm_addr, src_addr, size, space));
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
+  if( mode & 0x1000)
+  {
+    dc++;
+    mode &= ~0x1000;
+  }
   dd = (struct dma_desc *)dc->wr_chain_p;
   debugk(("chain pointer = %p\n", dd));
   next = dc->wr_chain_offset + sizeof(struct dma_desc);
@@ -408,14 +548,14 @@ dma_set_wr_desc( int crate,
 }
 
 int
-dma_get_desc( int crate,
+dma_get_desc( void *dma_ctl,
 	      uint *d)
 {
   struct dma_ctl *dc;
   int i;
   uint *s;
 
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
 
   /* get time marker */
   s = (uint *)dc->wr_chain_p;
@@ -441,7 +581,7 @@ dma_get_desc( int crate,
 }
 
 int
-dma_set_pipe_desc( int crate, 
+dma_set_pipe_desc( void *dma_ctl, 
 		   ulong des_addr, 
 		   ulong  src_addr, 
 		   uint size,
@@ -453,23 +593,34 @@ dma_set_pipe_desc( int crate,
   struct dma_desc *dd_r, *dd_w;
   ulong  shm_addr;
   uint wdo, rdo;
-  int nbuf;
+  int n,nbuf;
   int buf_cnt, last_cnt;
   uint next_r, next_w;
   uint ctl_r, ctl_w;
   volatile uint sync_desc;
   uint mode_rd, mode_wr;
+  int ctlr, trig;
 
+  ctlr = 0;
+  dc = (struct dma_ctl *)dma_ctl;
+  if( mode & 0x10001000)
+  {
+    dc++;
+    mode &= ~0x10001000;
+    ctlr = 1;
+  }
   mode_rd = mode >> 16;
   mode_wr = mode & 0xffff;
-
-  dc = &dma_ctl[crate];
   if( size <= 0x1000)
   {
-    wdo = dma_set_wr_desc( crate, -1, src_addr, size, src_space, mode_wr);
-    rdo = dma_set_rd_desc( crate, -1, des_addr, size, des_space, mode_rd);
-    outl( rdo | 0x6, dc->io_base_rd + 0x04);   /* start read engine waiting for trigger from write */
-    outl( wdo, dc->io_base_wr + 0x04);         /* start write engine */
+    wdo = dma_set_wr_desc( dma_ctl, -1, src_addr, size, src_space, mode_wr);
+    rdo = dma_set_rd_desc( dma_ctl, -1, des_addr, size, des_space, mode_rd);
+    trig = 0x6;
+    if( ctlr) trig = 0x7;
+    //outl( rdo | 0x6, dc->io_base_rd + 0x04);   /* start read engine waiting for trigger from write */
+    dma_write_io(  dma_ctl, 0x04, rdo | trig, DMA_CTLR_RD | ctlr);
+    //outl( wdo, dc->io_base_wr + 0x04);         /* start write engine */
+    dma_write_io(  dma_ctl, 0x04, wdo, DMA_CTLR_WR | ctlr);
     return( 0);
   }
 
@@ -549,6 +700,7 @@ dma_set_pipe_desc( int crate,
     ctl_r |= 0x90000;
   }
 
+  n = 0;
   while( nbuf--)
   {
     /* prepare write element */
@@ -565,13 +717,17 @@ dma_set_pipe_desc( int crate,
     dd_r->ctl = SWAP32(ctl_r | ((mode_rd&0x3ff) << 20));
     dd_r->wcnt = SWAP32((uint)des_space << 24 | buf_cnt);    /* 4kbyte, VME A32  */
     dd_r->shm_addr = SWAP32(shm_addr);                       /* SHM local buffer */
-    dd_r->next = SWAP32(next_r | 0x6);                       /* wait for trig from write engine */   
+    trig = 0x6;
+    if( ctlr) trig = 0x7;
+    dd_r->next = SWAP32(next_r | trig);                       /* wait for trig from write engine */   
     dd_r->rem_addr_l = SWAP32((uint)des_addr);               /* destination address      */
     dd_r->rem_addr_h = 0;
     dd_r++;
     next_r += sizeof(struct dma_desc);
 
+    n++;
     shm_addr += buf_cnt;
+    if( !(n%3))shm_addr = dc->buf_offset; /* use 4 buffers of size buf_cnt with rollover */
     src_addr += buf_cnt;
     des_addr += buf_cnt;
   }
@@ -610,14 +766,18 @@ dma_set_pipe_desc( int crate,
   //outl( 0, dc->io_base + 0x858);         /* reset write counter                              */
   //outl( 0x8200, dc->io_base_rd + 0x850);      /* enable read pipe                                 */
   //outl( 0x80c0, dc->io_base_wr + 0x858);      /* enable write pipe                                */
-  outl( rdo | 0x6, dc->io_base_rd + 0x04); /* start read engine waiting for trigger from write */
-  outl( wdo, dc->io_base_wr + 0x04);       /* start write engine                               */
+  //outl( rdo | 0x6, dc->io_base_rd + 0x04); /* start read engine waiting for trigger from write */
+  trig = 0x6;
+  if( ctlr) trig = 0x7;
+  dma_write_io(  dma_ctl, 0x04, rdo | trig, DMA_CTLR_RD | ctlr);
+  //outl( wdo, dc->io_base_wr + 0x04);       /* start write engine                               */
+  dma_write_io(  dma_ctl, 0x04, wdo, DMA_CTLR_WR | ctlr);
 
   return( 0);
 }
 
 int
-dma_set_list_desc( int crate, 
+dma_set_list_desc( void *dma_ctl, 
 		   struct pev_ioctl_dma_req *req)
 {
   int i, tot_size;
@@ -637,7 +797,7 @@ dma_set_list_desc( int crate,
     return( -1);
   }
 
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
   dd_r = (struct dma_desc *)dc->rd_chain_p;
   dd_w = (struct dma_desc *)dc->wr_chain_p;
   wdo = dc->wr_chain_offset;
@@ -708,7 +868,7 @@ dma_set_list_desc( int crate,
 }
 
 int
-dma_get_list( int crate, 
+dma_get_list( void *dma_ctl, 
 	      struct pev_ioctl_dma_req *req)
 {
   int i, shm_offset, mem_offset;
@@ -716,7 +876,7 @@ dma_get_list( int crate,
   struct dma_ctl *dc;
   int retval;
 
-  dc = &dma_ctl[crate];
+  dc = (struct dma_ctl *)dma_ctl;
   shm_offset = 0;
   mem_offset = 0;
   uaddr = (void *)req->des_addr;

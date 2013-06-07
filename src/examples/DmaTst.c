@@ -24,8 +24,14 @@
  *  Change History
  *  
  * $Log: DmaTst.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.17  2013/02/19 11:15:30  ioxos
+ * enable vme slave [JFG]
+ *
+ * Revision 1.16  2012/12/14 11:15:33  ioxos
+ * call pev_dma_status() with controller 0[JFG]
  *
  * Revision 1.15  2012/10/12 13:48:13  ioxos
  * cosmetics [JFG]
@@ -190,6 +196,8 @@ main( int argc,
   vme_slv_map.sg_id = MAP_SLAVE_VME;
   vme_slv_map.size = 0x100000;
   pev_map_alloc( &vme_slv_map);
+  vme_conf.slv_ena |= VME_SLV_ENA;
+  pev_vme_conf_write( &vme_conf);
 
   /* calculate the VME base address at which the Shared Memory has been mapped */
   vme_addr = vme_conf.a32_base + vme_slv_map.loc_addr; 
@@ -486,7 +494,7 @@ tst_dma_read( long vme_addr,
   {
     printf("pev_dma_move() : error %d\n", retval);
   }
-  retval = pev_dma_status(&dma_sts);
+  retval = pev_dma_status( 0, &dma_sts);
   if( retval < 0)
   {
     printf("pev_dma_status() : error %d\n", retval);
@@ -567,7 +575,7 @@ tst_dma_write( long vme_addr,
   {
     printf("pev_dma_move() : error %d\n", retval);
   }
-  retval = pev_dma_status(&dma_sts);
+  retval = pev_dma_status( 0, &dma_sts);
   if( retval < 0)
   {
     printf("pev_dma_status() : error %d\n", retval);

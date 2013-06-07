@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: script.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.6  2013/05/14 06:31:59  ioxos
+ * allow to exeit from script on error [JFG]
  *
  * Revision 1.5  2012/06/01 13:59:44  ioxos
  * -Wall cleanup [JFG]
@@ -49,7 +52,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: script.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: script.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
@@ -69,6 +72,8 @@ char line[256];
 extern struct cli_cmd_list cmd_list[];
 extern char cli_prompt[];
 extern struct cli_cmd_para cmd_para;
+extern int script_exit;
+
 int xprs_cmd_exec( struct cli_cmd_list *, struct cli_cmd_para *);
 
 char *
@@ -106,7 +111,7 @@ xprs_script( char *filename,
 
       if( !strncmp( "exit", &line[1], 4))
       {
-	retval = 1;
+	retval = 2;
 	break;
       }
       if( !strncmp( "sleep", &line[1], 5))
@@ -119,6 +124,10 @@ xprs_script( char *filename,
 	sscanf(line, "$usleep %d", &para);
 	usleep( para);
       }
+      if( !strncmp( "echo", &line[1], 4))
+      {
+	printf("%s\n", &line[6]);
+      }
       continue;
     }
     if( line[0] == 'q') break;
@@ -128,9 +137,8 @@ xprs_script( char *filename,
 
       printf("%s%s\n", cli_prompt, line);
       cli_cmd_parse(  &line[1], &script_para);
-      if( xprs_script( &line[1], &script_para) == 1)
+      if( (retval = xprs_script( &line[1], &script_para)))
       {
-	retval = 1;
 	break;
       }
       continue;
@@ -155,7 +163,13 @@ xprs_script( char *filename,
 	  }
         }
       }
+      script_exit = 0;
       xprs_cmd_exec( &cmd_list[0], &cmd_para);
+      if( script_exit)
+      {
+	retval = 1;
+	break;
+      }
     }
   }
   fclose( file);

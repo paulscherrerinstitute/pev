@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: dmalib.h,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.11  2012/12/13 15:21:40  ioxos
+ * support for 2 DMA controllers [JFG]
+ *
+ * Revision 1.10  2012/11/14 08:56:52  ioxos
+ * prepare for second DMA channel [JFG]
  *
  * Revision 1.9  2012/04/17 07:47:03  ioxos
  * support pipe mode on PPC [JFG]
@@ -63,20 +69,23 @@
 #ifndef _H_DMALIB
 #define _H_DMALIB
 
-int  dma_init( int, void *, ulong, uint, uint, uint);
+void dma_write_io( void *, uint, uint, uint);
+uint dma_read_io( void *, uint, uint);
+void *dma_init( void *, ulong, uint, char *, char *, char *, char *);
+void dma_exit( void *);
 #ifdef XENOMAI
-int  dma_init_xeno( int, rtdm_user_info_t *);
+int  dma_init_xeno( void *, rtdm_user_info_t *);
 #endif
-int dma_alloc_kmem( int, void *, ulong);
-void *dma_get_buf_kaddr( int);
-ulong dma_get_buf_baddr( int);
+int dma_alloc_kmem( void *, void *, ulong);
+void *dma_get_buf_kaddr( void *);
+ulong dma_get_buf_baddr( void *);
 uint dma_set_ctl( uint, uint, uint, uint);
-int dma_set_wr_desc( int, ulong, ulong,  uint, unsigned char, uint);
-int dma_set_rd_desc( int, ulong, ulong,  uint, unsigned char, uint);
-int dma_set_pipe_desc( int, ulong, ulong,  uint, char, char, uint);
-int dma_get_desc( int, uint *);
-int dma_set_list_desc( int,  struct pev_ioctl_dma_req *);
-int dma_get_list( int,  struct pev_ioctl_dma_req *);
+int dma_set_wr_desc( void *, ulong, ulong,  uint, unsigned char, uint);
+int dma_set_rd_desc( void *, ulong, ulong,  uint, unsigned char, uint);
+int dma_set_pipe_desc( void *, ulong, ulong,  uint, char, char, uint);
+int dma_get_desc( void *, uint *);
+int dma_set_list_desc( void *,  struct pev_ioctl_dma_req *);
+int dma_get_list( void *,  struct pev_ioctl_dma_req *);
 
 #endif /*  _H_DMALIB */
 

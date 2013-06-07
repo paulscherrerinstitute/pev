@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: tstlib.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 15:03:26  zimoch
+ * update to latest version
+ *
+ * Revision 1.9  2012/11/09 13:37:54  ioxos
+ * correct bug in mapping kbuf [JFG]
  *
  * Revision 1.8  2012/06/07 09:07:36  ioxos
  * bug in mapping kbuf for 32 bit systems [JFG]
@@ -57,7 +60,7 @@
  *
  *=============================< end file header >============================*/
 #ifndef lint
-static char rcsid[] = "$Id: tstlib.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char rcsid[] = "$Id: tstlib.c,v 1.12 2013/06/07 15:03:26 zimoch Exp $";
 #endif
 
 #include <stdlib.h>
@@ -201,11 +204,7 @@ tst_cpu_map_kbuf( struct pev_ioctl_buf *b,
   }
   else
   {
-#if defined(PPC) || defined(X86_32)
     b->u_addr = mmap( NULL, b->size, PROT_READ|PROT_WRITE, MAP_SHARED, b->kmem_fd, (off_t)b->b_addr);
-#else
-    b->u_addr = mmap( NULL, b->size, PROT_READ|PROT_WRITE, MAP_SHARED, b->kmem_fd, (off_t)(0x200000000 | (long)b->b_addr));
-#endif
   }
   return( b->u_addr);
 }

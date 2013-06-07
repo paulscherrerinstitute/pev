@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: fpgalib.h,v $
- * Revision 1.11  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:58:31  zimoch
+ * update to latest version
  *
  * Revision 1.1  2012/01/27 09:56:49  ioxos
  * first checkin [JFG]

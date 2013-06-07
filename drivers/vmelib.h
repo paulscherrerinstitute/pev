@@ -27,8 +27,8 @@
  *  Change History
  *  
  * $Log: vmelib.h,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:32  zimoch
+ * update to latest version
  *
  * Revision 1.6  2011/03/03 15:42:15  ioxos
  * support for 1MBytes VME slave granularity [JFG]

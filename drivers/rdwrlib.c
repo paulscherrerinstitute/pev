@@ -27,8 +27,11 @@
  *  Change History
  *  
  *  $Log: rdwrlib.c,v $
- *  Revision 1.13  2012/10/29 10:06:55  kalantari
- *  added the tosca driver version 4.22 from IoxoS
+ *  Revision 1.14  2013/06/07 14:58:31  zimoch
+ *  update to latest version
+ *
+ *  Revision 1.9  2013/02/27 10:03:44  ioxos
+ *  bug in D8 and D16 single write if big endian [JFG]
  *
  *  Revision 1.8  2012/03/21 14:42:33  ioxos
  *  correct memory leek in rdwr_rd_blk() [JFG]
@@ -344,6 +347,9 @@ rdwr_wr_sgl( void *buf,
   {
     char tmp;
 
+#ifdef PPC
+    buf +=3;
+#endif
     if( get_user( tmp, (char *)buf))
     {
       return( -EFAULT);
@@ -355,6 +361,9 @@ rdwr_wr_sgl( void *buf,
   {
     short tmp;
 
+#ifdef PPC
+    buf += 2;
+#endif
     if( get_user( tmp, (short *)buf))
     {
       return( -EFAULT);

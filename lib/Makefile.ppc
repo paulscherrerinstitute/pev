@@ -57,8 +57,14 @@ tstlib.o:tstlib.c
 	$(CC) $(INCDIRS) $(EXTRAFLAGS) -c tstlib.c
 tstxlib.o:tstxlib.c 
 	$(CC) $(INCDIRS) -c tstxlib.c
-libpev.a:pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
-	$(AR) r libpev.a pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
+idtulib.o:idtulib.c 
+	$(CC) $(INCDIRS) $(EXTRAFLAGS) -c idtulib.c
+adnulib.o:adnulib.c 
+	$(CC) $(INCDIRS) $(EXTRAFLAGS) -c adnulib.c
+a664lib.o:a664lib.c 
+	$(CC) $(INCDIRS) $(EXTRAFLAGS) -c a664lib.c
+libpev.a:pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o idtulib.o adnulib.o a664lib.o
+	$(AR) r libpev.a pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o idtulib.o adnulib.o a664lib.o
 	ranlib libpev.a
 libpev++.a:pevulib++.o pevxulib++.o
 	$(AR) r libpev++.a pevulib++.o pevxulib++.o
@@ -78,5 +84,7 @@ pevulib.c: ../include/pevulib.h
 pevxulib.c: ../include/pevxulib.h
 pevrtlib.c: ../include/pevrtlib.h
 clilib.c: ../include/cli.h
+adnulib.c: ../include/adnulib.h
+a664ulib.c: ../include/a664ulib.h
 clean:
 	$(RM) *.o *.a

@@ -24,8 +24,32 @@
  *  Change History
  *  
  * $Log: XprsMon.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.53  2013/05/14 06:35:12  ioxos
+ * allow to exit from script on error [JFG]
+ *
+ * Revision 1.52  2013/02/26 15:35:03  ioxos
+ * release 4.29 [JFG]
+ *
+ * Revision 1.51  2013/02/21 15:28:00  ioxos
+ * cosmetics & optimizations -> release 4.28 [JFG]
+ *
+ * Revision 1.50  2013/02/15 11:32:30  ioxos
+ * release 4.27 [JFG]
+ *
+ * Revision 1.49  2013/02/14 15:16:36  ioxos
+ * tagging 4.26 [JFG]
+ *
+ * Revision 1.48  2012/12/05 14:39:48  ioxos
+ * release 4.25 [JFG]
+ *
+ * Revision 1.47  2012/11/14 15:21:22  ioxos
+ * release 4.23 [JFG]
+ *
+ * Revision 1.46  2012/11/14 13:58:48  ioxos
+ * add support for Tosca on XMC [JFG]
  *
  * Revision 1.45  2012/10/25 12:51:49  ioxos
  * releae 4.22 [JFG]
@@ -166,7 +190,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char rcsid[] = "$Id: XprsMon.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char rcsid[] = "$Id: XprsMon.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #include <debug.h>
@@ -202,7 +226,7 @@ typedef unsigned int u32;
 #include "cmdlist.h"
 
 
-char XprsMon_version[] = "4.22";
+char XprsMon_version[] = PEV1100_RELEASE;
 
 int xprs_cmd_exec( struct cli_cmd_list *, struct cli_cmd_para *);
 
@@ -217,6 +241,7 @@ char aio_buf[256];
 char *cmdline;
 struct pev_reg_remap *reg_remap;
 uint pev_board_id;
+int script_exit = 0;
 
 char *
 XprsMon_rcsid()
@@ -231,17 +256,18 @@ main( int argc,
   struct cli_cmd_history *h;
   struct winsize winsize;
   int iex, ret;
-  uint crate;
+  uint crate, dev_type;
   char *drv_id;
 
 
   crate = 0;
+  dev_type = 0;
   if( argc > 1)
   {
-    sscanf(argv[1], "%d", &crate);
+    sscanf(argv[1], "%d.%d", &crate, &dev_type);
   }
   printf("initializing crate %d \n", crate);
-  pev = pev_init( crate);
+  pev = pev_init( crate | (dev_type << 4));
   if( !pev)
   {
     printf("Cannot allocate data structures to control PEV1100\n");
@@ -306,7 +332,7 @@ main( int argc,
     {
       cli_cmd_parse(  &argv[2][1], &script_para);
       iex = xprs_script( &argv[2][1], &script_para);
-      if( iex)
+      if( iex == 2)
       {
         goto XprsMon_exit;
       }
@@ -337,7 +363,7 @@ main( int argc,
 
       cli_cmd_parse(  &cmdline[1], &script_para);
       iex = xprs_script( &cmdline[1], &script_para);
-      if( iex == 1)
+      if( iex == 2)
       {
 	break;
       }

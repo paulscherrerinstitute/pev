@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: mpc.h,v $
- * Revision 1.7  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.8  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.2  2012/12/05 14:37:12  ioxos
+ * support for S10, S20 and cleanup [JFG]
  *
  * Revision 1.1  2012/06/01 14:02:28  ioxos
  * first checkin [JFG]
@@ -39,6 +42,9 @@
 #ifndef _H_MPC
 #define _H_MPC
 int xprs_map( struct cli_cmd_para *);
+int mpc_init( void);
+int mpc_exit( void);
+int xprs_mpc( struct cli_cmd_para *);
 
 
 #endif /* _H_MPC */

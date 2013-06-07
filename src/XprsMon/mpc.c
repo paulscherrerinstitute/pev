@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: mpc.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.3  2012/12/06 12:53:46  ioxos
+ * set no swap for PPC and auto swap for X86 [JFG]
+ *
+ * Revision 1.2  2012/12/05 14:37:12  ioxos
+ * support for S10, S20 and cleanup [JFG]
  *
  * Revision 1.1  2011/03/15 09:25:04  ioxos
  * first checkin [JFG]
@@ -37,23 +43,41 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: mpc.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: mpc.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
 #include <debug.h>
 
+#ifdef jfg
 #include <sys/types.h>
 #include <sys/time.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
 #include <fcntl.h>
 #include <cli.h>
 #include <pevioctl.h>
 #include <pevulib.h>
 #include <mpcioctl.h>
-
+#endif
+#include <stdlib.h>
+#include <stdio.h>
+#include <pty.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <string.h>
+#include <sys/mman.h>
+#include <ctype.h>
+#include <cli.h>
+#include <pevioctl.h>
+#include <pevulib.h>
+#include <mpcioctl.h>
 
 struct mpc
 {
@@ -76,6 +100,12 @@ struct mpc_i2c_devices i2c_devices[] =
 
 uint mpc_idx = -1;
 static uchar xilinx_head13[] = {0, 9, 15, 240, 15, 240, 15, 240, 15, 240, 0, 0, 1};
+
+char *
+mpc_rcsid()
+{
+  return( rcsid);
+}
 
 int 
 mpc_init( void)
@@ -153,6 +183,8 @@ mpc_map( struct cli_cmd_para *c)
   }
 
   printf("mapping MPF#%d\n", mpc_idx);
+  base = 0;
+  size = 0;
   for( i = 1; i < c->cnt; i++)
   {
     printf("c->para[%d] = %s\n", i, c->para[i]);
@@ -163,7 +195,11 @@ mpc_map( struct cli_cmd_para *c)
 	pev_map_free( &mpc[mpc_idx].a24_map);
       }
       mpc[mpc_idx].a24_map.rem_addr = base;
+#ifdef PPC
+      mpc[mpc_idx].a24_map.mode = MAP_SPACE_VME | MAP_VME_CR | MAP_ENABLE_WR | MAP_ENABLE;
+#else
       mpc[mpc_idx].a24_map.mode = MAP_SPACE_VME | MAP_VME_CR | MAP_SWAP_AUTO | MAP_ENABLE_WR | MAP_ENABLE;
+#endif
       mpc[mpc_idx].a24_map.flag = 0x0;
       mpc[mpc_idx].a24_map.sg_id = MAP_MASTER_32;
       mpc[mpc_idx].a24_map.size = size;
@@ -176,7 +212,11 @@ mpc_map( struct cli_cmd_para *c)
 	pev_map_free( &mpc[mpc_idx].a24_map);
       }
       mpc[mpc_idx].a24_map.rem_addr = base;
+#ifdef PPC
+      mpc[mpc_idx].a24_map.mode = MAP_SPACE_VME | MAP_VME_A24 | MAP_ENABLE_WR | MAP_ENABLE;
+#else
       mpc[mpc_idx].a24_map.mode = MAP_SPACE_VME | MAP_VME_A24 | MAP_SWAP_AUTO | MAP_ENABLE_WR | MAP_ENABLE;
+#endif
       mpc[mpc_idx].a24_map.flag = 0x0;
       mpc[mpc_idx].a24_map.sg_id = MAP_MASTER_32;
       mpc[mpc_idx].a24_map.size = size;
@@ -214,8 +254,7 @@ mpc_map( struct cli_cmd_para *c)
 int
 mpc_unmap( struct cli_cmd_para *c)
 {
-  int i, idx;
-  uint base, size;
+  int idx;
 
   idx = mpc_get_idx( c);
   if( idx != -1)
@@ -336,7 +375,7 @@ sflash_write(  int fd,
   }
   printf("\n");
   printf("!! Programming the SFLASH device is done one bit at a time\n");
-  printf("!! It requires millions of physical accesses loading the CPU at 100%\n");
+  //printf("!! It requires millions of physical accesses loading the CPU at 100\%\n");
   printf("!! During that process the system will be hanging for periods of 3 seconds\n");
   printf("!! This is the time needed to program one SFLASH sector\n");
   printf("-> Just relax and sit back...\n\n");
@@ -408,12 +447,12 @@ sflash_write(  int fd,
 }
 int xilinx_header( char *hp)
 {
-  uint i,j;
+  uint i;
   short len;
   char letter;
 
   i = 0;
-  if( strncmp( xilinx_head13, hp, 13))
+  if( strncmp( (char *)xilinx_head13, hp, 13))
   {
     printf("file doesn't seem to be Xilinx bit stream\n");
     return(-1);
@@ -435,11 +474,9 @@ int
 xilinx_load_sign(  struct cli_cmd_para *c,
 		  int fd)
 {
-  struct mpc_ioctl_sflash_rw sflash_rw;
-  unsigned char *buf;
-  uint i, size;
+  char *buf;
+  uint size;
   FILE *file;
-  uint off, len;
 
   if( c->cnt < 4)
   {
@@ -461,7 +498,7 @@ xilinx_load_sign(  struct cli_cmd_para *c,
   fclose( file);
 
 
-  printf("loading signature file %s [size 0x%x]\n", c->para[3], len);
+  printf("loading signature file %s [size 0x%x]\n", c->para[3], size);
   sflash_write( fd, 0x100000, buf, size, 1); 
 
   free( buf);
@@ -473,11 +510,10 @@ int
 xilinx_load_pon(  struct cli_cmd_para *c,
 		  int fd)
 {
-  struct mpc_ioctl_sflash_rw sflash_rw;
-  unsigned char *buf;
-  uint i, size, idx;
+  char *buf;
+  uint size, idx;
   FILE *file;
-  uint off, len;
+  uint off;
 
   if( c->cnt < 4)
   {
@@ -510,7 +546,7 @@ xilinx_load_pon(  struct cli_cmd_para *c,
 
   off = 0x200000 + idx*0x80000;
 
-  printf("loading PON fsm file %s [size 0x%x]\n", c->para[3], len);
+  printf("loading PON fsm file %s [size 0x%x]\n", c->para[3], size);
   sflash_write( fd, off, buf, size, 1); 
 
   free( buf);
@@ -522,11 +558,10 @@ int
 xilinx_load_sp1(  struct cli_cmd_para *c,
 		  int fd)
 {
-  struct mpc_ioctl_sflash_rw sflash_rw;
-  unsigned char *buf;
+  char *buf;
   uint i, size;
   FILE *file;
-  uint off, len;
+  uint len;
 
   if( c->cnt < 4)
   {
@@ -613,7 +648,7 @@ xilinx_load_vx6(  struct cli_cmd_para *c,
   printf("loading VX6 file %s [size 0x%x]\n", c->para[3], len);
 #endif
   len = size;
-  buf_d = (char *)malloc( len/2);
+  buf_d = (unsigned char *)malloc( len/2);
   offset = idx*0x400000;
   printf("loading VX6 file %s [size 0x%x]\n", c->para[3], len);
 
@@ -626,7 +661,7 @@ xilinx_load_vx6(  struct cli_cmd_para *c,
     s += 2;
   }
   printf("transferring first half...\n");
-  sflash_write( fd, offset, buf_d, len/2, 2); 
+  sflash_write( fd, offset, (char *)buf_d, len/2, 2); 
 
   d = buf_d;
   s = buf_s;
@@ -637,7 +672,7 @@ xilinx_load_vx6(  struct cli_cmd_para *c,
     s += 2;
   }
   printf("transferring second half...\n");
-  sflash_write( fd, offset, buf_d, len/2, 3); 
+  sflash_write( fd, offset, (char *)buf_d, len/2, 3); 
 
 
   free( buf_d);
@@ -649,20 +684,13 @@ int
 xilinx_load_sp23(  struct cli_cmd_para *c,
 		   int fd)
 {
-  unsigned char *buf, *buf1, *buf2;
-  uint i, j, idx;
+  char *buf, *buf1;
+  uint idx;
   uint offset;
-  uint size1, size2;
-  uint len1, len2;
-  FILE *file1, *file2;
+  uint size1;
+  uint len1;
+  FILE *file1;
 
-#ifdef JFG
-  if( c->cnt < 5)
-  {
-    printf("usage: mpc.<i> sflash load SP23#i <file1> <file2>\n");
-    return(-1);
-  }
-#endif
 
   if( c->cnt < 4)
   {
@@ -675,23 +703,31 @@ xilinx_load_sp23(  struct cli_cmd_para *c,
     printf("\nFile %s doesn't exist\n", c->para[3]);
     return( -1);
   }
-  if( sscanf( c->para[2], "SP23#%d", &idx) != 1)
+  if( !strncmp( c->para[2], "SP23", 4))
   {
-    printf("\nBad FPGA identifier: %s\n", c->para[2]);
-    return( -1);
+    if( sscanf( c->para[2], "SP23#%d", &idx) != 1)
+    {
+      printf("\nBad FPGA identifier: %s\n", c->para[2]);
+      return( -1);
+    }
+    if( (idx < 0)||(idx >3))
+    {
+      printf("\nFPGA index out of range: %d\n", idx);
+      return( -1);
+    }
+    offset = 0x400000 + idx*0x100000;
   }
-  if( (idx < 0)||(idx >3))
+  if( !strncmp( c->para[2], "SP1", 3))
   {
-    printf("\nFPGA index out of range: %d\n", idx);
-    return( -1);
+    offset = 0x000000;
   }
-#ifdef JFG
-  file2 = fopen( c->para[4], "r");
-  if( !file2)
+  if( !strncmp( c->para[2], "S10", 3))
   {
-    fclose( file2);
-    printf("\nFile %s doesn't exist\n", c->para[4]);
-    return( -1);
+    offset = 0x800000;
+  }
+  if( !strncmp( c->para[2], "S20", 3))
+  {
+    offset = 0xc00000;
   }
   fseek( file1, 0, SEEK_END);
   size1 = ftell( file1);
@@ -701,53 +737,11 @@ xilinx_load_sp23(  struct cli_cmd_para *c,
   fread( buf1, 1, size1, file1);
   fclose( file1);
 
-  fseek( file2, 0, SEEK_END);
-  size2 = ftell( file2);
-  printf("[size2 0x%x]\n", size2);
-  fseek( file2, 0, SEEK_SET);
-  buf2 = malloc( size2);
-  fread( buf2, 1, size2, file2);
-  fclose( file2);
-
-  i = xilinx_header( buf1);
-  if( i < 0)
-  {
-    return( -1);
-  }
-  len1 = (buf1[i+1] << 24) + (buf1[i+2] << 16) + (buf1[i+3] << 8) + buf1[i+4];
-
-  j = xilinx_header( buf2);
-  if( j < 0)
-  {
-    return( -1);
-  }
-  len2 = (buf2[j+1] << 24) + (buf2[j+2] << 16) + (buf2[j+3] << 8) + buf2[j+4];
-
-  buf = malloc(len1 + len2);
-  offset = 0x400000;
-  memcpy( buf, buf1, len1);
-  memcpy( buf+len1, buf2, len2);
-  printf("loading SP files %s + %s [size 0x%x + 0x%x]\n", c->para[3], c->para[4], len1, len2);
-  sflash_write( fd, offset, buf, len1+len2, 1); 
-#endif
-  fseek( file1, 0, SEEK_END);
-  size1 = ftell( file1);
-  printf("[size1 0x%x]\n", size1);
-  fseek( file1, 0, SEEK_SET);
-  buf1 = malloc( size1);
-  fread( buf1, 1, size1, file1);
-  fclose( file1);
-
-  offset = 0x400000 + idx*0x100000;
   len1 = size1;
   buf = buf1;
   printf("loading SP files %s at offset 0x%x[size 0x%x]\n", c->para[3], offset, len1);
   sflash_write( fd, offset, buf, len1, 1); 
 
-#ifdef JFG
-  free( buf1);
-  free( buf2);
-#endif
   free( buf);
 
   return(0);
@@ -757,8 +751,7 @@ int
 mpc_sflash( struct cli_cmd_para *c)
 {
   uint flash_id;
-  int i, idx;
-  uint base, size;
+  int idx;
 
   idx = mpc_get_idx( c);
   if( idx != -1)
@@ -810,10 +803,8 @@ mpc_sflash( struct cli_cmd_para *c)
   if( !strcmp( "read", c->para[1]))
   {
     struct mpc_ioctl_sflash_rw sflash_rw;
-    unsigned char *p;
+    char *p;
     uint i, j, offset, dev, size;
-    FILE *file;
-
     if( c->cnt < 5)
     {
       printf("usage: mpc.<i> sflash read fpga#i offset size\n");
@@ -852,13 +843,13 @@ mpc_sflash( struct cli_cmd_para *c)
     p = (char *)sflash_rw.buf;
     for( j = 0; j < size; j += 16)
     {
-      unsigned char *pp;
+      char *pp;
 
       printf("%08x ", offset + j);
       pp = p;
       for( i = 0; i < 16; i++)
       {
-        printf("%02x ", *p++);
+        printf("%02x ", *(unsigned char *)p++);
       }
       for( i = 0; i < 16; i++)
       {
@@ -892,9 +883,18 @@ mpc_sflash( struct cli_cmd_para *c)
     }
     if( !strncmp( c->para[2], "SP1", 3))
     {
-      return( xilinx_load_sp1( c,  mpc[mpc_idx].fd));
+      //return( xilinx_load_sp1( c,  mpc[mpc_idx].fd));
+      return( xilinx_load_sp23( c, mpc[mpc_idx].fd));
     }
     if( !strncmp( c->para[2], "SP23#", 5))
+    {
+      return( xilinx_load_sp23( c, mpc[mpc_idx].fd));
+    }
+    if( !strncmp( c->para[2], "S10", 5))
+    {
+      return( xilinx_load_sp23( c, mpc[mpc_idx].fd));
+    }
+    if( !strncmp( c->para[2], "S20", 5))
     {
       return( xilinx_load_sp23( c, mpc[mpc_idx].fd));
     }
@@ -915,9 +915,7 @@ mpc_i2c( struct cli_cmd_para *c)
 {
   struct mpc_ioctl_i2c i2c;
   struct mpc_i2c_devices *i2d;
-  uint flash_id;
-  int i, idx;
-  uint dev, reg, data;
+  int idx;
 
   idx = mpc_get_idx( c);
   if( idx != -1)

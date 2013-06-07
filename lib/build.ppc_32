@@ -38,7 +38,7 @@ else
 XENO=0
 fi
 make -f Makefile.ppc clean
-make -f Makefile.ppc EXTRAFLAGS="-DPPC -Wall"
+make -f Makefile.ppc EXTRAFLAGS="-DPPC -Wall -DBIG_ENDIAN"
 if [  $XENO -eq 1 ]; then 
-make -f Makefile.ppc xeno EXTRAFLAGS="-DPPC -Wall"
+make -f Makefile.ppc xeno EXTRAFLAGS="-DPPC -Wall -DBIG_ENDIAN"
 fi

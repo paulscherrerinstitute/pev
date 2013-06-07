@@ -38,8 +38,35 @@
  *  Change History
  *  
  * $Log: pevklib.c,v $
- * Revision 1.18  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.19  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.64  2013/02/19 13:56:24  ioxos
+ * check X86 32 bit [JFG]
+ *
+ * Revision 1.63  2013/02/19 10:52:50  ioxos
+ * correct bug for dma ctlr #1 [JFG]
+ *
+ * Revision 1.62  2013/02/05 11:07:00  ioxos
+ * add dma_shm_offset field [JFG]
+ *
+ * Revision 1.61  2012/12/18 08:32:51  ioxos
+ * disable vme slave at installation + use CR/CSR to enable/disable [JFG]
+ *
+ * Revision 1.60  2012/12/14 11:11:40  ioxos
+ * cleanup [JFG]
+ *
+ * Revision 1.59  2012/12/13 15:25:48  ioxos
+ * support for bus address access and 2 DMA controllers [JFG]
+ *
+ * Revision 1.58  2012/11/14 13:48:34  ioxos
+ * allow to force local address in afrress mapping [JFG]
+ *
+ * Revision 1.57  2012/11/14 08:56:02  ioxos
+ * prepare for second DMA channel [JFG]
+ *
+ * Revision 1.56  2012/11/09 13:36:40  ioxos
+ * allow sflash programming through CSR space (need swapping) [JFG]
  *
  * Revision 1.55  2012/10/25 12:27:57  ioxos
  * eeprom delay set to 5 msec + clear evt + mask SMI while reading event (need new FPGA)[JFG]
@@ -236,6 +263,7 @@
 #include "evtlib.h"
 
 #define DBGno
+#define HISTO
 
 #ifdef DBG
 #define debugk(x) printk x
@@ -348,6 +376,11 @@ pev_rdwr(struct pev_dev *pev,
     if( m->space == RDWR_KMEM)
     {
       pev_addr = rdwr_p->k_addr  + rdwr_p->offset;
+    }
+    if( m->space == RDWR_BADDR)
+    {
+      pev_addr = ioremap( rdwr_p->offset, rdwr_p->len);
+      pev_remap = 1;
     }
 
     if( pev_addr)
@@ -484,6 +517,11 @@ pev_rdwr(struct pev_dev *pev,
   {
     pev_addr = rdwr_p->k_addr  + rdwr_p->offset;
   }
+  if( m->space == RDWR_BADDR)
+  {
+    pev_addr = ioremap( rdwr_p->offset, 8);
+    pev_remap = 1;
+  }
 
   if( pev_addr)
   {
@@ -512,7 +550,9 @@ pev_sflash_set_reg( struct pev_dev *pev,
 		    uint dev)
 {
   unsigned long reg_p;
+  int swap;
 
+  swap = 0;
   if( pev->board == PEV_BOARD_IFC1210)
   {
     if( !dev) return(-1);
@@ -520,10 +560,17 @@ pev_sflash_set_reg( struct pev_dev *pev,
   }
   else
   {
-    if( dev) return(-1);
+    if( (pev->board == PEV_BOARD_PEV1100) ||
+        (pev->board == PEV_BOARD_IPV1102) ||
+        (pev->board == PEV_BOARD_VCC1104) ||
+        (pev->board == PEV_BOARD_VCC1105)    )
+    {
+      if( dev) return(-1);
+    }
     if( pev->csr_remap)
     {
       reg_p =(unsigned long)pev->csr_ptr + pev->io_remap[1].iloc_spi;
+      swap = 0x80000000;
     }
     else
     {
@@ -534,7 +581,7 @@ pev_sflash_set_reg( struct pev_dev *pev,
       reg_p =(unsigned long)pev->io_base + pev->io_remap[0].iloc_spi;
     }
   }
-  sflash_set_dev(dev);
+  sflash_set_dev(dev | swap);
 
   return( reg_p);
 }
@@ -626,7 +673,8 @@ pev_sflash_write(struct pev_dev *pev,
 
   retval = 0;
 
-  if( pev->board == PEV_BOARD_IFC1210)
+  if( (pev->board == PEV_BOARD_IFC1210) ||
+      (pev->board == PEV_BOARD_APX2300)   )
   {
     sect_size = 0x10000;
   }
@@ -815,7 +863,7 @@ pev_sg_slave_vme_set( struct pev_dev *pev,
   pev_outl( pev, mode, pev->io_remap[pev->csr_remap].vme_base + 0x14);
   pev_outl( pev, 2 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
   pev_outl( pev, (uint)(rem_addr >> 16), pev->io_remap[pev->csr_remap].vme_base + 0x14);
-#ifdef PPC
+#if defined(PPC) || defined(X86_32)
   pev_outl( pev, 4 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
   pev_outl( pev, 0, pev->io_remap[pev->csr_remap].vme_base + 0x14);
   pev_outl( pev, 6 + (8*off), pev->io_remap[pev->csr_remap].vme_base + 0x10);
@@ -1051,7 +1099,14 @@ pev_map_alloc(struct pev_dev *pev,
     return(-1);
   }
 
-  off = map_blk_alloc( mc, map_pg_p);
+  if( map_pg_p->flag & MAP_FLAG_FORCE)
+  {
+    off = map_blk_force( mc, map_pg_p);
+  }
+  else
+  {
+    off = map_blk_alloc( mc, map_pg_p);
+  }
   if( off < 0)
   {
     return( -1);
@@ -1637,7 +1692,7 @@ pev_vme_conf_read(struct pev_dev *pev,
   conf->req       = (char)( vme.master & 0x3);
   conf->level     = (char)(( vme.master >>  2) & 3);
   conf->mas_ena   = (char)((( vme.master >> 24) & 0x80) | (( vme.master >> 5) & 1));
-  conf->slv_ena   = (char)((( vme.slave  >> 31) & 1) | (vme.slave & VME_SLV_1MB));
+  conf->slv_ena   = (char)((( vme.crcsr  >> 4) & 1) | (vme.slave & VME_SLV_1MB));
   conf->slv_retry = (char)(( vme.slave >> 4) & 1);
   conf->burst     = (char)(( vme.slave >>  6) & 3);
 
@@ -2309,16 +2364,31 @@ pev_fifo_write( struct pev_dev *pev,
 
 
 void
-pev_dma_irq( struct pev_dev *pev,
+pev_dma0_irq( struct pev_dev *pev,
 	     int src,
 	     void *arg)
 {
-  pev->dma_status |= DMA_STATUS_DONE | (src << 16);
-  if( (src == 0x2500) || (src == 0x2100)) pev->dma_status |= DMA_STATUS_ERR;
+  pev->dma_status[0] |= DMA_STATUS_DONE | (src << 16);
+  if( (src == 0x2500) || (src == 0x2100)) pev->dma_status[0] |= DMA_STATUS_ERR;
 #ifdef XENOMAI
-  rtdm_sem_up( &pev->dma_done);
+  rtdm_sem_up( &pev->dma_done[0]);
 #else
-  up( &pev->dma_sem);
+  up( &pev->dma_sem[0]);
+#endif
+  return;
+}
+
+void
+pev_dma1_irq( struct pev_dev *pev,
+	     int src,
+	     void *arg)
+{
+  pev->dma_status[1] |= DMA_STATUS_DONE | (src << 16);
+  if( (src == 0x2700) || (src == 0x2300)) pev->dma_status[1] |= DMA_STATUS_ERR;
+#ifdef XENOMAI
+  rtdm_sem_up( &pev->dma_done[1]);
+#else
+  up( &pev->dma_sem[1]);
 #endif
   return;
 }
@@ -2331,54 +2401,63 @@ pev_dma_init( struct pev_dev *pev)
   void *kaddr;
   ulong baddr;
   int order;
-  ulong dma_rd;
-  ulong dma_wr;
+  char *dma_rd0, *dma_rd1;
+  char *dma_wr0, *dma_wr1;
 
+  if( (pev->io_remap[0].short_io) && (!pev->csr_remap))
+  {
+    pev_outl( pev, PEV_SCSR_SEL_DMA, 0);
+  }
   if( pev->csr_remap)
   {
-    dma_rd = (ulong)pev->csr_ptr + pev->io_remap[1].dma_rd;
-    dma_wr = (ulong)pev->csr_ptr + pev->io_remap[1].dma_wr;
+    dma_rd0 = (char *)pev->csr_ptr + pev->io_remap[pev->csr_remap].dma_rd;
+    dma_wr0 = (char *)pev->csr_ptr + pev->io_remap[pev->csr_remap].dma_wr;
+    dma_rd1 = (char *)pev->csr_ptr + pev->io_remap[pev->csr_remap].dma_rd1;
+    dma_wr1 = (char *)pev->csr_ptr + pev->io_remap[pev->csr_remap].dma_wr1;
   }
   else
   {
-    if( pev->io_remap[0].short_io)
-    {
-      pev_outl( pev, PEV_SCSR_SEL_USR, 0);
-    }
-    dma_rd = pev->io_base + pev->io_remap[0].dma_rd;
-    dma_wr = pev->io_base + pev->io_remap[0].dma_wr;
+    dma_rd0 = (char *)((long)pev->io_base + pev->io_remap[pev->csr_remap].dma_rd);
+    dma_wr0 = (char *)((long)pev->io_base + pev->io_remap[pev->csr_remap].dma_wr);
+    dma_rd1 = (char *)((long)pev->io_base + pev->io_remap[pev->csr_remap].dma_rd1);
+    dma_wr1 = (char *)((long)pev->io_base + pev->io_remap[pev->csr_remap].dma_wr1);
   }
 
-  dma_init( pev->crate, pev->dma_shm_ptr, pev->dma_shm_base, pev->dma_shm_len, dma_rd, dma_wr);
-  //kaddr = kmalloc( 0x100000, GFP_KERNEL);
-  //kaddr = kmalloc( 0x20000, GFP_KERNEL | __GFP_DMA);
+  pev->dma_ctl = dma_init( pev->dma_shm_ptr, pev->dma_shm_offset, pev->dma_shm_len, dma_rd0, dma_wr0, dma_rd1, dma_wr1);
   order = get_order( 0x100000); 
   kaddr = (void *)__get_free_pages( GFP_KERNEL | __GFP_DMA, order);
   baddr = 0;
   if( kaddr)
   {
     baddr = (ulong)dma_map_single( &pev->dev->dev, kaddr, 0x100000, DMA_BIDIRECTIONAL);
-    dma_alloc_kmem( pev->crate, kaddr, baddr); 
+    dma_alloc_kmem( pev->dma_ctl, kaddr, baddr); 
   }
 
-  for( i = 0; i < 8; i++)
+  for( i = 0; i < 2; i++)
   {
-    pev_irq_register( pev, 0x20+i, pev_dma_irq, NULL);
+    pev_irq_register( pev, 0x20+i, pev_dma0_irq, NULL);
+    pev_irq_register( pev, 0x22+i, pev_dma1_irq, NULL);
+    pev_irq_register( pev, 0x24+i, pev_dma0_irq, NULL);
+    pev_irq_register( pev, 0x26+i, pev_dma1_irq, NULL);
   }
 
 #ifdef XENOMAI
-  dma_init_xeno( pev->crate, pev->user_info);
-  rtdm_sem_init( &pev->dma_done, 0);
-  rtdm_lock_init( &pev->dma_lock);
+  dma_init_xeno( pev->dma_ctl, pev->user_info);
+  rtdm_sem_init( &pev->dma_done[0], 0);
+  rtdm_lock_init( &pev->dma_lock[0]);
+  rtdm_sem_init( &pev->dma_done[1], 0);
+  rtdm_lock_init( &pev->dma_lock[1]);
 #else
-  //init_MUTEX( &pev->dma_lock);
-  sema_init( &pev->dma_lock, 1);
+  sema_init( &pev->dma_lock[0], 1);
+  sema_init( &pev->dma_lock[1], 1);
 #endif
 
   /* enable DMA read engine */
   pev_outl( pev, 0x80000000, pev->io_remap[pev->csr_remap].dma_rd);
+  pev_outl( pev, 0x80000000, pev->io_remap[pev->csr_remap].dma_rd1);
   /* enable DMA write engine */
   pev_outl( pev, 0x80000000, pev->io_remap[pev->csr_remap].dma_wr);
+  pev_outl( pev, 0x80000000, pev->io_remap[pev->csr_remap].dma_wr1);
   /* enable DMA global interupt */
   pev_outl( pev, 0x3, pev->io_remap[pev->csr_remap].dma_itc + 0x04);
 
@@ -2390,12 +2469,12 @@ pev_dma_exit( struct pev_dev *pev)
   void *kaddr;
   ulong baddr;
 
-  baddr = dma_get_buf_baddr( pev->crate);
+  baddr = dma_get_buf_baddr( pev->dma_ctl);
   if( baddr)
   {
     dma_unmap_single( &pev->dev->dev, (dma_addr_t)baddr, 0x100000, DMA_BIDIRECTIONAL);
   }
-  kaddr = dma_get_buf_kaddr( pev->crate);
+  kaddr = dma_get_buf_kaddr( pev->dma_ctl);
   if( kaddr)
   {
     int order;
@@ -2403,6 +2482,7 @@ pev_dma_exit( struct pev_dev *pev)
     order = get_order( 0x100000); 
     free_pages( (unsigned long)kaddr, order);
   }
+  dma_exit( pev->dma_ctl);
 
   return;
 }
@@ -2418,6 +2498,8 @@ pev_dma_move_blk( struct pev_dev *pev,
   uint swap_rd;
   uint swap_wr;
   uint blk;
+  int ctlr;
+  int start_mode;
 
 
   swap_rd = 0;
@@ -2448,6 +2530,12 @@ pev_dma_move_blk( struct pev_dev *pev,
     }
     dma->des_space &= DMA_SPACE_MASK;
   }
+  start_mode = dma->start_mode & 0xf;
+  ctlr = 0;
+  if( dma->start_mode & DMA_START_CTLR_1)
+  {
+    ctlr = 1;
+  }
   retval = 0;
   *irq_p = 0x00;
 
@@ -2459,26 +2547,44 @@ pev_dma_move_blk( struct pev_dev *pev,
     }
     else
     {
-      rdo = dma_set_rd_desc( pev->crate, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk);
-      pev_outl( pev, rdo, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine */
-      pev->dma_status = DMA_STATUS_RUN_RD0;
-      *irq_p = 0x03;
+      rdo = dma_set_rd_desc( pev->dma_ctl, dma->src_addr, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk | (ctlr << 12));
+      //pev_outl( pev, rdo, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine */
+      dma_write_io( pev->dma_ctl, 0x04, rdo, DMA_CTLR_RD | ctlr);
+      if( !ctlr)
+      {
+        pev->dma_status[0] = DMA_STATUS_RUN_RD0;
+        *irq_p = DMA_IRQ_RD0_OK | DMA_IRQ_RD0_ERR;
+      }
+      else
+      {
+        pev->dma_status[1] = DMA_STATUS_RUN_RD1;
+        *irq_p = DMA_IRQ_RD1_OK | DMA_IRQ_RD1_ERR;
+      }
     }
   }
   else
   {
     if( ( dma->des_space & DMA_SPACE_MASK) ==  DMA_SPACE_SHM)
     {
-      wdo = dma_set_wr_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk);
-      pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
-      pev->dma_status = DMA_STATUS_RUN_WR0;
-      *irq_p = 0x30;
+      wdo = dma_set_wr_desc( pev->dma_ctl, dma->des_addr, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk | (ctlr << 12));
+      //pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
+      dma_write_io( pev->dma_ctl, 0x04, wdo, DMA_CTLR_WR | ctlr);
+      if( !ctlr)
+      {
+        pev->dma_status[0] = DMA_STATUS_RUN_WR0;
+        *irq_p = DMA_IRQ_WR0_OK | DMA_IRQ_WR0_ERR;
+      }
+      else
+      {
+        pev->dma_status[1] = DMA_STATUS_RUN_WR1;
+        *irq_p = DMA_IRQ_WR1_OK | DMA_IRQ_WR1_ERR;
+      }
     }
     else
     {
       debugk(("%lx:%lx:%x:%x:%x\n", dma->src_addr,  dma->des_addr, dma->size, 
 	      dma->src_space, dma->des_space));
-      if( dma->start_mode & DMA_MODE_PIPE)
+      if( start_mode & DMA_MODE_PIPE)
       {
 	uint mode;
 
@@ -2494,17 +2600,31 @@ pev_dma_move_blk( struct pev_dev *pev,
 	  pev_outl( pev, 0x8200, 0x850);      /* enable read pipe                                 */
 	  pev_outl( pev, 0x80c0, 0x858);      /* enable write pipe                                */
 	}
-        dma_set_pipe_desc( pev->crate, dma->des_addr, dma->src_addr, dma->size, dma->des_space, dma->src_space, mode);
+        dma_set_pipe_desc( pev->dma_ctl, dma->des_addr, dma->src_addr, dma->size, dma->des_space, dma->src_space, mode | (ctlr << 28) | (ctlr << 12) );
       }
       else
       {
-        wdo = dma_set_wr_desc( pev->crate, -1, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk);
-        rdo = dma_set_rd_desc( pev->crate, -1, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk);
-        pev_outl( pev, rdo | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
-        pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
+	int trig;
+        wdo = dma_set_wr_desc( pev->dma_ctl, -1, dma->src_addr, dma->size, dma->src_space, dma->src_mode | swap_wr | blk | (ctlr << 12));
+        rdo = dma_set_rd_desc( pev->dma_ctl, -1, dma->des_addr, dma->size, dma->des_space, dma->des_mode | swap_rd | blk | (ctlr << 12));
+        //pev_outl( pev, rdo | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
+
+	trig = 6;
+	if( ctlr) trig = 7;
+	dma_write_io(  pev->dma_ctl,0x04,  rdo | trig, DMA_CTLR_RD | ctlr);
+        //pev_outl( pev, wdo, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
+	dma_write_io(  pev->dma_ctl, 0x04, wdo, DMA_CTLR_WR | ctlr);
       }
-      pev->dma_status = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
-      *irq_p = 0x23; /* mask dma OK of write engine */
+      if( !ctlr)
+      {
+	pev->dma_status[0] = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
+	*irq_p = DMA_IRQ_RD0_OK | DMA_IRQ_RD0_ERR | DMA_IRQ_WR0_ERR; /* mask dma OK of write engine */
+      }
+      else
+      {
+	pev->dma_status[1] = DMA_STATUS_RUN_RD1 | DMA_STATUS_RUN_WR1;
+	*irq_p = DMA_IRQ_RD1_OK | DMA_IRQ_RD1_ERR | DMA_IRQ_WR1_ERR; /* mask dma OK of write engine */
+      }
     }
   }
   return( retval);
@@ -2520,17 +2640,64 @@ pev_dma_list_rd( struct pev_dev *pev,
   debugk(("in pev_dma_list_rd()...%lx -%x\n", dma->src_addr, dma->size));
   retval = 0;
   *irq_p = 0x00;
-  dma_set_list_desc( pev->crate, dma);
+  dma_set_list_desc( pev->dma_ctl, dma);
   pev_outl( pev, 0xff00800 | 0x6, pev->io_remap[pev->csr_remap].dma_rd + 0x04); /* start read engine waiting for trigger from write */
   pev_outl( pev, 0xff00000, pev->io_remap[pev->csr_remap].dma_wr + 0x04); /* start write engine */
-  pev->dma_status = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
-  *irq_p = 0x33;
+  pev->dma_status[0] = DMA_STATUS_RUN_RD0 | DMA_STATUS_RUN_WR0;
+  *irq_p = DMA_IRQ_RD0 | DMA_IRQ_WR0;
   dma->intr_mode |= DMA_INTR_ENA;
   dma->wait_mode |= DMA_WAIT_INTR;
 
   return( retval);
 }
 
+int
+pev_dma_wait( struct pev_dev *pev,
+	      int ctlr,
+	      int mode)
+{
+  int tmo, scale, i;
+  int retval;
+
+  /* wait for end of DMA */
+  pev->dma_status[ctlr] |= DMA_STATUS_WAITING;
+  tmo = ( mode & 0xf0) >> 4;
+  if( tmo)
+  {
+    int jiffies;
+
+    i = ( mode & 0x0e) >> 1;
+    scale = 1;
+    if( i)
+    {
+      i -= 1;
+      while(i--)
+      {
+        scale = scale*10;
+      }
+    }
+    jiffies =  msecs_to_jiffies(tmo*scale) + 1;
+#ifdef XENOMAI
+    rtdm_sem_down( &pev->dma_done[ctlr]);
+#else
+    retval = down_timeout( &pev->dma_sem[ctlr], jiffies);
+    if( retval)
+    {
+      //printk("DMA timeout..\n");
+      pev->dma_status[ctlr] |= DMA_STATUS_TMO;
+    }
+#endif
+  }
+  else
+  {
+#ifdef XENOMAI
+    rtdm_sem_down( &pev->dma_done[ctlr]);
+#else
+    retval = down_interruptible( &pev->dma_sem[ctlr]);
+#endif
+  }
+  return( retval);
+}
 
 int
 pev_dma_move( struct pev_dev *pev,
@@ -2539,46 +2706,52 @@ pev_dma_move( struct pev_dev *pev,
   //struct vme_time tm;
   int retval;
   int irq;
+  int start_mode;
+  int ctlr;
+
+  ctlr = 0;
+  irq = DMA_IRQ_RD0 | DMA_IRQ_WR0; 
+  if( dma->start_mode & DMA_START_CTLR_1)
+  {
+    ctlr = 1;
+    irq = DMA_IRQ_RD1 | DMA_IRQ_WR1;
+  }
 
   debugk(("in pev_dma_move()...%x -%x\n", dma->src_mode, DMA_SRC_BLOCK));
 
   /* set multi user protection */
 #ifdef XENOMAI
-  rtdm_lock_get( &pev->dma_lock);
+  rtdm_lock_get( &pev->dma_lock[ctlr]);
 #else
-  retval = down_interruptible( &pev->dma_lock);
+  retval = down_interruptible( &pev->dma_lock[ctlr]);
 #endif
 
   retval = -EINVAL;
   if( dma->intr_mode & DMA_INTR_ENA)
   {
     /* mask DMA  interrupts */
-    pev_outl( pev, 0xff, pev->io_remap[pev->csr_remap].dma_itc + 0x0c);
+    pev_outl( pev, irq, pev->io_remap[pev->csr_remap].dma_itc + 0x0c);
     /* clear any pending  interrupts */
-    pev_outl( pev, 0xff << 16, pev->io_remap[pev->csr_remap].dma_itc + 0x00);
+    pev_outl( pev, irq << 16, pev->io_remap[pev->csr_remap].dma_itc + 0x00);
   }
 
   /* perform DMA transfer */
-  if(( dma->start_mode == DMA_MODE_BLOCK) ||
-     ( dma->start_mode == DMA_MODE_PIPE)     )
+  start_mode = dma->start_mode & 0xf;
+  if(( start_mode == DMA_MODE_BLOCK) ||
+     ( start_mode == DMA_MODE_PIPE)     )
   {
     retval= pev_dma_move_blk( pev, dma, &irq);
   }
-  if( dma->start_mode == DMA_MODE_LIST_RD)
+  if( start_mode == DMA_MODE_LIST_RD)
   {
     retval= pev_dma_list_rd( pev, dma, &irq);
   }
 
   /* release multi user protection */
-#ifdef XENOMAI
-  rtdm_lock_put( &pev->dma_lock);
-#else
-  up( &pev->dma_lock);
-#endif
   if( retval)
   {
-    dma->dma_status = pev->dma_status;
-    return( retval);
+    dma->dma_status = pev->dma_status[ctlr];
+    goto pev_dma_move_exit;
   }
 
   /* check interrupt mode */
@@ -2586,70 +2759,39 @@ pev_dma_move( struct pev_dev *pev,
   {
     /* reset semaphore */
 #ifdef XENOMAI
-    //rtdm_sem_init( &pev->dma_done, 0);
+    //rtdm_sem_init( &pev->dma_done[ctlr], 0);
 #else
-    //init_MUTEX_LOCKED( &pev->dma_sem);
-    sema_init( &pev->dma_sem, 0);
+    //init_MUTEX_LOCKED( &pev->dma_sem[ctlr]);
+    sema_init( &pev->dma_sem[ctlr], 0);
 #endif
     /* unmask DMA  interrupts */
     pev_outl( pev, irq, pev->io_remap[pev->csr_remap].dma_itc + 0x08);
     /* check for wait mode */
     if( dma->wait_mode & DMA_WAIT_INTR)
     {
-      int tmo, scale, i;
+      retval = pev_dma_wait( pev, ctlr, dma->wait_mode);
 
-      /* wait for end of DMA */
-      pev->dma_status |= DMA_STATUS_WAITING;
-      tmo = ( dma->wait_mode & 0xf0) >> 4;
-      if( tmo)
+      if( start_mode == DMA_MODE_LIST_RD)
       {
-	int jiffies;
-
-        i = ( dma->wait_mode & 0x0e) >> 1;
-        scale = 1;
-	if( i)
-	{
-          i -= 1;
-          while(i--)
-          {
-	    scale = scale*10;
-          }
-	}
-	jiffies =  msecs_to_jiffies(tmo*scale) + 1;
-#ifdef XENOMAI
-        rtdm_sem_down( &pev->dma_done);
-#else
-        retval = down_timeout( &pev->dma_sem, jiffies);
-	if( retval)
-	{
-	  //printk("DMA timeout..\n");
-	  pev->dma_status |= DMA_STATUS_TMO;
-	}
-#endif
+        retval= dma_get_list( pev->dma_ctl, dma);
       }
-      else
-      {
-#ifdef XENOMAI
-        rtdm_sem_down( &pev->dma_done);
-#else
-        retval = down_interruptible( &pev->dma_sem);
-#endif
-      }
-      if( dma->start_mode == DMA_MODE_LIST_RD)
-      {
-        retval= dma_get_list( pev->crate, dma);
-      }
-      pev->dma_status |= DMA_STATUS_ENDED;
+      pev->dma_status[ctlr] |= DMA_STATUS_ENDED;
       /*vme_timer_read( pev->io_base, &tm);
       debugk(("DMA ended: %08x - %08x\n", tm.time, tm.utime));*/
     }
   }
-  dma->dma_status = pev->dma_status;
+  dma->dma_status = pev->dma_status[ctlr];
+pev_dma_move_exit:
+#ifdef XENOMAI
+  rtdm_lock_put( &pev->dma_lock[ctlr]);
+#else
+  up( &pev->dma_lock[ctlr]);
+#endif
   return( retval);
 }
 
 int
-pev_dma_status( struct pev_dev *pev,
+pev_dma0_status( struct pev_dev *pev,
 	        struct pev_ioctl_dma_sts *dma_sts)
 {
   dma_sts->rd_csr  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd + 0x00);
@@ -2660,24 +2802,40 @@ pev_dma_status( struct pev_dev *pev,
   dma_sts->wr_ndes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x04);
   dma_sts->wr_cdes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x08);
   dma_sts->wr_cnt  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr + 0x0c);
-  dma_get_desc( pev->crate, (uint *)&dma_sts->start);
+  dma_get_desc( pev->dma_ctl, (uint *)&dma_sts->start);
   return( 0);
 }
 
-void
-pev_dma_wait( struct pev_dev *pev)
+int
+pev_dma1_status( struct pev_dev *pev,
+	        struct pev_ioctl_dma_sts *dma_sts)
 {
-  int retval;
-
-  pev->dma_status |= DMA_STATUS_WAITING;
-#ifdef XENOMAI
-  rtdm_sem_down( &pev->dma_done);
-#else
-  retval = down_interruptible( &pev->dma_sem);
-#endif
-  pev->dma_status |= DMA_STATUS_ENDED;
-  return;
+  dma_sts->rd_csr  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd1 + 0x00);
+  dma_sts->rd_ndes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd1 + 0x04);
+  dma_sts->rd_cdes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd1 + 0x08);
+  dma_sts->rd_cnt  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_rd1 + 0x0c);
+  dma_sts->wr_csr  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr1 + 0x00);
+  dma_sts->wr_ndes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr1 + 0x04);
+  dma_sts->wr_cdes = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr1 + 0x08);
+  dma_sts->wr_cnt  = pev_inl( pev, pev->io_remap[pev->csr_remap].dma_wr1 + 0x0c);
+  dma_get_desc( pev->dma_ctl, (uint *)&dma_sts->start);
+  return( 0);
 }
+
+int
+pev_dma0_wait( struct pev_dev *pev,
+	       int mode)
+{
+  return( pev_dma_wait( pev, 0, mode));
+}
+
+int
+pev_dma1_wait( struct pev_dev *pev,
+	       int mode)
+{
+  return( pev_dma_wait( pev, 1, mode));
+}
+
 
 int
 pev_histo_read( struct pev_dev *pev,

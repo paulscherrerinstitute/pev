@@ -43,8 +43,47 @@
  *  Change History
  *  
  * $Log: pevdrvr.c,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.84  2013/04/15 14:30:07  ioxos
+ * support for APX2300 [JFG]
+ *
+ * Revision 1.83  2013/03/08 09:56:57  ioxos
+ * bug in scanning pci tree if multiple PLX switches found [JFG]
+ *
+ * Revision 1.82  2013/02/27 10:02:43  ioxos
+ * scan whole PCI tree before starting device search [JFG]
+ *
+ * Revision 1.81  2013/02/26 15:35:03  ioxos
+ * release 4.29 [JFG]
+ *
+ * Revision 1.80  2013/02/26 14:57:45  ioxos
+ * optimize pci tree scanning [JFG]
+ *
+ * Revision 1.79  2013/02/21 15:27:59  ioxos
+ * cosmetics & optimizations -> release 4.28 [JFG]
+ *
+ * Revision 1.78  2013/02/15 11:32:30  ioxos
+ * release 4.27 [JFG]
+ *
+ * Revision 1.77  2013/02/14 15:15:49  ioxos
+ * tagging 4.26 [JFG]
+ *
+ * Revision 1.76  2013/02/05 11:07:00  ioxos
+ * add dma_shm_offset field [JFG]
+ *
+ * Revision 1.75  2013/01/14 11:05:53  ioxos
+ * support user mapping for CSR space [JFG]
+ *
+ * Revision 1.74  2012/12/18 08:32:51  ioxos
+ * disable vme slave at installation + use CR/CSR to enable/disable [JFG]
+ *
+ * Revision 1.73  2012/12/13 15:23:49  ioxos
+ * support for 2 DMA controllers [JFG]
+ *
+ * Revision 1.72  2012/11/14 09:06:21  ioxos
+ * support for Tosca on XMC and APX2300 [JFG]
  *
  * Revision 1.71  2012/10/25 12:51:00  ioxos
  * releae 4.22 [JFG]
@@ -293,7 +332,7 @@
 #define MARK( addr, data)  *(int *)(addr) = data
 
 #else
-#define debugk(x) 
+#define debugk(x)
 #define MARK( addr, data)
 #endif
 
@@ -309,8 +348,14 @@ int rdwr_swap_32( int);
 
 struct pev_drv pev_drv;
 
-#define DRIVER_VERSION "4.22"
+#define DRIVER_VERSION PEV1100_RELEASE
 char *pev_version=DRIVER_VERSION;
+
+struct pev_dev_tbl
+{
+  struct pci_dev *dev;
+} pev_dev_tbl[256];
+int pev_dev_idx = 0;
 
 
 struct pev_drv *
@@ -319,7 +364,6 @@ pev_register( void)
   return( &pev_drv);
 }
 EXPORT_SYMBOL( pev_register);
-
 
 
 #ifdef XENOMAI
@@ -357,7 +401,11 @@ pev_inl( struct pev_dev *pev, uint addr)
   }
   else
   {
-    return( inl( pev->io_base + addr));
+    int data;
+    data = *(int *)(pev->io_base + addr);
+    data = SWAP32( data);
+    return( data);
+    //return( inl( pev->io_base + addr));
   }
 }
 void 
@@ -373,7 +421,9 @@ pev_outl( struct pev_dev *pev, uint data, uint addr)
   }
   else
   {
-    outl( data, pev->io_base + addr);
+    data = SWAP32( data);
+    *(uint *)(pev->io_base + addr) = data;
+    //outl( data, pev->io_base + addr);
     //tmp = inl( pev->io_base + addr);
   }
   return;
@@ -537,6 +587,16 @@ pev_mmap( struct file *filp,
 		            vma->vm_page_prot); 
         return( 0);
       }
+      if( ((off & 0x30000000) == 0x30000000) && pev->csr_base)
+      {
+	off &= 0xfffff;
+        io_remap_pfn_range( vma, 
+		            vma->vm_start,
+		            (((ulong)pev->csr_base + off) >> PAGE_SHIFT),
+		            size,
+		            vma->vm_page_prot); 
+        return( 0);
+      }
     }
 #endif
   }
@@ -574,7 +634,7 @@ pev_mmap( struct file *filp,
     {
       remap_pfn_range( vma, 
 		       vma->vm_start,
-		       ((ulong)pev->mem_base >> PAGE_SHIFT) + vma->vm_pgoff,
+		       ((ulong)pev->mem_base + off) >> PAGE_SHIFT,
 		       size,
 		       vma->vm_page_prot); 
       return( 0);
@@ -897,7 +957,33 @@ pev_open( struct inode *inode,
   minor = iminor(inode);
   debugk(( KERN_ALERT "pev_open( %px, %px, %d)\n", inode, filp, minor));
 
-  pev = (void *)pev_drv.pev[minor&0xf];
+  switch(minor & 0xf0)
+  {
+    case 0x00:
+    {
+      pev = (void *)pev_drv.pev[minor&0xf];
+      break;
+    }
+    case 0x10:
+    {
+      pev = (void *)pev_drv.xmc2[minor&0xf];
+      break;
+    }
+    case 0x20:
+    {
+      pev = (void *)pev_drv.xmc0[minor&0xf];
+      break;
+    }
+    case 0x30:
+    {
+      pev = (void *)pev_drv.xmc1[minor&0xf];
+      break;
+    }
+    default:
+    {
+      return( -1);
+    }
+  }
   if( pev)
   {
     filp->private_data = (void *)pev;
@@ -1031,9 +1117,15 @@ pev_probe( struct pev_dev *pev)
   pev->mem_len = pci_resource_len( dev, 2);
   pev->io_base    = pci_resource_start( dev, 4);
   pev->io_len    = pci_resource_len( dev, 4);
+
   pev->csr_base = 0;
+  pev->csr_len = 0;
   pev->csr_ptr = NULL;
-  if( pev->board == PEV_BOARD_IFC1210)
+  pev->usr_base = 0;
+  pev->usr_len = 0;
+  pev->usr_ptr = NULL;
+  if( (pev->board == PEV_BOARD_IFC1210) ||
+      (pev->board == PEV_BOARD_APX2300)    )
   {
     pev->csr_base    = pci_resource_start( dev, 3);
     pev->csr_len    = pci_resource_len( dev, 3);
@@ -1059,8 +1151,10 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap[0].vme_csr   = PEV_SCSR_VME_CSR;
     pev->io_remap[0].vme_elb   = PEV_SCSR_VME_ELB;
     pev->io_remap[0].shm_base  = PEV_SCSR_SHM_BASE;
-    pev->io_remap[0].dma_rd    = PEV_SCSR_DMA_RD;
-    pev->io_remap[0].dma_wr    = PEV_SCSR_DMA_WR;
+    pev->io_remap[0].dma_rd    = PEV_SCSR_DMA_RD0;
+    pev->io_remap[0].dma_wr    = PEV_SCSR_DMA_WR0;
+    pev->io_remap[0].dma_rd1   = PEV_SCSR_DMA_RD1;
+    pev->io_remap[0].dma_wr1   = PEV_SCSR_DMA_WR1;
     pev->io_remap[0].iloc_itc  = PEV_SCSR_ITC_ILOC;
     pev->io_remap[0].vme_itc   = PEV_SCSR_ITC_VME;
     pev->io_remap[0].dma_itc   = PEV_SCSR_ITC_DMA;
@@ -1087,8 +1181,10 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap[0].vme_csr   = PEV_CSR_VME_CSR;
     pev->io_remap[0].vme_elb   = PEV_CSR_VME_ELB;
     pev->io_remap[0].shm_base  = PEV_CSR_SHM_BASE;
-    pev->io_remap[0].dma_rd    = PEV_CSR_DMA_RD;
-    pev->io_remap[0].dma_wr    = PEV_CSR_DMA_WR;
+    pev->io_remap[0].dma_rd    = PEV_CSR_DMA_RD0;
+    pev->io_remap[0].dma_wr    = PEV_CSR_DMA_WR0;
+    pev->io_remap[0].dma_rd1   = PEV_CSR_DMA_RD1;
+    pev->io_remap[0].dma_wr1   = PEV_CSR_DMA_WR1;
     pev->io_remap[0].iloc_itc  = PEV_CSR_ITC_ILOC;
     pev->io_remap[0].vme_itc   = PEV_CSR_ITC_VME;
     pev->io_remap[0].dma_itc   = PEV_CSR_ITC_DMA;
@@ -1160,6 +1256,13 @@ pev_probe( struct pev_dev *pev)
         pev->csr_ptr = ioremap(pev->csr_base, pev->csr_len);
       }
     }
+    if( pev->board == PEV_BOARD_APX2300)
+    {
+      pev->map_mas32.pg_num -= 1; /* reserve last page for ADN exchange buffer */
+      pev->usr_base    = pev->mem_base + (pev->map_mas32.pg_num)*0x100000;
+      pev->usr_len    = 0x10000;
+      pev->usr_ptr = ioremap(pev->usr_base, pev->usr_len);
+    }
     pev->map_mas32.pg_num -= 1; /* reserve last page for DMA chains */
     pev->map_mas32.loc_base = (u64)pev->mem_base;
     pev->map_mas32.sg_id = MAP_MASTER_32;
@@ -1173,9 +1276,10 @@ pev_probe( struct pev_dev *pev)
       pev_sg_master_32_set( pev, i, 0, 0); 
     }
     pev->dma_shm_len = pev->map_mas32.pg_size;
-    pev->dma_shm_base = pev->shm_len - pev->dma_shm_len;
-    pev_sg_master_32_set( pev, i, pev->dma_shm_base, 0x2003); /* point to SHM last MByte */
-    pev->dma_shm_ptr = ioremap( pev->mem_base + (i*pev->map_mas32.pg_size), pev->dma_shm_len);
+    pev->dma_shm_offset = pev->shm_len - pev->dma_shm_len;
+    pev_sg_master_32_set( pev, i, pev->dma_shm_offset, 0x2003); /* point to SHM last MByte */
+    pev->dma_shm_base = pev->mem_base + (i*pev->map_mas32.pg_size);
+    pev->dma_shm_ptr = ioremap( pev->dma_shm_base, pev->dma_shm_len);
     debugk(("pev mem space DMA = %x - %p - %p\n",
                                  pev->dma_shm_len, 
                                  pev->dma_shm_ptr, 
@@ -1185,10 +1289,17 @@ pev_probe( struct pev_dev *pev)
     {
       if( pev->csr_ptr)
       {
-        pev_sg_master_32_set( pev, i+1, 0, 0x3003); /* point to CSR space */
+        pev_sg_master_32_set( pev, i+1, 0, 0x3003); /* last page point to CSR space */
       }
     }
-    pev_dma_init( pev);
+    if( pev->board == PEV_BOARD_APX2300)
+    {
+      if( pev->usr_ptr)
+      {
+	debugk(("APX2300 : preparing page %d to access FPGA user area\n", i+1));
+        pev_sg_master_32_set( pev, i+1, 0, 0x4003); /* last page point to USR space */
+      }
+    }
   }
   else
   {
@@ -1224,8 +1335,10 @@ pev_probe( struct pev_dev *pev)
     pev->io_remap[1].vme_csr   = PEV_CSR_VME_CSR;
     pev->io_remap[1].vme_elb   = PEV_CSR_VME_ELB;
     pev->io_remap[1].shm_base  = PEV_CSR_SHM_BASE;
-    pev->io_remap[1].dma_rd    = PEV_CSR_DMA_RD;
-    pev->io_remap[1].dma_wr    = PEV_CSR_DMA_WR;
+    pev->io_remap[1].dma_rd    = PEV_CSR_DMA_RD0;
+    pev->io_remap[1].dma_wr    = PEV_CSR_DMA_WR0;
+    pev->io_remap[1].dma_rd1   = PEV_CSR_DMA_RD1;
+    pev->io_remap[1].dma_wr1   = PEV_CSR_DMA_WR1;
     pev->io_remap[1].iloc_itc  = PEV_CSR_ITC_ILOC;
     pev->io_remap[1].vme_itc   = PEV_CSR_ITC_VME;
     pev->io_remap[1].dma_itc   = PEV_CSR_ITC_DMA;
@@ -1247,30 +1360,42 @@ pev_probe( struct pev_dev *pev)
     pev->csr_remap = 0;
   }
 
-  printk("Adjust PCI slave window size to 1 GBytes...");
+  if( pev->dma_shm_ptr)
   {
-     char *reg_p;
-     uint val;
-     reg_p = ioremap( 0xffe00000, 0x100000);
-     val = *(uint *)(reg_p + 0xadf0);
-     *(uint *)(reg_p + 0xadf0) = (val & 0xffffff00) | 0x1d;
-     iounmap( reg_p);
+    pev_dma_init( pev);
   }
-  printk("done\n");
 
-  printk("initialize VME slave...");
-  /* initialize VME CSR */
-  pev_outl( pev, 0x404, pev->io_remap[pev->csr_remap].vme_base);               /* clear error flags              */
-  pev_outl( pev, 0x80000081, pev->io_remap[pev->csr_remap].vme_base + 0x4);    /* enable VME master + ROR        */
-  pev_outl( pev, 0x80000004, pev->io_remap[pev->csr_remap].vme_base + 0x8);    /* enable VME slave + 256*1MBytes */
-  pev_outl( pev, pev->crate<<4, pev->io_remap[pev->csr_remap].vme_ader);       /* set base address according to crate number */
-  pev_outl( pev, 0, pev->io_remap[pev->csr_remap].vme_ader+ 4);                /* set base address according to crate number */
-  pev_vme_slv_init( pev);
-  pev_outl( pev, 0x08, pev->io_remap[pev->csr_remap].vme_csr + 0x4);           /* clear bus error                */
-  pev_outl( pev, 0x10, pev->io_remap[pev->csr_remap].vme_csr + 0x8);           /* enable slave                   */
-  pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].vme_itc + 0xc);         /* mask all VME interrupt sources */
-  pev_outl( pev, 0x7, pev->io_remap[pev->csr_remap].vme_itc + 0x4);            /* enable VME global interupt     */
-  printk("done\n");
+  if( pev->board == PEV_BOARD_APX2300)
+  {
+    printk("PEV_BOARD_APX2300 has been initialized...\n");
+  }
+
+  if( ( pev->board == PEV_BOARD_PEV1100) ||
+      ( pev->board == PEV_BOARD_IPV1102) ||
+      ( pev->board == PEV_BOARD_VCC1104) ||
+      ( pev->board == PEV_BOARD_VCC1105) ||
+      ( pev->board == PEV_BOARD_IFC1210)    )
+  {
+    printk("initialize VME slave...");
+    if( pev->io_remap[0].short_io)
+    {
+      pev_outl( pev, PEV_SCSR_SEL_VME, 0);
+    }
+    /* initialize VME CSR */
+    pev_outl( pev, 0x404, pev->io_remap[pev->csr_remap].vme_base);               /* clear error flags              */
+    pev_outl( pev, 0x80000081, pev->io_remap[pev->csr_remap].vme_base + 0x4);    /* enable VME master + ROR        */
+    pev_outl( pev, 0x80000004, pev->io_remap[pev->csr_remap].vme_base + 0x8);    /* enable VME slave + size = 256*1MBytes */
+    pev_outl( pev, pev->crate<<4, pev->io_remap[pev->csr_remap].vme_ader);       /* set base address according to crate number */
+    pev_outl( pev, 0, pev->io_remap[pev->csr_remap].vme_ader+ 4);                /* set base address according to crate number */
+    pev_vme_slv_init( pev);
+    pev_outl( pev, 0x18, pev->io_remap[pev->csr_remap].vme_csr + 0x4);           /* clear bus error + disable slave               */
+    //pev_outl( pev, 0x10, pev->io_remap[pev->csr_remap].vme_csr + 0x8);           /* enable VME slave                   */
+    pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].vme_itc + 0xc);         /* mask all VME interrupt sources */
+    pev_outl( pev, 0x7, pev->io_remap[pev->csr_remap].vme_itc + 0x4);            /* enable VME global interupt     */
+    pev_timer_init( pev);                                                        /* initialize VME timer           */
+    pev_vme_irq_init( pev);
+    printk("done\n");
+  }
  
 #ifdef XENOMAI
   retval = rtdm_irq_request( &pev->rtdm_irq, pev->dev->irq, pev_irq, RTDM_IRQTYPE_SHARED, pev_rt.device_name, pev);
@@ -1290,7 +1415,6 @@ pev_probe( struct pev_dev *pev)
   //sema_init( &pev->sem, 0);
 #endif
   
-  pev_timer_init( pev);                        /* initialize VME timer           */
   sema_init( &pev->sem_remap, 1);             /* initialize locking semaphore for IO remapping           */
   sema_init( &pev->i2c_lock, 1);              /* initialize locking semaphore for I2C controller         */
   sema_init( &pev->spi_lock, 1);              /* initialize locking semaphore for SPI controller         */
@@ -1298,7 +1422,6 @@ pev_probe( struct pev_dev *pev)
   {
     goto pev_probe_exit;
   }
-  pev_vme_irq_init( pev);
   if( pev->board == PEV_BOARD_IFC1210)
   {
     pev_usr1_irq_init( pev);
@@ -1307,10 +1430,10 @@ pev_probe( struct pev_dev *pev)
   pev_evt_init( pev);
 
   /* enable interrupts and PCIe master access from FPGA */
- pev_probe_exit:
+pev_probe_exit:
   pci_read_config_word( pev->dev, 4, &tmp);
   tmp |= 4;
-  tmp &= ~0x10;
+  tmp &= ~0x400;
   pci_write_config_word( pev->dev, 4, tmp);
 
  
@@ -1326,6 +1449,7 @@ pev_remove(struct pev_dev *pev)
     /* disable all PEV1100 interrupts */
     pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].iloc_itc + 0xc);         /* mask all local interrupt sources */
     pev_outl( pev, 0x0, pev->io_remap[pev->csr_remap].iloc_itc + 0x04);            /* disable local interrupts          */
+
     pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].vme_itc + 0xc);         /* mask all VME interrupt sources */
     pev_outl( pev, 0x0, pev->io_remap[pev->csr_remap].vme_itc + 0x4);            /* disable VME interrupts     */
     pev_outl( pev, 0xffff, pev->io_remap[pev->csr_remap].dma_itc + 0xc);         /* mask all DMA/SMEM interrupt sources */
@@ -1342,7 +1466,11 @@ pev_remove(struct pev_dev *pev)
 #ifdef XENOMAI
     rtdm_irq_free(&pev->rtdm_irq);
 #else
-    free_irq( pev->dev->irq, (void *)pev);
+    if( pev->dev->irq)
+    {
+      debugk(("free_irq %d\n",  pev->dev->irq));
+      free_irq( pev->dev->irq, (void *)pev);
+    }
 #endif
     if( pev->msi)
     {
@@ -1430,14 +1558,49 @@ static int pev_init( void)
   for( i = 0; i < 16; i++)
   {
     pev_drv.pev[i] = (struct pev_dev *)NULL;
+    pev_drv.xmc0[i] = (struct pev_dev *)NULL;
+    pev_drv.xmc1[i] = (struct pev_dev *)NULL;
+    pev_drv.xmc2[i] = (struct pev_dev *)NULL;
   }
   pev_drv.pev_local_crate = 0;
 
-  /* check for PEX86XX switch (cannot be pci probed because already owned) */
+  for( i = 0; i < 256; i++)
+  {
+    pev_dev_tbl[i].dev = NULL;
+  }
+
+  printk("Scanning PCI tree\n");
+  pev_dev_idx = 0;
   ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, 0);
+  while( ldev)
+  {
+    //printk("ldev = %p -> %04x - %04x\n", ldev, ldev->vendor, ldev->device);
+    pev_dev_tbl[pev_dev_idx].dev = ldev;
+    ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, ldev);
+    pev_dev_idx++;
+  }
+  pev_dev_tbl[pev_dev_idx].dev = NULL;
+
+#ifdef PPC
+  printk("Adjust P2020 PCI slave window size to 1 GBytes...");
+  {
+     char *reg_p;
+     uint val;
+     reg_p = ioremap( 0xffe00000, 0x100000);
+     val = *(uint *)(reg_p + 0xadf0);
+     *(uint *)(reg_p + 0xadf0) = (val & 0xffffff00) | 0x1d;
+     iounmap( reg_p);
+  }
+  printk("done\n");
+#endif
+
+  /* check for PEX86XX switch (cannot be pci probed because already owned) */
+  pev_dev_idx = 0;
+  ldev =  pev_dev_tbl[pev_dev_idx].dev;
   pex = (struct pci_dev *)NULL;
   while( ldev)
   {
+    pev_dev_tbl[pev_dev_idx].dev = ldev;
     /* check for AROLLA */
     if( ( ldev->vendor == 0x7357) &&  ( ldev->device == 0x1104))
     {
@@ -1475,8 +1638,9 @@ static int pev_init( void)
         pev = (struct pev_dev *)kmalloc( sizeof(struct pev_dev), GFP_KERNEL);
         memset( pev, 0, sizeof(struct pev_dev));
         pev->pex = pex;
-        pev->crate = 0;
-        pev_drv.pev[0] = pev;
+        pev->crate = pev_drv.pev_local_crate;
+	pev_drv.pev_local_crate += 1;
+        pev_drv.pev[pev->crate] = pev;
         printk("PCIe SWITCH IDT32NT24 found\n");
 #ifdef PPC
         pev->elb_base    = PEV_CSR_ELB_BASE;
@@ -1552,7 +1716,7 @@ static int pev_init( void)
 
        }
      }
-    ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, ldev);
+    ldev = pev_dev_tbl[++pev_dev_idx].dev;
   }
 
   /* if PEX8624 not found */
@@ -1562,9 +1726,13 @@ static int pev_init( void)
     debugk((KERN_NOTICE "pev : didn't find any PEX86XX switch\n"));
     goto err_no_pex86XX;
   }
-  
+
+
   for( i = 0; i < 16; i++)
   {
+    int found;
+
+    found = 0;
     pev = pev_drv.pev[i];
     if( pev)
     {
@@ -1576,7 +1744,8 @@ static int pev_init( void)
       p_bus = pev->pex->subordinate->primary;
       s_bus = pev->pex->subordinate->secondary;
       debugk((KERN_NOTICE "crate %d : bus number = %x:%x\n", i, p_bus, s_bus));
-      ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->pex);
+      pev_dev_idx = 0;
+      ldev =  pev_dev_tbl[pev_dev_idx].dev;
       while( ldev)
       {
         /* check for IDT32NT24 */
@@ -1587,9 +1756,12 @@ static int pev_init( void)
             ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808a)) ||
             ( ( ldev->vendor == 0x111d) &&  ( ldev->device == 0x808c))    )
         {
-          /* check for port #2*/
+          /* on IFC1210 check for port #2 for TOSCA end point*/
           if( ldev->devfn == PCI_DEVFN( 2, 0))
           {
+	    int tosca_idx;
+
+	    tosca_idx = pev_dev_idx;
 	    p_bus = ldev->subordinate->primary;
 	    s_bus = ldev->subordinate->secondary;;
 	    debugk((KERN_NOTICE "idt32nt24 port#2: bus number = %x:%x\n", p_bus, s_bus));
@@ -1607,12 +1779,16 @@ static int pev_init( void)
 		  break;
 		}
               }
-              pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+              //pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+              pev->dev = pev_dev_tbl[++tosca_idx].dev;
 	    }
 	  }
-          /* check for port #3*/
+          /* on AROLLA check  port #3 for TOSCA end point */
           if( ldev->devfn == PCI_DEVFN( 3, 0))
           {
+	    int tosca_idx;
+
+	    tosca_idx = pev_dev_idx;
 	    p_bus = ldev->subordinate->primary;
 	    s_bus = ldev->subordinate->secondary;;
 	    debugk((KERN_NOTICE "idt32nt24 port#2: bus number = %x:%x\n", p_bus, s_bus));
@@ -1632,26 +1808,39 @@ static int pev_init( void)
 		  return(0);
 		}
               }
-              pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+              //pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+              pev->dev = pev_dev_tbl[++tosca_idx].dev;
 	    }
+	  }
+          if( pev->fpga_status)
+          {
+	     break;
 	  }
 	}
         /* check for PEX8624 */
         if( ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8624)) ||
             ( ( ldev->vendor == 0x10b5) &&  ( ldev->device == 0x8616))    )
         {
-          /* check for port #5*/
-          if( ldev->devfn == PCI_DEVFN( 5, 0))
+          /* on PEV1100, IFC1102 or ADN4001  check port #5 for TOSCA end point */
+          if( ( ldev->devfn == PCI_DEVFN( 5, 0)) &&
+	      ( pev->pex->subordinate->secondary == ldev->subordinate->primary))
           {
+	    int tosca_idx;
+
+	    tosca_idx = pev_dev_idx;
 	    p_bus = ldev->subordinate->primary;
-	    s_bus = ldev->subordinate->secondary;;
-	    debugk((KERN_NOTICE "pex8624 port#5: bus number = %x:%x\n", p_bus, s_bus));
+	    s_bus = ldev->subordinate->secondary;
+	    debugk((KERN_NOTICE "pex%04x port#5: bus number = %x:%x\n", ldev->device, p_bus, s_bus));
 	    pev->dev = ldev;
             while( pev->dev)
             {
-              /* check for PEV1100 FPGA End Point */
-              if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1100))
+	      debugk((KERN_NOTICE "device bus number = %x\n", pev->dev->bus->secondary));
+              /* check for PEV1100 TOSCA End Point */
+              if( ( pev->dev->vendor == 0x7357) &&  
+                  ( pev->dev->device == 0x1100) &&
+                  ( ldev->subordinate->secondary == pev->dev->bus->secondary))
               {
+                debugk(("PEV1100 detected [%p]..\n", pev->dev));
 		pev->board = PEV_BOARD_PEV1100;
 #ifdef PPC
                 pev->elb_base    = PEV_VME_ELB_BASE;
@@ -1662,8 +1851,12 @@ static int pev_init( void)
 #else
 #endif
               }
-              if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x1102))
+              /* check for IFC1102 TOSCA End Point */
+              if( ( pev->dev->vendor == 0x7357) &&  
+                  ( pev->dev->device == 0x1102) &&
+                  ( ldev->subordinate->secondary == pev->dev->bus->secondary))
               {
+                debugk(("IPV1102 detected [%p]..\n", pev->dev));
 		pev->board = PEV_BOARD_IPV1102;
 #ifdef PPC
                 pev->elb_base    = PEV_VME_ELB_BASE;
@@ -1674,8 +1867,12 @@ static int pev_init( void)
 #else
 #endif
               }
-              if( ( pev->dev->vendor == 0x7357) &&  ( pev->dev->device == 0x4001))
+              /* check for ADN4001 TOSCA End Point */
+              if( ( pev->dev->vendor == 0x7357) &&
+                  ( pev->dev->device == 0x4001) &&
+                  ( ldev->subordinate->secondary == pev->dev->bus->secondary))
               {
+                debugk(("ADN4001 detected [%p]..\n", pev->dev));
 		pev->board = PEV_BOARD_ADN4001;
               }
               if( pev->board)
@@ -1688,12 +1885,16 @@ static int pev_init( void)
 		  break;
 		}
               }
-              pev->dev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->dev);
+              pev->dev = pev_dev_tbl[++tosca_idx].dev;
 	    }
 	  }
-          /* check for port #6*/
-          if( ldev->devfn == PCI_DEVFN( 6, 0))
+          /* on PEV1100 or IFC1102  check port #6 for PEX8112 PCIe/PCI bridge */
+          if( (ldev->devfn == PCI_DEVFN( 6, 0)) &&
+	      ( pev->pex->subordinate->secondary == ldev->subordinate->primary))
           {
+	    int plx_idx;
+
+	    plx_idx = pev_dev_idx;
 	    p_bus = ldev->subordinate->primary;
 	    s_bus = ldev->subordinate->secondary;;
 	    debugk((KERN_NOTICE "pex8624 port#6: bus number = %x:%x\n", p_bus, s_bus));
@@ -1702,25 +1903,86 @@ static int pev_init( void)
             while( pev->plx)
             {
               /* check for PEX8112 */
-              if( ( pev->plx->vendor == 0x10b5) &&  ( pev->plx->device == 0x8112))
+              if( ( pev->plx->vendor == 0x10b5) && 
+                  ( pev->plx->device == 0x8112) &&
+                  ( ldev->subordinate->secondary == pev->plx->bus->secondary))
               {
-		if( pev->plx->bus->number == s_bus)
-		{            
-		  debugk((KERN_NOTICE "plx8212 found on bus 0x%x\n", pev->plx->bus->number));            
-                  pev->plx_base   = pci_resource_start( pev->plx, 0);
-                  pev->plx_len   = pci_resource_len( pev->plx, 0);
-                  pev->plx_ptr = ioremap( pev->plx_base, pev->plx_len);
-                  debugk((KERN_NOTICE "pev : PLX%04x bridge found at address %lx [%x]\n", 
-	                               pev->plx->device, (ulong)pev->plx_base, pev->plx_len));
-		  break;
-		}
+		debugk((KERN_NOTICE "plx8212 found on bus 0x%x\n", pev->plx->bus->number));            
+                pev->plx_base   = pci_resource_start( pev->plx, 0);
+                pev->plx_len   = pci_resource_len( pev->plx, 0);
+                pev->plx_ptr = ioremap( pev->plx_base, pev->plx_len);
+                debugk((KERN_NOTICE "pev : PLX%04x bridge found at address %lx [%x]\n", 
+	                             pev->plx->device, (ulong)pev->plx_base, pev->plx_len));
+		break;
               }
-              pev->plx =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, pev->plx);
+              pev->plx = pev_dev_tbl[++plx_idx].dev;
 	    }
-	    break;
+	  }
+          /* on PEV1100 or IFC1102  check port #6, #8 and #9 for XMC */
+          if( ( (ldev->devfn == PCI_DEVFN( 6, 0)) ||
+                (ldev->devfn == PCI_DEVFN( 8, 0)) ||
+                (ldev->devfn == PCI_DEVFN( 9, 0))    ) &&
+	      ( pev->pex->subordinate->secondary == ldev->subordinate->primary))
+          {
+	    struct pev_dev *xmc;
+	    int xmc_idx;
+
+	    xmc_idx = pev_dev_idx;
+	    debugk(("checking port #6 #8 and #9 for XMC ...\n"));
+	    p_bus = ldev->subordinate->primary;
+	    s_bus = ldev->subordinate->secondary;;
+	    debugk((KERN_NOTICE "XMC port#%d: bus number = %x:%x\n", ldev->devfn, p_bus, s_bus));
+	    xmc = (struct pev_dev *)kmalloc( sizeof(struct pev_dev), GFP_KERNEL);
+	    memset( xmc, 0, sizeof(struct pev_dev));
+	    xmc->dev = ldev;
+	    xmc->board = 0;
+            while( xmc->dev)
+            {
+              if( ( xmc->dev->vendor == 0x7357) && 
+                  ( xmc->dev->device == 0x2300) && 
+                  ( ldev->subordinate->secondary == xmc->dev->bus->secondary))
+              {
+		debugk(("APX2300 found ...\n"));
+		{
+	          unsigned char s_bus, p_bus;
+                  p_bus = xmc->dev->bus->primary;
+                  s_bus = xmc->dev->bus->secondary;
+                  printk("bus number = %x:%x\n", p_bus, s_bus);
+		}
+		xmc->board = PEV_BOARD_APX2300;
+	        xmc->pex = pev->pex;
+	        debugk(("initializing APX2300 (crate %d)\n", pev->crate));
+	        xmc->crate = pev->crate;
+                if( ldev->devfn == PCI_DEVFN( 6, 0))
+		{
+		  pev_drv.xmc2[xmc->crate] = xmc;
+		}
+                if( ldev->devfn == PCI_DEVFN( 8, 0))
+		{
+		  pev_drv.xmc0[xmc->crate] = xmc;
+		}
+                if( ldev->devfn == PCI_DEVFN( 9, 0))
+		{
+		  pev_drv.xmc1[xmc->crate] = xmc;
+		}
+	        pev_probe( xmc); 
+	        xmc->fpga_status = 1;
+	        found = 1;          
+		break;
+              }
+              xmc->dev = pev_dev_tbl[++xmc_idx].dev;
+	    }
+	    if( !xmc->board)
+	    {
+	      kfree( xmc);
+	    }
+	  }
+          if( pev->fpga_status)
+          {
+	    //break;
 	  }
 	}
-	ldev =  pci_get_device( PCI_ANY_ID, PCI_ANY_ID, ldev);
+	ldev = pev_dev_tbl[++pev_dev_idx].dev;
       }
     }
   }
@@ -1763,6 +2025,51 @@ static void pev_exit(void)
     pev = pev_drv.pev[i];
     if( pev)
     {
+      pev_remove(pev);
+      if( pev->plx_ptr)
+      {
+        iounmap( pev->plx_ptr);
+      }
+      iounmap( pev->pex_ptr);
+      kfree( pev);
+    }
+  }
+  for( i = 0; i < 16; i++)
+  {
+    pev = pev_drv.xmc0[i];
+    if( pev)
+    {
+      printk("remove xmc0 %d - %d\n", i, pev->fpga_status);
+      pev_remove(pev);
+      if( pev->plx_ptr)
+      {
+        iounmap( pev->plx_ptr);
+      }
+      iounmap( pev->pex_ptr);
+      kfree( pev);
+    }
+  }
+  for( i = 0; i < 16; i++)
+  {
+    pev = pev_drv.xmc1[i];
+    if( pev)
+    {
+      printk("remove xmc1 %d - %d\n", i, pev->fpga_status);
+      pev_remove(pev);
+      if( pev->plx_ptr)
+      {
+        iounmap( pev->plx_ptr);
+      }
+      iounmap( pev->pex_ptr);
+      kfree( pev);
+    }
+  }
+  for( i = 0; i < 16; i++)
+  {
+    pev = pev_drv.xmc2[i];
+    if( pev)
+    {
+      printk("remove xmc2 %d - %d\n", i, pev->fpga_status);
       pev_remove(pev);
       if( pev->plx_ptr)
       {

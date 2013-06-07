@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: map.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.8  2013/05/14 06:33:07  ioxos
+ * cosmetic [JFG]
  *
  * Revision 1.7  2012/06/01 13:59:44  ioxos
  * -Wall cleanup [JFG]
@@ -55,7 +58,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: map.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: map.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
@@ -265,9 +268,19 @@ xprs_map( struct cli_cmd_para *c)
       }
       else
       {
+	int map_board;
+
+	map_board = pev_board();
 	map_show( "mas_32");
 	map_show( "mas_64");
-	map_show( "slv_vme");
+        if( ( map_board == PEV_BOARD_PEV1100) ||
+            ( map_board == PEV_BOARD_IPV1102) ||
+            ( map_board == PEV_BOARD_VCC1104) ||
+            ( map_board == PEV_BOARD_VCC1105) ||
+            ( map_board == PEV_BOARD_IFC1210)    )
+        {
+	  map_show( "slv_vme");
+	}
 	printf("\n");
       }
       return( 0); 

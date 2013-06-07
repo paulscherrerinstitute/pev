@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: rdwr.h,v $
- * Revision 1.7  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.8  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.2  2013/05/14 06:31:17  ioxos
+ * add compare function [JFG]
  *
  * Revision 1.1  2012/06/01 14:02:28  ioxos
  * first checkin [JFG]
@@ -41,6 +44,7 @@
 
 int xprs_rdwr_dma( struct cli_cmd_para *);
 int xprs_rdwr_evt( struct cli_cmd_para *);
+int xprs_rdwr_cm( struct cli_cmd_para *);
 int xprs_rdwr_dm( struct cli_cmd_para *);
 int xprs_rdwr_fm( struct cli_cmd_para *);
 int xprs_rdwr_lm( struct cli_cmd_para *);

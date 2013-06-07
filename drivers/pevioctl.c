@@ -29,8 +29,14 @@
  *  Change History
  *  
  * $Log: pevioctl.c,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.25  2012/12/14 10:58:09  ioxos
+ * cleanup [JFG]
+ *
+ * Revision 1.24  2012/12/13 15:24:43  ioxos
+ * support for 2 DMA controllers [JFG]
  *
  * Revision 1.23  2012/10/25 12:27:57  ioxos
  * eeprom delay set to 5 msec + clear evt + mask SMI while reading event (need new FPGA)[JFG]
@@ -284,11 +290,19 @@ pev_ioctl_dma( struct pev_dev *pev,
       }
       break;
     }
-    case PEV_IOCTL_DMA_STATUS:
+    case PEV_IOCTL_DMA0_STATUS:
+    case PEV_IOCTL_DMA1_STATUS:
     {
       struct pev_ioctl_dma_sts dma_sts;
 
-      retval = pev_dma_status( pev, &dma_sts);
+      if( cmd == PEV_IOCTL_DMA0_STATUS)
+      {
+	retval = pev_dma0_status( pev, &dma_sts);
+      }
+      else
+      {
+	retval = pev_dma1_status( pev, &dma_sts);
+      }
 #ifdef XENOMAI
       if( rtdm_copy_to_user( pev->user_info, (void *)arg, &dma_sts, sizeof(dma_sts)))
 #else
@@ -299,8 +313,29 @@ pev_ioctl_dma( struct pev_dev *pev,
       }
       break;
     }
-    case PEV_IOCTL_DMA_WAIT:
+    case PEV_IOCTL_DMA0_WAIT:
+    case PEV_IOCTL_DMA1_WAIT:
     {
+      int mode, ctlr;
+
+      if( copy_from_user(&mode, (void *)arg, sizeof(int)))
+      {
+        return -EFAULT;
+      }
+      if( cmd == PEV_IOCTL_DMA0_STATUS)
+      {
+	retval = pev_dma0_wait( pev, mode);
+	ctlr = 0;
+      }
+      else
+      {
+	retval = pev_dma1_wait( pev, mode);
+	ctlr = 1;
+      }
+      if( copy_to_user( (void *)arg, &pev->dma_status[ctlr], sizeof( int)))
+      {
+        return -EFAULT;
+      }
       break;
     }
     case PEV_IOCTL_DMA_KILL:

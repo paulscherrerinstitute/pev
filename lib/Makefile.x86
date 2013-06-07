@@ -45,8 +45,10 @@ tstlib.o:tstlib.c
 	gcc $(INCDIRS) $(EXTRAFLAGS) -c tstlib.c
 tstxlib.o:tstxlib.c 
 	gcc $(INCDIRS) $(EXTRAFLAGS) -c tstxlib.c
-libpev.a:pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
-	ar r libpev.a pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o
+adnulib.o:adnulib.c 
+	gcc $(INCDIRS) $(EXTRAFLAGS) -c adnulib.c
+libpev.a:pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o adnulib.o
+	ar r libpev.a pevulib.o pevxulib.o clilib.o tstlib.o tstxlib.o adnulib.o
 	ranlib libpev.a
 libpev++.a:pevulib++.o pevxulib++.o
 	ar r libpev++.a pevulib++.o pevxulib++.o
@@ -66,5 +68,6 @@ pevulib.c: ../include/pevulib.h
 pevxulib.c: ../include/pevxulib.h
 pevrtlib.c: ../include/pevrtlib.h
 clilib.c: ../include/cli.h
+adnulib.c: ../include/adnulib.h
 clean:
 	$(RM) *.o *.a

@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: XprsMon.h,v $
- * Revision 1.7  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.8  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.3  2013/04/15 14:02:22  ioxos
+ * support for ADC3110 [JFG]
+ *
+ * Revision 1.2  2012/12/13 15:38:36  ioxos
+ * add support for IDF switch configuration [JFG]
  *
  * Revision 1.1  2012/06/01 14:02:29  ioxos
  * first checkin [JFG]
@@ -49,11 +55,13 @@
 #include "conf.h"   
 #include "fifo.h"    
 #include "i2c.h"   
+#include "idt.h"   
 #ifdef MPC
 #include "mpc.h"  
 #endif
 #include "script.h"  
 #include "timer.h"   
 #include "tty.h"  
+#include "adc3110.h"  
 
 #endif /* _H_XPRSMON */

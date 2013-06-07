@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: VmeTst.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.5  2012/11/14 15:21:23  ioxos
+ * release 4.23 [JFG]
  *
  * Revision 1.4  2012/06/01 14:00:14  ioxos
  * -Wall cleanup [JFG]
@@ -112,9 +115,10 @@ main( int argc,
   /* create an address translation window in the VME slave port */
   /* pointing to the PEV1100 Shared Memory                      */
 
+  vme_slv_map.loc_addr = 0x500000; /* shared memory base address */
   vme_slv_map.rem_addr = 0x000000; /* shared memory base address */
   vme_slv_map.mode = MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_SHM;
-  vme_slv_map.flag = 0x0;
+  vme_slv_map.flag = MAP_FLAG_FORCE;
   vme_slv_map.sg_id = MAP_SLAVE_VME;
   vme_slv_map.size = 0x100000;
   pev_map_alloc( &vme_slv_map);

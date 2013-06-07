@@ -24,8 +24,11 @@
  *  Change History
  *  
  * $Log: DmaList.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.7  2012/12/14 11:16:56  ioxos
+ * call pev_dma_status() with controller 0[JFG]
  *
  * Revision 1.6  2012/06/01 14:00:14  ioxos
  * -Wall cleanup [JFG]
@@ -292,7 +295,7 @@ tst_dma_read( ulong vme_addr)
     printf("pev_dma_move() : error %d\n", retval);
     return(-1);
   }
-  retval = pev_dma_status(&dma_sts);
+  retval = pev_dma_status( 0, &dma_sts);
   if( retval < 0)
   {
     printf("pev_dma_status() : error %d\n", retval);

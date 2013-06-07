@@ -40,8 +40,11 @@
  *  Change History
  *  
  * $Log: TimerTst.c,v $
- * Revision 1.1  2012/11/05 13:00:43  kalt_r
- * received 2012-11-05 from Jean-Francois, to be used with define HISTO in ./drivers/pevklib.c
+ * Revision 1.2  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.1  2012/11/14 14:04:01  ioxos
+ * add interrupt timer test [JFG]
  *
  *=============================< end file header >============================*/
 #include <stdlib.h>

@@ -27,8 +27,14 @@
  *  Change History
  *  
  * $Log: conf.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.21  2013/05/14 06:33:59  ioxos
+ * support for APX2300 [JFG]
+ *
+ * Revision 1.20  2012/12/13 14:46:23  ioxos
+ * switch conf updated to support IFC1210 [JFG]
  *
  * Revision 1.19  2012/09/25 09:13:27  ioxos
  * cosmetics [JFG]
@@ -91,7 +97,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: conf.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: conf.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
@@ -120,25 +126,85 @@ void
 conf_show_static( void)
 {
   int d0;
-  char c0, c1, c2, c3;
+  char c0, c1, c2, c3, c4;
+  int autoid;
 
   d0 = pev_csr_rd( 0x00);
   printf("   Static Options [0x%08x]\n", d0);
+  if( conf_board == PEV_BOARD_APX2300)
+  {
+    return;
+  }
+  if( conf_board == PEV_BOARD_ADN4001)
+  {
+    return;
+  }
   printf("      VME Interface\n");
-  printf("         A24 Base Address  : %06x\n", (d0&0xf8)<<16);
-  c0 = c1 = c2 = c3 = '-';
-  if( d0 & (1<<2)) c0 = '+';
-  if( d0 & (1<<1)) c1 = '+';
-  if( d0 & (1<<0)) c2 = '+';
-  if( d0 & (1<<0)) c2 = '+';
-  printf("         System Controller : 64x%c Slot1%c SysRstEna%c\n", c0, c1, c2);
-  if( (d0&0xfc) == 0xac)
+  c0 = c1 = c2 = c3 = c4 = '-';
+  autoid = 0;
+  if( conf_board == PEV_BOARD_IFC1210)
+  {
+    int a24_base;
+
+    a24_base = ((d0 >> 12) & 0xf0000) | ((d0 >> 4) & 0xf00000); 
+    printf("         A24 Base Address  : %06x\n", a24_base);
+    if( d0 & 3)
+    {
+      c0 = '-';
+      if( d0 & (1<<2)) c1 = '+';
+      if( (d0 & 3) == 3) autoid = 1;
+    }
+    else
+    {
+      c0 = '+';
+    }
+    if( d0 & (1<<3)) c2 = '+';
+    if( d0 & (1<<6)) c4 = '+';
+    printf("         System Controller : 64x%c Slot1%c RxSysRstEna%c TxSysRstEna%c\n", c0, c1, c2, c4);
+  }
+  else
+  {
+    printf("         A24 Base Address  : %06x\n", (d0&0xf8)<<16);
+    if( d0 & (1<<2)) c0 = '+';
+    if( d0 & (1<<1)) c1 = '+';
+    if( d0 & (1<<0)) c2 = '+';
+    if( (d0&0xfc) == 0xac) autoid = 1;
+    printf("         System Controller : 64x%c Slot1%c SysRstEna%c\n", c0, c1, c2);
+  }
+  if( autoid)
   {
     printf("         Auto ID           : enabled\n");
   }
   else
   {
     printf("         Auto ID           : disabled\n");
+  }
+  if( conf_board == PEV_BOARD_IFC1210)
+  {
+    printf("      P2020 Boot mode      : ");
+    switch( d0 & 0x30)
+    {
+      case 0x00:
+      {
+	printf("Micro SD\n");
+	break;
+      }
+      case 0x10:
+      {
+	printf("NOR Flash\n");
+	break;
+      }
+      case 0x20:
+      {
+	printf("SPI Flash\n");
+	break;
+      }
+      case 0x30:
+      {
+	printf("RESET\n");
+	break;
+      }
+    }
   }
   c0 = c1 = c2 = '-';
   if( d0 & (1<<8)) c0 = '+';
@@ -218,6 +284,26 @@ conf_show_static( void)
         printf("         Disabled");
         break;
       }
+    }
+  }
+  if( conf_board == PEV_BOARD_IFC1210)
+  {
+    printf("      FPGA\n");
+    if( d0 & (1<<10))
+    {
+      printf("         Configuration mode\n");
+    }
+    else
+    {
+      printf("         Bit Stream        : %d\n", ((d0 >> 8)&0x3));
+    }
+    if( d0 & (1<<12))
+    {
+      printf("         PON FSM           : Disabled\n");
+    }
+    else
+    {
+      printf("         PON FSM           : Enabled\n");
     }
   }
   if(( conf_board == PEV_BOARD_PEV1100) ||
@@ -375,6 +461,11 @@ conf_show_vme( void)
   char c0, c1, c2, c3;
   int autoid, x64;
 
+  if(( conf_board == PEV_BOARD_APX2300) ||
+     ( conf_board == PEV_BOARD_ADN4001)    )
+  {
+    return;
+  }
   printf("   VME Interface\n");
   /* select VME registers */
   pev_csr_wr( reg_remap->iloc_base, PEV_SCSR_SEL_VME);

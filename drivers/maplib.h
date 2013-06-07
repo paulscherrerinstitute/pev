@@ -27,8 +27,11 @@
  *  Change History
  *  
  * $Log: maplib.h,v $
- * Revision 1.13  2012/10/29 10:06:55  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.14  2013/06/07 14:58:31  zimoch
+ * update to latest version
+ *
+ * Revision 1.3  2012/11/14 13:48:34  ioxos
+ * allow to force local address in afrress mapping [JFG]
  *
  * Revision 1.2  2008/07/04 07:40:12  ioxos
  * update address mapping functions [JFG]
@@ -43,6 +46,7 @@
 #ifndef _H_MAPLIB
 #define _H_MAPLIB
 
+int map_blk_force( struct pev_ioctl_map_ctl *, struct pev_ioctl_map_pg *);
 int map_blk_alloc( struct pev_ioctl_map_ctl *, struct pev_ioctl_map_pg *);
 int map_blk_find( struct pev_ioctl_map_ctl *, struct pev_ioctl_map_pg *);
 int map_blk_modify( struct pev_ioctl_map_ctl *, struct pev_ioctl_map_pg *);

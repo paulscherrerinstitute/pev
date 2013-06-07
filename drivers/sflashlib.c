@@ -27,8 +27,14 @@
  *  Change History
  *  
  *  $Log: sflashlib.c,v $
- *  Revision 1.13  2012/10/29 10:06:55  kalantari
- *  added the tosca driver version 4.22 from IoxoS
+ *  Revision 1.14  2013/06/07 14:58:31  zimoch
+ *  update to latest version
+ *
+ *  Revision 1.10  2012/11/16 15:16:40  ioxos
+ *  bug in swapping data in sflash_write_io() [jfg]
+ *
+ *  Revision 1.9  2012/11/09 13:36:40  ioxos
+ *  allow sflash programming through CSR space (need swapping) [JFG]
  *
  *  Revision 1.8  2012/03/14 14:03:19  ioxos
  *  read status should return short [JFG]
@@ -108,11 +114,14 @@
 #define SPI_DEV3      0xc0
 
 int sflash_dev = 0;
+int sflash_swap = 0;
+int rdwr_swap_32( int);
 
 void
 sflash_set_dev( uint dev)
 {
   sflash_dev = (dev & 3) << 6;
+  sflash_swap = dev & 0x80000000;
 }
 
 static void
@@ -123,7 +132,12 @@ sflash_write_io( uint data,
   if( sflash_dev)
   {
     tmp = *(uint *)reg_p;
-    *(uint *)reg_p = sflash_dev | data;
+    data |=  sflash_dev;
+    if( sflash_swap)
+    {
+      data = rdwr_swap_32( data);
+    }
+    *(uint *)reg_p = data;
     tmp = *(uint *)reg_p;
   }
   else
@@ -141,6 +155,10 @@ sflash_read_io(  ulong reg_p)
   if( sflash_dev)
   {
     data = *(uint *)reg_p;
+    if( sflash_swap)
+    {
+      data = rdwr_swap_32( data);
+    }
   }
   else
   {

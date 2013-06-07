@@ -27,8 +27,17 @@
  *  Change History
  *  
  * $Log: rdwr.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.34  2013/05/14 06:31:17  ioxos
+ * add compare function [JFG]
+ *
+ * Revision 1.33  2013/04/15 14:01:44  ioxos
+ * cosmetics [JFG]
+ *
+ * Revision 1.32  2012/12/13 14:55:32  ioxos
+ * support for bus address access and 2 DMA controllers [JFG]
  *
  * Revision 1.31  2012/10/09 14:21:49  ioxos
  * detect DMA transfer error [JFG]
@@ -127,7 +136,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: rdwr.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: rdwr.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #define DEBUGno
@@ -349,6 +358,20 @@ struct rdwr_cycle_para last_dma_cycle =
   0x0
 };
 
+/* Holds the parameters of the last BUS cycle executed */
+struct rdwr_cycle_para last_bus_cycle =
+{
+  0,
+  0,
+  0x0, 0, 'r', 32,
+  'd', 'b', 'w', 0,
+  0x40,
+  0x0,
+  0x0,
+  0x0,
+  0x0
+};
+
 struct pev_ioctl_map_pg mas_map;
 #define vme_mas_map mas_map
 #define shm_mas_map mas_map
@@ -366,6 +389,7 @@ struct pev_ioctl_dma_req dma_req;
 struct pev_ioctl_dma_sts dma_sts;
 char rdwr_filename[256];
 int rdwr_board = 0;
+extern int script_exit;
 
 char *
 rdwr_rcsid()
@@ -803,6 +827,7 @@ rdwr_set_ioctl_arg( struct pev_ioctl_rdwr *rdwr_p,
   if( cp->space == 'e') p->space = RDWR_ELB;
   if( cp->space == 'x') p->space = RDWR_PEX;
   if( cp->space == 'm') p->space = RDWR_KMEM;
+  if( cp->space == 'b') p->space = RDWR_BADDR;
 
   return( cp->mode);
 }
@@ -1195,6 +1220,10 @@ xprs_rdwr_dm( struct cli_cmd_para *c)
   {
     cp = &last_pci_cycle;
   }
+  if( c->cmd[1] == 'b')
+  {
+    cp = &last_bus_cycle;
+  }
 
   cp->op = 0;
   rdwr_get_cycle_para( c, cp);
@@ -1389,6 +1418,10 @@ xprs_rdwr_fm( struct cli_cmd_para *c)
   {
     cp = &last_pci_cycle;
   }
+  if( c->cmd[1] == 'b')
+  {
+    cp = &last_bus_cycle;
+  }
 
   cp->loop = 1;
   rdwr_get_cycle_para( c, cp);
@@ -1501,6 +1534,7 @@ rdwr_tm_error( void *buf_in,
 	       int ds)
 {
   printf("data error at address %x \n", idx);
+  script_exit = 1;
   idx &= 0xffff8;
   switch( ds)
   {
@@ -1987,6 +2021,10 @@ xprs_rdwr_pm( struct cli_cmd_para *c)
   {
     cp = &last_pci_cycle;
   }
+  if( c->cmd[1] == 'b')
+  {
+    cp = &last_bus_cycle;
+  }
 
   rdwr_get_cycle_para( c, cp);
   if( cp->crate == -1)
@@ -2078,6 +2116,116 @@ xprs_rdwr_pm( struct cli_cmd_para *c)
 }
 
 int 
+xprs_rdwr_cm( struct cli_cmd_para *c)
+{
+  struct rdwr_cycle_para *cp;
+  struct pev_ioctl_rdwr rdwr;
+  struct pev_ioctl_map_pg *mp;
+  ulong addr;
+  ulong data, mask;
+  int ds;
+  int ret;
+
+  if( c->cnt < 3)
+  {
+    printf("usage: %s.<x> <addr> <data> <mask> \n", c->cmd);
+    return(-1);
+  }
+  if( c->cmd[1] == 'c') cp = &last_cfg_cycle;
+  if( c->cmd[1] == 'e') cp = &last_elb_cycle;
+  if( c->cmd[1] == 'i') cp = &last_io_cycle;
+  if( c->cmd[1] == 'r') cp = &last_csr_cycle;
+  if( c->cmd[1] == 'x') cp = &last_pex_cycle;
+  mp = (struct pev_ioctl_map_pg *)0;
+  if( c->cmd[1] == 'v')
+  {
+    cp = &last_vme_cycle;
+    mp = &vme_mas_map;
+  }
+  if( c->cmd[1] == 's')
+  {
+    cp = &last_shm1_cycle;
+    if( c->cmd[2] == '2')
+    {
+      cp = &last_shm2_cycle;
+    }
+    mp = &shm_mas_map;
+  }
+  if( c->cmd[1] == 'u')
+  {
+    cp = &last_usr1_cycle;
+    if( c->cmd[2] == '2')
+    {
+      cp = &last_usr2_cycle;
+    }
+    mp = &shm_mas_map;
+  }
+  if( c->cmd[1] == 'm')
+  {
+    cp = &last_kmem_cycle;
+    if( !dma_buf.k_addr)
+    {
+      printf("kernel buffer has not been allocated !!! \n");
+      return(-1);
+    }
+    rdwr.k_addr = dma_buf.k_addr;
+  }
+  if( c->cmd[1] == 'p')
+  {
+    cp = &last_pci_cycle;
+  }
+  if( c->cmd[1] == 'b')
+  {
+    cp = &last_bus_cycle;
+  }
+
+  rdwr_get_cycle_para( c, cp);
+  if( cp->crate == -1)
+  {
+    printf("crate number not defined !!! \n");
+    return(-1);
+  }
+  sscanf( c->para[2],"%lx", &mask);
+
+  addr = cp->addr;
+  data = cp->data;
+  rdwr_set_cycle_mode( cp);
+  ds = cp->mode & 0xf;
+
+  rdwr.buf = (void *)&data;
+  rdwr.len = 0;
+  rdwr_set_ioctl_arg( &rdwr, cp);
+
+  rdwr.offset = rdwr_set_map( cp, mp);
+
+  rdwr.mode.dir = RDWR_READ;
+  ret = pev_rdwr( &rdwr);
+  if( ret < 0)
+  {
+    printf("cannot access data\n");
+    script_exit = 1;
+    return(-1);
+  }
+  script_exit = 0;
+  printf("%08lx :  %08lx - %08lx [%08lx]", addr, data, cp->data, mask);
+  if( ds == 1)
+  {
+    if( (char)(data & mask) != (char)(cp->data & mask)) script_exit = 1;
+  }
+  if( ds == 2)
+  {
+    if( (short)(data & mask) != (short)(cp->data & mask)) script_exit = 1;
+  }
+  if( ds == 4)
+  {
+    if( (int)(data & mask) != (int)(cp->data & mask)) script_exit = 1;
+  }
+  if( script_exit) printf(" -> ERROR !!!\n");
+  else  printf("\n");
+  return( 0);
+}
+
+int 
 xprs_rdwr_lm( struct cli_cmd_para *c)
 {
   struct rdwr_cycle_para *cp;
@@ -2158,7 +2306,7 @@ xprs_rdwr_lm( struct cli_cmd_para *c)
   cnt = 0;
   tm = time(0);
   printf("enter any key to stop looping\n");
-  printf("loop: %d\r", cnt);
+  printf("loop [%d]: %d\r", rdwr.len,  cnt);
   fflush(stdout);
   while( ( cnt < cp->loop) || !cp->loop)
   {
@@ -2183,7 +2331,7 @@ xprs_rdwr_lm( struct cli_cmd_para *c)
     if( time(0) != tm)
     {
       tm = time(0);
-      printf("loop: %d\r", cnt);
+      printf("loop [%d]: %d\r", rdwr.len,  cnt);
       fflush(stdout);
     }
     if( aio_error( &aiocb) != EINPROGRESS)
@@ -2317,10 +2465,19 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
   struct pev_time tmi, tmo;
   int usec;
   int utmi, utmo;
+  int ctlr;
 
   retval = 0;
   if( c->cnt > 0)
   {
+    ctlr = DMA_START_CTLR_0;
+    if( c->ext)
+    {
+      if( c->ext[0] == '1')
+      {
+	ctlr = DMA_START_CTLR_1;
+      }
+    }
     if( !strncmp( "start", c->para[0], 5))
     {
       uint para, npara;
@@ -2328,7 +2485,7 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
 
       if( c->cnt < 4)
       {
-	printf("usage : dma start <des_start>:<des_mode>[.s] <src_start>:<src_mode>[.s] <size>\n");
+	printf("usage : dma.<x> start <des_start>:<des_mode>[.s] <src_start>:<src_mode>[.s] <size>\n");
 	return( -1);
       }
       sw = 0;
@@ -2419,6 +2576,7 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
       {
 	dma_req.start_mode = DMA_MODE_PIPE;
       }
+      dma_req.start_mode |= ctlr;
       dma_req.end_mode = 0;
       dma_req.intr_mode = DMA_INTR_ENA;
       dma_req.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (5<<4); /* 5 sec timeout */
@@ -2457,7 +2615,7 @@ xprs_rdwr_dma( struct cli_cmd_para *c)
 
       sts = &dma_sts;
       printf("DMA CSR registers\n");
-      pev_dma_status(sts);
+      pev_dma_status( ctlr, sts);
       printf("RD: %08x: %08x : %08x: %08x\n", sts->rd_csr, sts->rd_ndes, sts->rd_cdes, sts->rd_cnt);
       printf("WR: %08x: %08x : %08x: %08x\n", sts->wr_csr, sts->wr_ndes, sts->wr_cdes, sts->wr_cnt);
     }

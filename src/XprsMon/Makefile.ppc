@@ -43,9 +43,9 @@ RANLIB = $(CROSS)ranlib
 
 OLIB = $(LIBDIR)/libpev.a
 ifeq ($(EXTRAFLAG),-DMPC)
-OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o fifo.o eeprom.o mpc.o
+OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o  idt.o fpga.o fifo.o eeprom.o mpc.o adc3110.o
 else
-OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o fpga.o fifo.o eeprom.o
+OFILES = XprsMon.o rdwr.o conf.o sflash.o map.o script.o tty.o tst.o timer.o vme.o i2c.o idt.o fpga.o fifo.o eeprom.o adc3110.o
 endif
 HFILES = $(INCDIR)/cli.h 
 
@@ -68,7 +68,7 @@ endif
 INC = -I $(INCDIR)
 LIB = -L $(LIBDIR)
 XprsMon:$(OFILES)  $(OLIB)
-	$(CC) $(LIB) -o XprsMon $(OFILES) -lpev -lrt
+	$(CC) $(LIB) -o XprsMon $(OFILES) -lpev -lrt -lm
 endif
 
 
@@ -104,6 +104,12 @@ vme.o: vme.c cmdlist.h Makefile.ppc
 
 i2c.o: i2c.c cmdlist.h Makefile.ppc
 	$(CC) $(FLAGS) $(INC) -c i2c.c
+
+adc3110.o: adc3110.c cmdlist.h Makefile.ppc
+	$(CC) $(FLAGS) $(INC) -c adc3110.c
+
+idt.o: idt.c cmdlist.h Makefile.ppc
+	$(CC) $(FLAGS) $(INC) -c idt.c
 
 fpga.o: fpga.c cmdlist.h Makefile.ppc
 	$(CC) $(FLAGS) $(INC) -c fpga.c

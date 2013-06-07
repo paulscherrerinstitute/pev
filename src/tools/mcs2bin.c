@@ -28,8 +28,11 @@
  *  Change History
  *  
  * $Log: mcs2bin.c,v $
- * Revision 1.11  2012/10/29 10:06:56  kalantari
- * added the tosca driver version 4.22 from IoxoS
+ * Revision 1.12  2013/06/07 14:59:54  zimoch
+ * update to latest version
+ *
+ * Revision 1.5  2012/12/05 10:00:11  ioxos
+ * cosmetics [JFG]
  *
  * Revision 1.4  2012/03/15 09:30:15  ioxos
  * bug if bitstream > 0x800000 (unsigned charpwd) [JFG]
@@ -47,7 +50,7 @@
  *=============================< end file header >============================*/
 
 #ifndef lint
-static char *rcsid = "$Id: mcs2bin.c,v 1.11 2012/10/29 10:06:56 kalantari Exp $";
+static char *rcsid = "$Id: mcs2bin.c,v 1.12 2013/06/07 14:59:54 zimoch Exp $";
 #endif
 
 #include <stdlib.h>
@@ -95,7 +98,7 @@ main( int argc,
     char *p;
 
     p = argv[i++];
-    printf("%s\n", p);
+    //printf("%s\n", p);
     if( p[0] == '-')
     {
       switch( p[1])
@@ -122,7 +125,7 @@ main( int argc,
   }
   if( !infilename)
   {
-    printf("usage: mcs2bin -o outfile infile");
+    printf("usage: mcs2bin -o outfile infile\n");
     exit(0);
   }
   infile = fopen( infilename, "r");
@@ -144,7 +147,7 @@ main( int argc,
     fclose( infile);
     exit(0);
   }
-  printf("NEW : converting file %s -> %s\n", infilename, outfilename);
+  printf("converting file %s -> %s\n", infilename, outfilename);
   n = 0;
   addr_hi = 0;
   addr_lo = 0;
