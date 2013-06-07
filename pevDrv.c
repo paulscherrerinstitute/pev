@@ -58,7 +58,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevDrv.c,v 1.39 2013/05/14 14:01:22 zimoch Exp $";
+    "$Id: pevDrv.c,v 1.40 2013/06/07 14:55:20 zimoch Exp $";
 */
 static void pevHookFunc(initHookState state);
 int pev_dmaQueue_init(int crate);
@@ -279,6 +279,7 @@ int pevRead(
       regDevCopy(dlen, nelem, device->pev_dmaBuf.u_addr + offset, pdata, NULL, 0);
     else
       {
+        if ((device->dmaSpace & (DMA_SPACE_WS|DMA_SPACE_DS|DMA_SPACE_QS)) != 0) swap = ~swap;
         if( !(device->pev_rmArea_map.mode & MAP_SPACE_VME) )
 	  regDevCopy(dlen, nelem, device->uPtrMapRes + device->baseOffset + offset, pdata, NULL, swap); 
 	else
@@ -395,7 +396,8 @@ int pevWrite(
     if( device->flags==FLAG_BLKMD )
       regDevCopy(dlen, nelem, pdata, device->pev_dmaBuf.u_addr + offset, NULL, 0); 
     else
-      {  
+      {
+        if ((device->dmaSpace & (DMA_SPACE_WS|DMA_SPACE_DS|DMA_SPACE_QS)) != 0) swap = ~swap;
         if( !(device->pev_rmArea_map.mode & MAP_SPACE_VME) )
           regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + device->baseOffset + offset, NULL, swap);
 	else
@@ -518,6 +520,7 @@ int pevAsynRead(
       return -1;
     }
       
+    if ((device->dmaSpace & (DMA_SPACE_WS|DMA_SPACE_DS|DMA_SPACE_QS)) != 0) swap = ~swap;
     if( !(device->pev_rmArea_map.mode & MAP_SPACE_VME) )
       regDevCopy(dlen, nelem, device->uPtrMapRes + device->baseOffset + offset, pdata, NULL, swap);        
     else
@@ -651,6 +654,7 @@ int pevAsynWrite(
       return -1;
     }
       
+    if ((device->dmaSpace & (DMA_SPACE_WS|DMA_SPACE_DS|DMA_SPACE_QS)) != 0) swap = ~swap;
     if( !(device->pev_rmArea_map.mode & MAP_SPACE_VME) )
       regDevCopy(dlen, nelem, pdata, device->uPtrMapRes + device->baseOffset + offset, NULL, swap); 
     else
