@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2013/02/07 12:48:27 $
-# $Revision: 1.8 $
+# $Date: 2013/11/07 09:31:00 $
+# $Revision: 1.9 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -47,8 +47,8 @@ require "Timing"
 #######################################################################
 # EVG and EVR configure
 #          Slot,A16-base,IRQ-vect
-EgConfigure(20,0x200000,0x60                 ,0x098E8166)
+EgConfigure(5,0x200000,0x60                 ,0x098E8166)
 
 #          Slot,A16-base,IRQ-vect, IRQ-level
-ErConfigure(21,0x100000,0xC2    ,5         ,0,0x098E8166)
+ErConfigure(4,0x100000,0xC2    ,5         ,0,0x098E8166)
 
