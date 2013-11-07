@@ -1,6 +1,6 @@
 # $Source: /cvs/G/DRV/pev/Examples/Timing/MTEST-PC-IFC5_startup.script,v $
-# $Date: 2013/11/07 09:31:00 $
-# $Revision: 1.9 $
+# $Date: 2013/11/07 12:45:54 $
+# $Revision: 1.10 $
 # $Author: kalt_r $
 #
 # Original Author: KR84
@@ -33,7 +33,7 @@ epicsEnvSet EPICS_CA_MAX_ARRAY_BYTES 40000000
 # load regDev and pev (=TOSCA-II) drivers
 require "regDev"
 require "pev"
-require "mrf200evt","test"
+require "mrf200evt"
 
 # for the histogram record, which is not in EPICS base for EPICS 3.14.12 / embeddedlinux-e500v2
 require "histogram"
