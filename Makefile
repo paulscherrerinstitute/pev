@@ -1,19 +1,23 @@
 include /ioc/tools/driver.makefile
 
-#EPICS_VERSIONS = 3.14.8
-EXCLUDE_VERSIONS=3.13
-
-SOURCES = pevDrv.c i2cDrv.c ifcDev.c devLibVMEOSD.c devLibInitiator.cc
 BUILDCLASSES = Linux
-USR_CPPFLAGS = -DPPC -mlongcall -g -DLITTLE_ENDIAN -DDEBUG -Wall
+ARCH_FILTER = %-e500v2
+
+SOURCES += pev.c
+SOURCES += pevMap.c
+SOURCES += pevInterrupt.c
+SOURCES += pevDma.c  
+SOURCES += devLibVMEOSD.c
+SOURCES += pevRegDev.c
+SOURCES += i2cDrv.c
+SOURCES += ifcDev.c
 
 # find the pev librarx from IOxOS
-#PEVDIR_embeddedlinux-e500v2 = /net/gfa-eldk/export/home/anicic/ELDK-my/driver/G/DRV/pev
 PEVDIR_embeddedlinux-e500v2 = /opt/eldk-5.2/ifc
+PEVDIR_eldk52-e500v2 = /opt/eldk-5.2/ifc
 #PEVDIR_SL5-x86 = ....
 #PEVDIR_embeddedlinux-e500v2 = ../
-USR_INCLUDES += -I$(PEVDIR_$(T_A))/include
-USR_LDFLAGS  += -L$(PEVDIR_$(T_A))/lib
+PEVDIR=$(PEVDIR_$(T_A))
+USR_INCLUDES += -I$(PEVDIR)/include
+USR_LDFLAGS  += -L$(PEVDIR)/lib
 USR_LIBS     += pev
-
-CROSS_COMPILER_TARGET_ARCHS=embeddedlinux-e500v2

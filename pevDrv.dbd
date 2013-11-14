@@ -1,8 +1,0 @@
-registrar(pevRegistrar)
-registrar(pevAsynRegistrar)
-registrar(pevExpertReportRegistrar)
-registrar(vmeMapShowRegistrar)
-registrar(pevVmeSlaveMainConfigRegistrar)
-registrar(pevVmeSlaveRegistrar)
-variable(pevDebug, int)
-variable(pevDevLibDebug, int)

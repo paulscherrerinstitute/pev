@@ -1,0 +1,6 @@
+registrar(pevDrvRegistrar)
+registrar(pevRegistrar)
+variable(pevDebug, int)
+variable(pevDrvDebug, int)
+variable(pevDevLibDebug, int)
+#variable(dmaServerDebug, int)
