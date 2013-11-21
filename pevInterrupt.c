@@ -1,5 +1,8 @@
+#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
+#include <dlfcn.h>
 
 #include <pevulib.h>
 #include <pevxulib.h>
@@ -15,34 +18,37 @@
 #include "pev.h"
 #include "pevPrivate.h"
 
-struct pevIsrEntry {
-    struct pevIsrEntry *next;
+struct isrEntry {
+    struct isrEntry *next;
     unsigned int src_id;
     unsigned int vec_id;
     void (*func)(void*, unsigned int src_id, unsigned int vec_id);
     void* usr;
+    const char* funcfile;
+    const char* funcname;
+    int funcoffset;
 };
 
-LOCAL struct pevIntrEngine {
+LOCAL struct intrEngine {
     struct pev_ioctl_evt *intrEvent;
-    struct pevIsrEntry *isrList;
+    struct isrEntry *isrList;
     epicsThreadId tid;
     epicsMutexId isrListLock;
 } pevIntrList[MAX_PEV_CARDS];
 
 LOCAL epicsMutexId pevIntrListLock;
 
+static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
+
 LOCAL void pevIntrThread(void* arg)
 {
     unsigned int card = (int)arg;
     unsigned int intr, src_id, vec_id, handler_called;
-    const struct pevIsrEntry* isr;
+    const struct isrEntry* isr;
     struct pev_ioctl_evt *intrEvent = pevIntrList[card].intrEvent;
-    struct pevIsrEntry *isrList = pevIntrList[card].isrList;
+    struct isrEntry *isrList = pevIntrList[card].isrList;
     epicsMutexId lock = pevIntrList[card].isrListLock;
     
-    const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
-
     if (pevx_evt_queue_enable(card, intrEvent) != 0)
     {
         errlogPrintf("pevIntrThread(card=%d): pevx_evt_queue_enable failed\n",
@@ -64,8 +70,8 @@ LOCAL void pevIntrThread(void* arg)
         vec_id = intr&0xff;
 
         if (pevDebug >= 2)
-            printf("pevIntrThread(card=%d): New interrupt src_id=0x%02x (%s-%i) vec_id=0x%02x\n",
-                card, src_id, src_name[src_id >> 8], src_id & 0xf0, vec_id);
+            printf("pevIntrThread(card=%d): New interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
+                card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
 
         handler_called = FALSE;
         for (isr = isrList; isr; isr = isr->next)
@@ -81,8 +87,8 @@ LOCAL void pevIntrThread(void* arg)
                 continue;
 
             if (pevDebug >= 2)
-                printf("pevIntrThread(card=%d): match func=%p usr=%p\n",
-                    card, isr->func, isr->usr);
+                printf("pevIntrThread(card=%d): match func=%p (%s) usr=%p\n",
+                    card, isr->func, isr->funcname, isr->usr);
             
             isr->func(isr->usr, src_id, vec_id);
             handler_called = TRUE;
@@ -96,7 +102,7 @@ LOCAL void pevIntrThread(void* arg)
     }
 }
 
-LOCAL struct pevIntrEngine* pevStartIntrEngine(unsigned int card)
+LOCAL struct intrEngine* pevStartIntrEngine(unsigned int card)
 {
     char threadName[16];
 
@@ -166,7 +172,7 @@ LOCAL struct pevIntrEngine* pevStartIntrEngine(unsigned int card)
     return &pevIntrList[card];
 }
 
-static inline struct pevIntrEngine* pevGetIntrEngine(unsigned int card)
+static inline struct intrEngine* pevGetIntrEngine(unsigned int card)
 {
     if (card > MAX_PEV_CARDS) return NULL;
     if (pevIntrList[card].intrEvent) return &pevIntrList[card];
@@ -175,35 +181,43 @@ static inline struct pevIntrEngine* pevGetIntrEngine(unsigned int card)
 
 int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(void* usr, unsigned int src_id, unsigned int vec_id), void* usr)
 {
-    struct pevIsrEntry* isr;
+    struct intrEngine* engine;
+    struct isrEntry** pisr;
+    Dl_info sym;
+    
+    memset(&sym, 0, sizeof(sym));
+    dladdr(func, &sym);
     
     if (pevDebug)
-        printf("pevConnectInterrupt(card=%d, src_id=0x%02x, vec_id = 0x%02x, func=%p, usr=%p)\n",
-            card, src_id, vec_id, func, usr);
+        printf("pevConnectInterrupt(card=%d, src_id=0x%02x, vec_id = 0x%02x, func=%p (%s), usr=%p)\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
 
-    if (!pevGetIntrEngine(card))
+    engine = pevGetIntrEngine(card);
+    if (!engine)
     {
-        errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p, usr=%p): pevGetIntrEngine() failed\n",
-            card, src_id, vec_id, func, usr);
+        errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevGetIntrEngine() failed\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
         return S_dev_noMemory;
     }
             
-    isr = malloc(sizeof(*isr));
-    if (isr == NULL)
+    epicsMutexLock(engine->isrListLock);
+    for (pisr = &engine->isrList; *pisr; pisr=&(*pisr)->next);
+    *pisr = calloc(1, sizeof(struct isrEntry));
+    if (!*pisr)
     {
-        errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p, usr=%p): out of memory\n",
-            card, src_id, vec_id, func, usr);        
+        errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): out of memory\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);        
+        epicsMutexUnlock(engine->isrListLock);
         return S_dev_noMemory;
     }
-    isr->src_id = src_id;
-    isr->vec_id = vec_id;
-    isr->func = func;
-    isr->usr = usr;
-    
-    epicsMutexLock(pevIntrList[card].isrListLock);
-    isr->next = pevIntrList[card].isrList;
-    pevIntrList[card].isrList = isr;
-    epicsMutexUnlock(pevIntrList[card].isrListLock);
+    (*pisr)->src_id = src_id;
+    (*pisr)->vec_id = vec_id;
+    (*pisr)->func = func;
+    (*pisr)->usr = usr;
+    (*pisr)->funcfile = sym.dli_fname;
+    (*pisr)->funcname = sym.dli_sname;
+    (*pisr)->funcoffset = (void*)func - sym.dli_saddr;
+    epicsMutexUnlock(engine->isrListLock);
 
     if (src_id == EVT_SRC_VME)
     {
@@ -214,12 +228,12 @@ int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec
         {
             vme_src_id = EVT_SRC_VME + i;
             if (pevDebug)
-                printf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p, usr=%p): pevx_evt_register(vme_src_id=%#04x)\n",
-                    card, src_id, vec_id, func, usr, vme_src_id);
-            if (pevx_evt_register(card, pevIntrList[card].intrEvent, vme_src_id) != 0)
+                printf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevx_evt_register(vme_src_id=%#04x)\n",
+                    card, src_id, vec_id, func, sym.dli_sname, usr, vme_src_id);
+            if (pevx_evt_register(card, engine->intrEvent, vme_src_id) != 0)
             {
-                errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p, usr=%p): pevx_evt_register(vme_src_id=%#04x) failed\n",
-                    card, src_id, vec_id, func, usr, vme_src_id);
+                errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevx_evt_register(vme_src_id=%#04x) failed\n",
+                    card, src_id, vec_id, func, sym.dli_sname, usr, vme_src_id);
                 return S_dev_badVector;
             }
         }
@@ -227,48 +241,102 @@ int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec
     }
     if (pevDebug)
         printf("pevConnectInterrupt(): pevx_evt_register(card=%d, src_id=0x%02x)\n", card, src_id);
-    if (pevx_evt_register(card, pevIntrList[card].intrEvent, src_id) != 0)
+    if (pevx_evt_register(card, engine->intrEvent, src_id) != 0)
     {
-        errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p, usr=%p): pevx_evt_register failed\n",
-            card, src_id, vec_id, func, usr);
+        errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevx_evt_register failed\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
         return S_dev_badVector;
     }
     return S_dev_success;
 }
 
+int pevDisconnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(void* usr, unsigned int src_id, unsigned int vec_id), void* usr)
+{
+    struct intrEngine* engine;
+    struct isrEntry** pisr;
+    struct isrEntry* isr;
+    Dl_info sym;
+    
+    memset(&sym, 0, sizeof(sym));
+    dladdr(func, &sym);
+    
+    if (pevDebug)
+        printf("pevDisconnectInterrupt(card=%d, src_id=0x%02x, vec_id = 0x%02x, func=%p (%s), usr=%p)\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
+
+    engine = pevGetIntrEngine(card);
+    if (!engine)
+    {
+        errlogPrintf("pevDisconnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevGetIntrEngine() failed\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
+        return S_dev_noMemory;
+    }
+    
+    epicsMutexLock(engine->isrListLock);
+    for (pisr = &engine->isrList; *pisr; pisr = &(*pisr)->next)
+    {
+        if ((*pisr)->src_id == src_id &&
+            (*pisr)->vec_id == vec_id &&
+            (*pisr)->func == func &&
+            (usr == (void*)-1 || (*pisr)->usr == usr)) break;
+    }
+    if (!*pisr)
+    {
+        errlogPrintf("pevDisconnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): not connected\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
+        epicsMutexUnlock(engine->isrListLock);
+        return S_dev_noMemory;
+    }
+    if (pevDebug)
+        printf("pevDisconnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): removing handler\n",
+            card, src_id, vec_id, func, sym.dli_sname, usr);
+    isr = *pisr;
+    *pisr = (*pisr)->next;
+    memset(isr, 0, sizeof(struct isrEntry));
+    free (isr);
+    epicsMutexUnlock(engine->isrListLock);
+    return S_dev_success;
+}
+
 int pevDisableInterrupt(unsigned int card, unsigned int src_id)
 {
+    struct intrEngine* engine;
+
     if (pevDebug)
         printf("pevDisableInterrupt(card=%d, src_id=0x%02x)\n", card, src_id);
 
-    if (!pevGetIntrEngine(card))
+    engine = pevGetIntrEngine(card);
+    if (!engine)
     {
         errlogPrintf("pevDisableInterrupt(card=%d, src_id=%#04x): pevGetIntrEngine() failed\n",
             card, src_id);
         return S_dev_noMemory;
     }
 
-    return pevx_evt_mask(card, pevIntrList[card].intrEvent, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
+    return pevx_evt_mask(card, engine->intrEvent, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
 }
 
 int pevEnableInterrupt(unsigned int card, unsigned int src_id)
 {
+    struct intrEngine* engine;
+
     if (pevDebug)
         printf("pevEnableInterrupt(card=%d, src_id=0x%02x)\n", card, src_id);
 
-    if (!pevGetIntrEngine(card))
+    engine = pevGetIntrEngine(card);
+    if (!engine)
     {
         errlogPrintf("pevEnableInterrupt(card=%d, src_id=%#04x): pevGetIntrEngine() failed\n",
             card, src_id);
         return S_dev_noMemory;
     }
 
-    return pevx_evt_unmask(card, pevIntrList[card].intrEvent, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
+    return pevx_evt_unmask(card, engine->intrEvent, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
 }
 
 void pevInterruptShow(const iocshArgBuf *args)
 {
-    struct pevIsrEntry* isr;
+    struct isrEntry* isr;
     unsigned int card;
 
     printf("pev interrupts maps:\n");
@@ -276,7 +344,27 @@ void pevInterruptShow(const iocshArgBuf *args)
     {
         for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
         {
-            printf("  card=%d, src=0x%02x vec=0x%02x func=%p usr=%p\n", card, isr->src_id, isr->vec_id, isr->func, isr->usr);
+            printf("  card=%d, src=0x%02x (%s",
+                card, isr->src_id, src_name[isr->src_id >> 4]);
+            if (isr->src_id != EVT_SRC_VME || isr->src_id & 0xf)
+                printf(" %d", isr->src_id & 0xf);
+            printf (") vec=");
+            if (isr->vec_id)
+                printf("0x%02x (%d)", isr->vec_id, isr->vec_id);
+            else
+                printf("any");
+            printf(" func=%p", isr->func);
+            if (isr->funcname)
+            {
+                printf (" (%s:%s", isr->funcfile, isr->funcname);
+                if (isr->funcoffset)  printf ("+0x%x", isr->funcoffset);
+                printf (") ");
+            }
+            if (isr->usr)
+                printf ("usr=%p", isr->usr);
+            else
+                printf ("usr=NULL");
+            printf ("\n");
         }
     }
 }
