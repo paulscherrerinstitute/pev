@@ -46,28 +46,9 @@ epicsExportAddress(int, pevDevLibDebug);
  * Interrupt handling
  */
 
-LOCAL struct pevIsrEntry { void (*func)(void*); void* param; } pevIsrTable [256];
-
-LOCAL void pevDevLibIsrVME(void* usr, int src_id, int vec_id)
-{
-    pevIsrTable[vec_id].func(pevIsrTable[vec_id].param);
-}
-
-/*
- *  pevUnsolicitedIntrHandlerVME()
- *      what gets called if they disconnect from an
- *  interrupt and an interrupt arrives on the
- *  disconnected vector
- */
-LOCAL void pevDevLibUnsolicitedIntrHandlerVME(void* vectorNumber)
-{
-    errlogPrintf("VME interrupt to disconnected vector 0x%02x\n",
-        (int)vectorNumber);
-}
-
 LOCAL int pevDevLibInterruptInUseVME(unsigned vectorNumber)
 {
-    return pevIsrTable[vectorNumber].func != pevDevLibUnsolicitedIntrHandlerVME;
+    return 0;
 }
 
 LOCAL long pevDevLibConnectInterruptVME(
@@ -78,15 +59,11 @@ LOCAL long pevDevLibConnectInterruptVME(
     if (pevDevLibDebug)
 	printf("connecting VME Interrupt 0x%02x func=%p param=%p\n",
             vectorNumber, pFunction, parameter);
-
+    
     if (vectorNumber > 0xff)
         return S_dev_badVector;
-    if (pevDevLibInterruptInUseVME(vectorNumber))
-        return S_dev_vectorInUse;
 
-    pevIsrTable[vectorNumber].param = parameter;
-    pevIsrTable[vectorNumber].func = pFunction;
-
+    pevConnectInterrupt(0, EVT_SRC_VME, vectorNumber, pFunction, parameter);
     return S_dev_success;
 }
 
@@ -98,21 +75,8 @@ LOCAL long pevDevLibDisconnectInterruptVME(
     if (pevDevLibDebug)
 	printf("disconnecting VME Interrupt 0x%02x func=%p\n",
             vectorNumber, pFunction);
-
-    if (vectorNumber <=0 || vectorNumber > 256)
-        return S_dev_badVector;
-
-/*
- *  The parameter pFunction should be set to the C function pointer that
- *  was connected. It is used as a key to prevent a driver from removing
- *  an interrupt handler that was installed by another driver
- */
-    if (pFunction != pevIsrTable[vectorNumber].func)
-        return S_dev_badVector;
-
-    pevIsrTable[vectorNumber].func = pevDevLibUnsolicitedIntrHandlerVME;
-    pevIsrTable[vectorNumber].param = (void*)vectorNumber;
-    return S_dev_success;
+    
+    return pevDisconnectInterrupt(0, EVT_SRC_VME, vectorNumber, pFunction, INTR_PARAM_ANY);
 }
 
 LOCAL long pevDevLibEnableInterruptLevelVME(unsigned level)
@@ -333,7 +297,6 @@ LOCAL long pevDevLibInit(void);
 LOCAL long pevDevLibInit(void)
 {
     struct pev_ioctl_vme_conf vme_conf;
-    unsigned int i = 0 ;
 
     if (pevDevLibDebug)
 	printf("pevDevLibInit\n");
@@ -351,20 +314,12 @@ LOCAL long pevDevLibInit(void)
     }
     
     /* Set VME master to supervisory mode */
-/*    pev_csr_set(PVME_MASCSR, VME_SUP_MODE);*/
-    
-    /* initialize VME interrupt vectors */
-    for (i = 0; i <= 0xff; i++)
-    {
-        pevIsrTable[i].func = pevDevLibUnsolicitedIntrHandlerVME;
-        pevIsrTable[i].param = (void*)i;
-    }
-
-    pevConnectInterrupt(0, EVT_SRC_VME, 0, pevDevLibIsrVME, NULL);
+    /* pev_csr_set(PVME_MASCSR, VME_SUP_MODE);*/
 
     return S_dev_success;
 }
 
+/* compatibility with different versions of EPICS 3.14 */
 #if defined(pdevLibVirtualOS) && !defined(devLibVirtualOS)
 #define devLibVirtualOS devLibVME
 #endif
