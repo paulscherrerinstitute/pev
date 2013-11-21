@@ -35,11 +35,22 @@ const char* pevMapName(unsigned int map_mode);
     * if src_id is EVT_SRC_VME (0x10) then all 7 VME interrupt lines (0x10 ... 0x17) will be registered
     * if vec_id is 0 then func is called for any value of vec_id
     * func may inspect current setting for vec_id and src_id when called
+    
+  All interrupt sources start in disabled mode.
 
-  All interrupt sources start in disabled mode. VME 
+
+  pevDisconnectInterrupt
+  
+  Uninstall a previously installed interrupt handler.
+  All arguments must be the same as used for pevConnectInterrupt, in order to avoid uninstalling the wrong handler,
+  except for usr, wich can be PEV_INTR_PARAM_ANY.
 */
 
+#define INTR_PARAM_ANY ((void*)-1)
+
 int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
+
+int pevDisconnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
 
 int pevDisableInterrupt(unsigned int card, unsigned int src_id);
 
@@ -62,6 +73,16 @@ int pevEnableInterrupt(unsigned int card, unsigned int src_id);
 #define DMA_SPACE_BUF DMA_SPACE_MASK
 
 void* pevDmaRealloc(unsigned int card, void* oldptr, size_t size);
+
+extern inline void* pevDmaAlloc(unsigned int card, size_t size)
+{
+    return pevDmaRealloc(card, NULL, size);
+}
+
+extern inline void* pevDmaFree(unsigned int card, void* oldptr)
+{
+    return pevDmaRealloc(card, oldptr, 0);
+}
 
 const char* pevDmaSpaceName(unsigned int dma_space);
 
