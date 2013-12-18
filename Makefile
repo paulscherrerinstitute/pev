@@ -1,6 +1,7 @@
 include /ioc/tools/driver.makefile
 
 BUILDCLASSES = Linux
+EXCLUDE_VERSIONS = 3.13 3.14.8
 ARCH_FILTER = %-e500v2
 
 SOURCES += pev.c
@@ -8,8 +9,6 @@ SOURCES += pevMap.c
 SOURCES += pevInterrupt.c
 SOURCES += pevDma.c  
 SOURCES += pevDevLib.c
-SOURCES += pevRegDev.c
-SOURCES += i2cDrv.c
 SOURCES += ifcDev.c
 
 # find the pev librarx from IOxOS
