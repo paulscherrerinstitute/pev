@@ -11,6 +11,8 @@ SOURCES += pevDma.c
 SOURCES += pevDevLib.c
 SOURCES += ifcDev.c
 
+HEADERS += pev.h
+
 # find the pev librarx from IOxOS
 PEVDIR_embeddedlinux-e500v2 = /opt/eldk-5.2/ifc
 PEVDIR_eldk52-e500v2 = /opt/eldk-5.2/ifc
