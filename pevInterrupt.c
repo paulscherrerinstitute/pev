@@ -46,7 +46,6 @@ LOCAL void pevIntrThread(void* arg)
     unsigned int intr, src_id, vec_id, handler_called;
     const struct isrEntry* isr;
     struct pev_ioctl_evt *intrEvent = pevIntrList[card].intrEvent;
-    struct isrEntry *isrList = pevIntrList[card].isrList;
     epicsMutexId lock = pevIntrList[card].isrListLock;
     
     if (pevx_evt_queue_enable(card, intrEvent) != 0)
@@ -74,7 +73,7 @@ LOCAL void pevIntrThread(void* arg)
                 card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
 
         handler_called = FALSE;
-        for (isr = isrList; isr; isr = isr->next)
+        for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
         {
             if (pevDebug >= 2)
                 printf("pevIntrThread(card=%d): check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
