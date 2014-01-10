@@ -4,8 +4,8 @@
 #include <string.h>
 #include <dlfcn.h>
 
-#include <pevulib.h>
 #include <pevxulib.h>
+struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
 
 #include <errlog.h>
 #include <devLib.h>
@@ -142,7 +142,7 @@ LOCAL struct intrEngine* pevStartIntrEngine(unsigned int card)
         return NULL;
     }
     
-    pevIntrList[card].intrEvent = pevx_evt_queue_alloc(card, 0); /* not in header */
+    pevIntrList[card].intrEvent = pevx_evt_queue_alloc(card, 0);
     if (!pevIntrList[card].intrEvent)
     {
         epicsMutexDestroy(pevIntrList[card].isrListLock);
