@@ -1,1 +1,2 @@
 variable(pevDebug, int)
+registrar(pevRegistrar)
