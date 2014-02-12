@@ -29,55 +29,80 @@ struct isrEntry {
     int funcoffset;
 };
 
-LOCAL struct intrEngine {
-    struct pev_ioctl_evt *intrEvent;
+struct intrEngine {
+    struct intrEngine *next;
+    int card;
+    unsigned int priority;
+    struct pev_ioctl_evt *intrQueue;
     struct isrEntry *isrList;
+    char threadName[16];
     epicsThreadId tid;
     epicsMutexId isrListLock;
-} pevIntrList[MAX_PEV_CARDS];
+};
+
+/* Calculate thread priorities for interrupt handlers. 
+   At the moment: Max for all but VME interrupts
+   VME: level 7 => max - 1, level 6 => max - 2, ...
+   Interrupts from the same card with the same priority
+   will be handled by the same thread (fifo based).
+*/
+unsigned int pevIntrCalcPriority(unsigned int src_id)
+{
+    unsigned int priority = epicsThreadPriorityBaseMax;
+    if ((src_id & 0xf0) == EVT_SRC_VME)
+    {
+        int level = src_id & 0x0f;
+        while (level++ <= 7)
+            epicsThreadHighestPriorityLevelBelow(priority, &priority);
+    }
+    return priority;
+}
 
 LOCAL epicsMutexId pevIntrListLock;
+LOCAL struct intrEngine* pevIntrEngines;
 
 static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
 
 LOCAL void pevIntrThread(void* arg)
 {
-    unsigned int card = (int)arg;
+    struct intrEngine* engine = arg;
     unsigned int intr, src_id, vec_id, handler_called;
     const struct isrEntry* isr;
-    struct pev_ioctl_evt *intrEvent = pevIntrList[card].intrEvent;
-    epicsMutexId lock = pevIntrList[card].isrListLock;
+    unsigned int card = engine->card;
+    struct pev_ioctl_evt *intrQueue = engine->intrQueue;
+    epicsMutexId lock = engine->isrListLock;
+    const char* threadName = engine->threadName;
     
-    if (pevx_evt_queue_enable(card, intrEvent) != 0)
+    if (pevDebug)
+        printf("%s starting\n", threadName);
+
+    if (pevx_evt_queue_enable(card, intrQueue) != 0)
     {
-        errlogPrintf("pevIntrThread(card=%d): pevx_evt_queue_enable failed\n",
-            card);        
+        errlogPrintf("%s: pevx_evt_queue_enable failed\n",
+            threadName);        
         return;
     }
-
-    if (pevDebug)
-        printf("pevIntrThread(card=%d) starting\n", card);
 
     epicsMutexLock(lock);
     while (1)
     {
         epicsMutexUnlock(lock);
-        intr = pevx_evt_read(card, intrEvent, -1); /* wait until event occurs */
+        intr = pevx_evt_read(card, intrQueue, -1); /* wait until event occurs */
         epicsMutexLock(lock); /* make sure the list does not change, see also pevInterruptExit */
 
         src_id = intr>>8;
         vec_id = intr&0xff;
 
         if (pevDebug >= 2)
-            printf("pevIntrThread(card=%d): New interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
-                card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
+            printf("%s: New interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
+                threadName, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
 
         handler_called = FALSE;
-        for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
+        for (isr = engine->isrList; isr; isr = isr->next)
         {
             if (pevDebug >= 2)
-                printf("pevIntrThread(card=%d): check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
-                    card, isr->src_id, isr->vec_id);
+                printf("%s: check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
+                    threadName, isr->src_id, isr->vec_id);
 
             if ((isr->src_id == EVT_SRC_VME ? (src_id & 0xf0) : src_id) != isr->src_id)
                 continue;
@@ -86,96 +111,111 @@ LOCAL void pevIntrThread(void* arg)
                 continue;
 
             if (pevDebug >= 2)
-                printf("pevIntrThread(card=%d): match func=%p (%s) usr=%p\n",
-                    card, isr->func, isr->funcname, isr->usr);
+                printf("%s: match func=%p (%s) usr=%p\n",
+                    threadName, isr->func, isr->funcname, isr->usr);
             
             isr->func(isr->usr, src_id, vec_id);
             handler_called = TRUE;
         }
-        pevx_evt_unmask(card, intrEvent, src_id);
+        pevx_evt_unmask(card, intrQueue, src_id);
         if (!handler_called)
         {
-            errlogPrintf("pevIntrThread(card=%d): unhandled interrupt src_id=0x%02x vec_id=0x%02x\n",
-                card, src_id, vec_id);
+            errlogPrintf("%s: unhandled interrupt src_id=0x%02x vec_id=0x%02x\n",
+                threadName, src_id, vec_id);
         }
     }
 }
 
-LOCAL struct intrEngine* pevStartIntrEngine(unsigned int card)
+static inline struct intrEngine* pevGetIntrEngine(unsigned int card, unsigned int src_id)
 {
-    char threadName[16];
-
+    struct intrEngine** pengine;
+    unsigned int priority;
+    
     if (pevDebug)
-        printf("pevStartIntrEngine(card=%d)\n", card);
+        printf("pevGetIntrEngine(card=%d, src_id=0x%02x)\n",
+            card, src_id);
+
+    priority = pevIntrCalcPriority(src_id);
 
     if (!pevIntrListLock)
     {
-        errlogPrintf("pevStartIntrEngine(card=%d): pevIntrListLock is not initialized\n",
-            card);
+        errlogPrintf("pevGetIntrEngine(card=%d, src_id=0x%02x): pevIntrListLock is not initialized\n",
+            card, src_id);
         return NULL;
     }
     epicsMutexLock(pevIntrListLock);
-
-    /* maybe the card has been initialized by another thread meanwhile? */
-    if (pevIntrList[card].tid)
+    for (pengine = &pevIntrEngines; *pengine; pengine=&(*pengine)->next)
     {
-        epicsMutexUnlock(pevIntrListLock);
-        return &pevIntrList[card];
+        if ((*pengine)->card == card && (*pengine)->priority == priority)
+        {
+            epicsMutexUnlock(pevIntrListLock);
+            if (pevDebug)
+                printf("pevGetIntrEngine(card=%d, src_id=0x%02x) priority=%u: re-use existing engine %s\n",
+                    card, src_id, priority, (*pengine)->threadName);
+            return *pengine;
+        }
     }
+    if (pevDebug)
+        printf("pevGetIntrEngine(card=%d, src_id=0x%02x) priority=%u: creating new engine\n",
+            card, src_id, priority);
 
     if (!pevx_init(card))
     {
-        errlogPrintf("pevStartIntrEngine(card=%d): pevx_init() failed\n",
-            card);
+        errlogPrintf("pevGetIntrEngine(card=%d, src_id=0x%02x): pevx_init() failed\n",
+            card, src_id);
+        epicsMutexUnlock(pevIntrListLock);
+        return NULL;
+    }
+    
+    *pengine = (struct intrEngine*) calloc(1, sizeof(struct intrEngine));
+    if (!*pengine)
+    {
+        errlogPrintf("pevGetIntrEngine(card=%d, src_id=0x%02x): out of memory for new interrupt engine\n",
+            card, src_id);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
     }
 
     /* add new card to interrupt handling */
-    pevIntrList[card].isrList = NULL;
-    pevIntrList[card].isrListLock = epicsMutexCreate();
-    if (!pevIntrList[card].isrListLock)
+    (*pengine)->card = card;
+    (*pengine)->priority = priority;
+
+    (*pengine)->isrListLock = epicsMutexCreate();
+    if (!(*pengine)->isrListLock)
     {
-        errlogPrintf("pevStartIntrEngine(card=%d): epicsMutexCreate() failed\n",
-            card);
+        errlogPrintf("pevGetIntrEngine(card=%d, src_id=0x%02x): epicsMutexCreate() failed\n",
+            card, src_id);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
     }
     
-    pevIntrList[card].intrEvent = pevx_evt_queue_alloc(card, 0);
-    if (!pevIntrList[card].intrEvent)
+    (*pengine)->intrQueue = pevx_evt_queue_alloc(card, 0);
+    if (!(*pengine)->intrQueue)
     {
-        epicsMutexDestroy(pevIntrList[card].isrListLock);
-        errlogPrintf("pevStartIntrEngine(card=%d): pevx_evt_queue_alloc() failed\n",
-            card);        
+        epicsMutexDestroy((*pengine)->isrListLock);
+        errlogPrintf("pevGetIntrEngine(card=%d, src_id=0x%02x): pevx_evt_queue_alloc() failed\n",
+            card, src_id);        
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
     }
-    sprintf(threadName, "pevIntr%d", card);
-    pevIntrList[card].tid = epicsThreadCreate(threadName, epicsThreadPriorityMax,
+    sprintf((*pengine)->threadName, "pevIntr%d.%u", card, epicsThreadPriorityBaseMax-priority);
+    (*pengine)->tid = epicsThreadCreate((*pengine)->threadName, priority,
         epicsThreadGetStackSize(epicsThreadStackSmall),
-        pevIntrThread, (void*)card);
-    if (!pevIntrList[card].tid)
+        pevIntrThread, *pengine);
+    if (!(*pengine)->tid)
     {
-        pevx_evt_queue_free(card, pevIntrList[card].intrEvent);
-        epicsMutexDestroy(pevIntrList[card].isrListLock);
-        errlogPrintf("pevStartIntrEngine(card=%d): epicsThreadCreate(%s, %d, %d, %p, %p) failed\n",
-            card,
-            threadName, epicsThreadPriorityMax,
+        pevx_evt_queue_free(card, (*pengine)->intrQueue);
+        epicsMutexDestroy((*pengine)->isrListLock);
+        errlogPrintf("pevGetIntrEngine(card=%d, src_id=0x%02x): epicsThreadCreate(%s, %d, %u, %p, %p) failed\n",
+            card, src_id,
+            (*pengine)->threadName, priority,
             epicsThreadGetStackSize(epicsThreadStackSmall),
-            pevIntrThread, NULL);
+            pevIntrThread, *pengine);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
     }
     epicsMutexUnlock(pevIntrListLock);
-    return &pevIntrList[card];
-}
-
-static inline struct intrEngine* pevGetIntrEngine(unsigned int card)
-{
-    if (card > MAX_PEV_CARDS) return NULL;
-    if (pevIntrList[card].intrEvent) return &pevIntrList[card];
-    return pevStartIntrEngine(card);
+    return *pengine;
 }
 
 int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(void* usr, unsigned int src_id, unsigned int vec_id), void* usr)
@@ -191,7 +231,7 @@ int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec
         printf("pevConnectInterrupt(card=%d, src_id=0x%02x, vec_id = 0x%02x, func=%p (%s), usr=%p)\n",
             card, src_id, vec_id, func, sym.dli_sname, usr);
 
-    engine = pevGetIntrEngine(card);
+    engine = pevGetIntrEngine(card, src_id);
     if (!engine)
     {
         errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevGetIntrEngine() failed\n",
@@ -229,7 +269,7 @@ int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec
             if (pevDebug)
                 printf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevx_evt_register(vme_src_id=%#04x)\n",
                     card, src_id, vec_id, func, sym.dli_sname, usr, vme_src_id);
-            if (pevx_evt_register(card, engine->intrEvent, vme_src_id) != 0)
+            if (pevx_evt_register(card, engine->intrQueue, vme_src_id) != 0)
             {
                 errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevx_evt_register(vme_src_id=%#04x) failed\n",
                     card, src_id, vec_id, func, sym.dli_sname, usr, vme_src_id);
@@ -240,7 +280,7 @@ int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec
     }
     if (pevDebug)
         printf("pevConnectInterrupt(): pevx_evt_register(card=%d, src_id=0x%02x)\n", card, src_id);
-    if (pevx_evt_register(card, engine->intrEvent, src_id) != 0)
+    if (pevx_evt_register(card, engine->intrQueue, src_id) != 0)
     {
         errlogPrintf("pevConnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevx_evt_register failed\n",
             card, src_id, vec_id, func, sym.dli_sname, usr);
@@ -263,7 +303,7 @@ int pevDisconnectInterrupt(unsigned int card, unsigned int src_id, unsigned int 
         printf("pevDisconnectInterrupt(card=%d, src_id=0x%02x, vec_id = 0x%02x, func=%p (%s), usr=%p)\n",
             card, src_id, vec_id, func, sym.dli_sname, usr);
 
-    engine = pevGetIntrEngine(card);
+    engine = pevGetIntrEngine(card, src_id);
     if (!engine)
     {
         errlogPrintf("pevDisconnectInterrupt(card=%d, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevGetIntrEngine() failed\n",
@@ -304,7 +344,7 @@ int pevDisableInterrupt(unsigned int card, unsigned int src_id)
     if (pevDebug)
         printf("pevDisableInterrupt(card=%d, src_id=0x%02x)\n", card, src_id);
 
-    engine = pevGetIntrEngine(card);
+    engine = pevGetIntrEngine(card, src_id);
     if (!engine)
     {
         errlogPrintf("pevDisableInterrupt(card=%d, src_id=%#04x): pevGetIntrEngine() failed\n",
@@ -312,7 +352,7 @@ int pevDisableInterrupt(unsigned int card, unsigned int src_id)
         return S_dev_noMemory;
     }
 
-    return pevx_evt_mask(card, engine->intrEvent, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
+    return pevx_evt_mask(card, engine->intrQueue, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
 }
 
 int pevEnableInterrupt(unsigned int card, unsigned int src_id)
@@ -322,7 +362,7 @@ int pevEnableInterrupt(unsigned int card, unsigned int src_id)
     if (pevDebug)
         printf("pevEnableInterrupt(card=%d, src_id=0x%02x)\n", card, src_id);
 
-    engine = pevGetIntrEngine(card);
+    engine = pevGetIntrEngine(card, src_id);
     if (!engine)
     {
         errlogPrintf("pevEnableInterrupt(card=%d, src_id=%#04x): pevGetIntrEngine() failed\n",
@@ -330,21 +370,21 @@ int pevEnableInterrupt(unsigned int card, unsigned int src_id)
         return S_dev_noMemory;
     }
 
-    return pevx_evt_unmask(card, engine->intrEvent, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
+    return pevx_evt_unmask(card, engine->intrQueue, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
 }
 
 void pevInterruptShow(const iocshArgBuf *args)
 {
     struct isrEntry* isr;
-    unsigned int card;
+    struct intrEngine* engine;
 
     printf("pev interrupts maps:\n");
-    for (card = 0; card < MAX_PEV_CARDS; card++)
+    for (engine = pevIntrEngines; engine; engine = engine->next)
     {
-        for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
+        for (isr = engine->isrList; isr; isr = isr->next)
         {
             printf("  card=%d, src=0x%02x (%s",
-                card, isr->src_id, src_name[isr->src_id >> 4]);
+                engine->card, isr->src_id, src_name[isr->src_id >> 4]);
             if (isr->src_id != EVT_SRC_VME || isr->src_id & 0xf)
                 printf(" %d", isr->src_id & 0xf);
             printf (") vec=");
@@ -370,23 +410,22 @@ void pevInterruptShow(const iocshArgBuf *args)
 
 LOCAL void pevInterruptExit(void* dummy)
 {
-    unsigned int card;
+    struct intrEngine* engine;
     
-    for (card = 0; card < MAX_PEV_CARDS; card++)
+    for (engine = pevIntrEngines; engine; engine = engine->next)
     {
-        if (!pevIntrList[card].tid) continue;
         if (pevDebug)
-            printf("pevInterruptExit(): stopping interrupt handling on card %d\n",
-                card);
+            printf("pevInterruptExit(): stopping interrupt handler %s\n",
+            engine->threadName);
 
         /* make sure that no handler is active */
-        epicsMutexLock(pevIntrList[card].isrListLock);
+        epicsMutexLock(engine->isrListLock);
         
         /* we cannot kill a thread nor can we wake up pevx_evt_read() */
         /* but since we don't release the lock, the thread is effectively stopped */
 
-        pevx_evt_queue_disable(card, pevIntrList[card].intrEvent);
-        pevx_evt_queue_free(card, pevIntrList[card].intrEvent);
+        pevx_evt_queue_disable(engine->card, engine->intrQueue);
+        pevx_evt_queue_free(engine->card, engine->intrQueue);
     }
     if (pevDebug)
         printf("pevInterruptExit(): done\n");
