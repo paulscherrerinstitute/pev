@@ -43,18 +43,16 @@ const char* pevMapName(unsigned int map_mode);
   
   Uninstall a previously installed interrupt handler.
   All arguments must be the same as used for pevConnectInterrupt, in order to avoid uninstalling the wrong handler,
-  except for usr, wich can be PEV_INTR_PARAM_ANY.
+  except for usr, wich can be NULL.
 */
 
-#define INTR_PARAM_ANY ((void*)-1)
+int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
 
-int pevConnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
+int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
 
-int pevDisconnectInterrupt(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
+int pevIntrEnable(unsigned int card, unsigned int src_id);
 
-int pevDisableInterrupt(unsigned int card, unsigned int src_id);
-
-int pevEnableInterrupt(unsigned int card, unsigned int src_id);
+int pevIntrDisable(unsigned int card, unsigned int src_id);
 
 /**** DMA ****/
 

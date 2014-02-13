@@ -14,6 +14,6 @@ int pevGetMapInfo(const void* address, struct pevMapInfo* info);
 int pevInstallMapInfo(int (*)(const void* address, struct pevMapInfo* info));
 
 int pevMapInit();
-int pevInterruptInit();
+int pevIntrInit();
 int pevDmaInit();
 

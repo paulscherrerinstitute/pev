@@ -63,7 +63,7 @@ LOCAL long pevDevLibConnectInterruptVME(
     if (vectorNumber > 0xff)
         return S_dev_badVector;
 
-    pevConnectInterrupt(0, EVT_SRC_VME, vectorNumber, pFunction, parameter);
+    pevIntrConnect(0, EVT_SRC_VME, vectorNumber, pFunction, parameter);
     return S_dev_success;
 }
 
@@ -76,7 +76,7 @@ LOCAL long pevDevLibDisconnectInterruptVME(
 	printf("disconnecting VME Interrupt 0x%02x func=%p\n",
             vectorNumber, pFunction);
     
-    return pevDisconnectInterrupt(0, EVT_SRC_VME, vectorNumber, pFunction, INTR_PARAM_ANY);
+    return pevIntrDisconnect(0, EVT_SRC_VME, vectorNumber, pFunction, NULL);
 }
 
 LOCAL long pevDevLibEnableInterruptLevelVME(unsigned level)
@@ -84,12 +84,12 @@ LOCAL long pevDevLibEnableInterruptLevelVME(unsigned level)
     if (pevDevLibDebug)
 	printf("enabling VME Interrupt level 0x%02x\n", level);
 
-    if (level <=1 || level > 7)
+    if (level < 1 || level > 7)
     {
         errlogPrintf("pevDevLibEnableInterruptLevelVME: Illegal VME interrupt level %d\n", level);
         return S_dev_badArgument;
     }
-    return pevEnableInterrupt(0, EVT_SRC_VME+level);
+    return pevIntrEnable(0, EVT_SRC_VME+level);
 }
 
 LOCAL long pevDevLibDisableInterruptLevelVME(unsigned level)
@@ -97,12 +97,12 @@ LOCAL long pevDevLibDisableInterruptLevelVME(unsigned level)
     if (pevDevLibDebug)
 	printf("disabling VME Interrupt level 0x%02x\n", level);
 
-    if (level <=1 || level > 7)
+    if (level < 1 || level > 7)
     {
         errlogPrintf("pevDevLibEnableInterruptLevelVME: Illegal VME interrupt level %d\n", level);
         return S_dev_badArgument;
     }
-    return pevDisableInterrupt(0, EVT_SRC_VME+level);
+    return pevIntrDisable(0, EVT_SRC_VME+level);
 }
 
 /* pevDevMapAddr
