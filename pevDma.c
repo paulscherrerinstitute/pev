@@ -17,6 +17,9 @@
 #include "pev.h"
 #include "pevPrivate.h"
 
+int pevDmaDebug = 0;
+epicsExportAddress(int, pevDmaDebug);
+
 volatile int pevDmaControllerMask = 3; /* use both DMA engines */
 epicsExportAddress(int, pevDmaControllerMask);
 
@@ -98,7 +101,7 @@ LOCAL void pevDmaThread(void* usr)
     unsigned int dmaChannelMask = 1 << dmaChannel;
     unsigned int dmaChannelFlag = dmaChannel * DMA_START_CTLR_1;
     
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaThread(card=%d, dmaChannel=%d) starting\n", card, dmaChannel);
 
     while (pevDmaControllerMask & dmaChannelMask)
@@ -107,7 +110,7 @@ LOCAL void pevDmaThread(void* usr)
             pevDmaList[card].dmaMsgQ, &dmaRequest, sizeof(dmaRequest)); /* blocks */
         if (!(pevDmaControllerMask & dmaChannelMask)) break; /* see pevDmaExit */  
             
-        if (pevDebug)
+        if (pevDmaDebug)
             printf("pevDmaThread(card=%d, dmaChannel=%d) request 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
                 card, dmaChannel, dmaRequest.pev_dma.size,
                 pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
@@ -127,11 +130,11 @@ LOCAL void pevDmaThread(void* usr)
             dmaRequest.pev_dma.dma_status & DMA_STATUS_ENDED ? S_dev_success : dmaRequest.pev_dma.dma_status);
     }
 
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaThread(card=%d, dmaChannel=%d) stopped\n", card, dmaChannel);
 }
 
-LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
+LOCAL struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
 {
     unsigned int dmaChannel = 0;
     unsigned int dmaChannelMask = pevDmaControllerMask & 3; /* only 2 dma channels at the moment */
@@ -139,7 +142,7 @@ LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
     
     if (!pevDmaListLock)
     {
-        errlogPrintf("pevStartDmaEngine(card=%d): pevDmaListLock is not initialized\n",
+        errlogPrintf("pevDmaStartEngine(card=%d): pevDmaListLock is not initialized\n",
             card);
         return NULL;
     }
@@ -154,7 +157,7 @@ LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
     
     if (!pevx_init(card))
     {
-        errlogPrintf("pevStartDmaEngine(card=%d): pevx_init() failed\n",
+        errlogPrintf("pevDmaStartEngine(card=%d): pevx_init() failed\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -164,7 +167,7 @@ LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
     pevDmaList[card].dmaMsgQ = epicsMessageQueueCreate(1000, sizeof(struct dmaReq));
     if (!pevDmaList[card].dmaMsgQ)
     {
-        errlogPrintf("pevStartDmaEngine(card=%d): Cannot create message queue\n",
+        errlogPrintf("pevDmaStartEngine(card=%d): Cannot create message queue\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -173,7 +176,7 @@ LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
     pevDmaList[card].bufListLock = epicsMutexCreate();
     if (!pevDmaList[card].bufListLock)
     {
-        errlogPrintf("pevStartDmaEngine(card=%d): Cannot create mutex\n",
+        errlogPrintf("pevDmaStartEngine(card=%d): Cannot create mutex\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -183,10 +186,10 @@ LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
     while (dmaChannelMask)
     {
         sprintf(threadName, "pevDma%d.%d", card, dmaChannel);
-        if (pevDebug)
-            printf("pevStartDmaEngine(card=%d): starting thread %s\n",
+        if (pevDmaDebug)
+            printf("pevDmaStartEngine(card=%d): starting thread %s\n",
                 card, threadName);
-        if (!epicsThreadCreate(threadName, epicsThreadPriorityMax-1,
+        if (!epicsThreadCreate(threadName, epicsThreadPriorityBaseMax-10,
             epicsThreadGetStackSize(epicsThreadStackSmall),
             pevDmaThread, (void*)(card<<8|dmaChannel)))
         {
@@ -202,11 +205,11 @@ LOCAL struct pevDmaEngine* pevStartDmaEngine(unsigned int card)
     return &pevDmaList[card];
 }
 
-static inline struct pevDmaEngine* pevGetDmaEngine(unsigned int card)
+static inline struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
 {
     if (card > MAX_PEV_CARDS) return NULL;
     if (pevDmaList[card].dmaMsgQ) return &pevDmaList[card];
-    return pevStartDmaEngine(card);
+    return pevDmaStartEngine(card);
 }
 
 LOCAL size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
@@ -216,19 +219,19 @@ LOCAL size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
 
     for (bufEntry = pevDmaList[card].dmaBufList; bufEntry; bufEntry = bufEntry->next)
     {
-        if (pevDebug)
+        if (pevDmaDebug)
             printf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): compare against %p\n",
                 card, useraddr, bufEntry->buf.u_addr);
         if (useraddr >= bufEntry->buf.u_addr && useraddr < bufEntry->buf.u_addr + bufEntry->buf.size)
         {
             dmaaddr = useraddr - bufEntry->buf.u_addr + (size_t) bufEntry->buf.b_addr;
-            if (pevDebug)
+            if (pevDmaDebug)
                 printf("pevDmaUsrToBusAddr(card=%d, useraddr=%p) dmaaddr=0x%zx\n",
                     card, useraddr, dmaaddr);            
             return dmaaddr;
         }
     }
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): not a DMA buffer\n",
             card, useraddr);
     return 0;
@@ -238,12 +241,12 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
 {
     struct pevDmaBufEntry** pbufEntry = NULL;
     
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx)\n", card, old, size);
 
-    if (!pevGetDmaEngine(card))
+    if (!pevDmaGetEngine(card))
     {
-        errlogPrintf("pevDmaRealloc(card=%d, old=%p, size=0x%zx): pevGetDmaEngine() failed\n",
+        errlogPrintf("pevDmaRealloc(card=%d, old=%p, size=0x%zx): pevDmaGetEngine() failed\n",
             card, old, size);
         return NULL;
     }
@@ -255,7 +258,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
         {
             if (size && size <= (*pbufEntry)->buf.size)
             {
-                if (pevDebug)
+                if (pevDmaDebug)
                     printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) new size fits in old block\n",
                         card, old, size);            
                 epicsMutexUnlock(pevDmaList[card].bufListLock);
@@ -264,7 +267,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
             pevx_buf_free(card, &(*pbufEntry)->buf);
             if (!size)
             {
-                if (pevDebug)
+                if (pevDmaDebug)
                     printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) releasing old block\n",
                         card, old, size);
                 goto fail;     
@@ -274,13 +277,13 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
     }
     if (old)
     {
-        if (pevDebug)
+        if (pevDmaDebug)
             printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) old block not found\n",
                 card, old, size);            
     }
     if (!size)
     {
-        if (pevDebug)
+        if (pevDmaDebug)
             printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) no size, return NULL\n",
                 card, old, size);            
         epicsMutexUnlock(pevDmaList[card].bufListLock);
@@ -307,7 +310,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
         errlogPrintf("pevDmaBufEntry(): pevx_buf_alloc() could not allocate enough memory\n");
         goto fail;
     }
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaRealloc(card=%d, size=0x%x) u_addr=%p, b_addr=%p, k_addr=%p\n",
             card, size, (*pbufEntry)->buf.u_addr, (*pbufEntry)->buf.b_addr, (*pbufEntry)->buf.k_addr);
     epicsMutexUnlock(pevDmaList[card].bufListLock);
@@ -325,7 +328,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
 {
     struct dmaReq dmaRequest;
     
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaTransfer(card=%d, src_space=0x%x=%s, src_addr=0x%zx, "
             "des_space=0x%x=%s, des_addr=0x%zx, size=0x%zx, swap_mode=0x%x, "
             "priority=%d, callback=%p, usr=%p)\n",
@@ -346,9 +349,9 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
         des_space = 0;
     }
     
-    if (!pevGetDmaEngine(card))
+    if (!pevDmaGetEngine(card))
     {
-        errlogPrintf("pevDmaTransfer(card=%d, ...): pevGetDmaEngine() failed\n",
+        errlogPrintf("pevDmaTransfer(card=%d, ...): pevDmaGetEngine() failed\n",
             card);
         return S_dev_noMemory;
     }
@@ -445,8 +448,8 @@ void pevDmaExit()
     for (card = 0; card <  MAX_PEV_CARDS; card++)
     {
         if (!pevDmaList[card].dmaMsgQ) continue;
-        if (pevDebug)
-            printf("pevInterruptExit(): stopping DMA handling on card %d\n",
+        if (pevDmaDebug)
+            printf("pevDmaExit(): stopping DMA handling on card %d\n",
                 card);
         epicsMessageQueueDestroy(pevDmaList[card].dmaMsgQ);
     }
@@ -466,19 +469,19 @@ void pevDmaExit()
         /* free dma buffers */
         for (bufEntry = pevDmaList[card].dmaBufList; bufEntry; bufEntry = bufEntry->next)
         {
-            if (pevDebug)
+            if (pevDmaDebug)
                 printf("pevDmaExit(): releasing DMA buffer card %d base=%p size=0x%zx\n",
                     card, bufEntry->buf.u_addr, bufEntry->buf.size);
             pevx_buf_free(card, &bufEntry->buf);
         }
     }
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaExit(): done\n");
 }
 
 int pevDmaInit()
 {
-    if (pevDebug)
+    if (pevDmaDebug)
         printf("pevDmaInit()\n");
 
     pevInstallMapInfo(pevDmaGetMapInfo);

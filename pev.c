@@ -18,8 +18,8 @@
 #include "pev.h"
 #include "pevPrivate.h"
 
-int pevDebug = 0;
-epicsExportAddress(int, pevDebug);
+int pevSigDebug = 0;
+epicsExportAddress(int, pevSigDebug);
 
 LOCAL struct pevMapInfoEntry {
     struct pevMapInfoEntry* next;
@@ -58,7 +58,7 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
        SIGQUIT, SIGILL, SIGABRT, SIGFPE, SIGSEGV
     */
     
-    if (pevDebug)
+    if (pevSigDebug)
     {
         void *array[50];
         size_t size;
@@ -207,7 +207,7 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
             
             if (pevGetMapInfo(info->si_addr, &mapInfo))
             {
-                if (pevDebug)
+                if (pevSigDebug)
                 {
                     errlogPrintf("Access to already unmapped %s on card %d base=%#x size=%#x\n",
                         mapInfo.name, mapInfo.card, mapInfo.start, mapInfo.size);
@@ -248,7 +248,7 @@ int pevInit()
     status = pevMapInit();
     if (status != S_dev_success) return status;
     
-    status = pevInterruptInit();
+    status = pevIntrInit();
     if (status != S_dev_success) return status;
     
     status = pevDmaInit();

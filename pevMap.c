@@ -15,9 +15,13 @@
 #include <epicsExit.h>
 #include <epicsTypes.h>
 #include <iocsh.h>
+#include <epicsExport.h>
 
 #include "pev.h"
 #include "pevPrivate.h"
+
+int pevMapDebug = 0;
+epicsExportAddress(int, pevMapDebug);
 
 LOCAL struct pevMapEntry {
     struct pevMapEntry* next;
@@ -31,7 +35,7 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
 {
     struct pevMapEntry** pmapEntry;
     
-    if (pevDebug)
+    if (pevMapDebug)
         printf("pevMap(card=%d, sg_id=0x%02x, mode=0x%02x, logicalAddress=0x%zx, size=0x%zx)\n",
             card, sg_id, map_mode, logicalAddress, size);
 
@@ -61,7 +65,7 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
         if ((*pmapEntry)->map.rem_base <= logicalAddress &&
             (*pmapEntry)->map.rem_base + (*pmapEntry)->map.win_size >= logicalAddress + size)
         {
-            if (pevDebug)
+            if (pevMapDebug)
                 printf("pevMap(): re-use already allocated map\n");
             break;
         }
@@ -69,7 +73,7 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
 
     if (!*pmapEntry)
     {
-        if (pevDebug)
+        if (pevMapDebug)
             printf("pevMap(): allocate new map\n");
         *pmapEntry = (struct pevMapEntry*) calloc(1, sizeof(struct pevMapEntry));
         if (*pmapEntry == NULL)
@@ -95,7 +99,7 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
             return NULL;
         }
 
-        if (pevDebug)
+        if (pevMapDebug)
             printf("pevMap(card=%d, sg_id=0x%02x, mode=0x%02x, ...): wanted 0x%lx - 0x%lx, got 0x%lx - 0x%lx @0x%lx\n",
                 card, (*pmapEntry)->map.sg_id, (*pmapEntry)->map.mode,
                 (*pmapEntry)->map.rem_addr, (*pmapEntry)->map.rem_addr + (*pmapEntry)->map.size,
@@ -124,7 +128,7 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
 
     (*pmapEntry)->refcount++;
     epicsMutexUnlock(pevMapListLock[card]);
-    if (pevDebug)
+    if (pevMapDebug)
         printf("pevMap(card=%d, sg_id=0x%02x, mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): rem_base=0x%lx, usr_addr=%p\n",
             card, sg_id, map_mode, logicalAddress, size, (*pmapEntry)->map.rem_base, (*pmapEntry)->map.usr_addr);
 
@@ -147,7 +151,7 @@ void pevUnmap(void* ptr)
             {
                 if (--mapEntry->refcount == 0)
                 {
-                    if (pevDebug)
+                    if (pevMapDebug)
                         printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x\n",
                             card,
                             pevMapName(mapEntry->map.mode),
@@ -418,7 +422,7 @@ LOCAL void pevMapExit(void* dummy)
     {
         for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
         {
-            if (pevDebug)
+            if (pevMapDebug)
                 printf("pevMapExit(): releasing memory map card %d %s base=0x%08lx size=0x%x\n",
                     card,
                     pevMapName(mapEntry->map.mode),
