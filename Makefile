@@ -10,6 +10,8 @@ SOURCES += pevInterrupt.c
 SOURCES += pevDma.c  
 SOURCES += pevDevLib.c
 SOURCES += ifcDev.c
+SOURCES += pevRegDev.c
+SOURCES += i2cDrv.c
 
 HEADERS += pev.h
 

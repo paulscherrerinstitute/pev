@@ -1,0 +1,2 @@
+registrar(pevDrvRegistrar)
+variable(pevDrvDebug, int)
