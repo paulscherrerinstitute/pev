@@ -25,7 +25,7 @@ const char* pevMapName(unsigned int map_mode);
 /**** interrupts *****/
 
 /*
-  pevConnectInterrupt
+  pevIntrConnect
    
   Install user func as interrupt handler.
     * func will be called in a separate high priority thread
@@ -39,7 +39,7 @@ const char* pevMapName(unsigned int map_mode);
   All interrupt sources start in disabled mode.
 
 
-  pevDisconnectInterrupt
+  pevIntrDisconnect
   
   Uninstall a previously installed interrupt handler.
   All arguments must be the same as used for pevConnectInterrupt, in order to avoid uninstalling the wrong handler,
