@@ -54,6 +54,13 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
         epicsMutexUnlock(pevMapListLock[card]);
         return NULL;
     }
+    
+    if (!pevMapList[card])
+    {
+        int mode = pevx_csr_rd(card, 0x80000404);
+        mode |= 1<<5; /* set supervisory mode */
+        pevx_csr_wr(card, 0x80000404, mode);
+    }
 
     /* re-use existing maps as far as possible */
     for (pmapEntry = &pevMapList[card]; *pmapEntry; pmapEntry = &(*pmapEntry)->next)
@@ -216,7 +223,9 @@ void pevMapShow(const iocshArgBuf *args)
     {
         if (pevMapList[card])
         {
-            printf(" card %d: (VME maps use %s mode)\n", card, pevx_csr_rd(card, 0x80000404) & (1<<5) ? "supervisory" : "user");
+            printf(" card %d: (VME maps use %s mode)\n",
+                card, pevx_csr_rd(card, 0x80000404) & (1<<5) ?
+                    "supervisory" : "user");
             index = 0;
             for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
             {
