@@ -39,7 +39,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.22 2014/03/03 17:08:53 zimoch Exp $";
+    "$Id: i2cDrv.c,v 1.23 2014/03/19 15:52:44 zimoch Exp $";
 */
 
 struct regDevice {
@@ -258,7 +258,7 @@ static regDevSupport pevI2cSupport = {
 /**
 *        pevI2cConfigure(crate, name, i2cControlWord, command)  
 *
-*         crate:                 normally only 1; inceremnts if there are more crates in PCIe tree
+*         crate:                 normally only 0; inceremnts if there are more crates in PCIe tree
 *
 *        name:                 virtual device name to refer to in EPICS record links (INP/OUT)
 *
@@ -331,7 +331,7 @@ int pevI2cConfigure(
     return -1;
   }
 
-  regDevRegisterDevice(name, &pevI2cSupport, device, 128);
+  regDevRegisterDevice(name, &pevI2cSupport, device, 0);
   regDevInstallWorkQueue(device, 100);
   return 0;
 }
