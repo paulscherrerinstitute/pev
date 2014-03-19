@@ -1,0 +1,5 @@
+# Please change the following email with yours.
+Email: dirk.zimoch@psi.ch
+Module-Name: pev
+Description: EPICS support of the IOxOS pev library for the IFC1210 board
+Project-Name:
