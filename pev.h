@@ -12,7 +12,40 @@ int pevInit();
 /*
     pevMap
     
-    Map card memory from a specified address space (sg_id, see pev manual) to program address space.
+    Map card memory from a specified address space to program address space.
+    
+    card 0 is the local card, other cards connected with PCIe have higher numbers.
+    
+    sg_id is typically MAP_MASTER_32 or MAP_MASTER_64 (for larger address maps like A32 VME)
+    
+    Useful values for map_mode are for example:
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_CR
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A16
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A24
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A32
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR1
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_SHM1
+        
+    Also see the pev manual for the meaning of sg_id and map_mode.
+   
+    logicalAddress is the start address of the requested map within the address space and might be larger than 0.
+    The returned pointer will reference to this address.
+    
+    There is no need that logicalAddress is on a page boundary or that size is a multiple  of a page size.
+    The allocated map on the hardware may actually be larger than requested if this is required by the hardware.
+    Still the returned pointer refers to the requested logical address.
+    Never try to access memory before logicalAddress or after (and including) logicalAddress+size.
+    
+    You can call pevUnmap to release a map that is no longer needed. Any pointer into the map can be used as an argument.
+    But still if you don't call pevUnmap, all maps are released on program exit, even if caused by a signal.
+    
+    Do not access a map after it is released. In particular work threads that access
+    the hardware must be stopped before the program exits. Use epicsAtExit handlers for this.
+    
+    pevMap will try to share hardware maps if possible, i.e. requests with the same sg_id and map_mode that fit into
+    an existing hardware map will share it. A reference count is used to unmap the hardware map only after the last
+    map is released. So is no need to try to optimize map usage yourself.
+    
 */
 
 volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size);
