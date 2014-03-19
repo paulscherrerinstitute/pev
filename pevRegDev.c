@@ -20,7 +20,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.3 2014/03/03 17:08:53 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.4 2014/03/19 15:54:31 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -86,7 +86,7 @@ int pevRead(
     regDevTransferComplete callback,
     char* user)
 {
-    int swap = 0;
+    int status;
   
     if (!device || device->magic != MAGIC)
     {
@@ -97,35 +97,6 @@ int pevRead(
     if (pevDrvDebug & DBG_IN)
         printf("pevRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=@%p, user=%s)\n",
             device->name, offset, dlen, nelem, pdata, prio, callback, user);
-    
-    /* do swapping compatible with DMA swap */
-    switch (device->swap)
-    {
-        case DMA_SPACE_WS:
-            swap = 1;
-            if (dlen == 2) break;
-            if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: manual swap fix for WS\n", user, device->name);
-            nelem = (nelem * dlen) >> 1;
-            dlen = 2;
-            break;
-        case DMA_SPACE_DS:
-            swap = 1;
-            if (dlen == 4) break;
-            if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: manual swap fix for DS\n", user, device->name);
-            nelem = (nelem * dlen) >> 2;
-            dlen = 4;
-            break;
-        case DMA_SPACE_QS:
-            swap = 1;
-            if (dlen == 8) break;
-            if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: manual swap fix for QS\n", user, device->name);
-            nelem = (nelem * dlen) >> 3;
-            dlen = 8;
-            break;
-    }
     
     /* Use DMA if it is available and
            block mode is used and this is the trigger record
@@ -138,25 +109,60 @@ int pevRead(
         if (prio == 2) /* prio == HIGH: this is the trigger */
         {
             /* transfer complete device buffer into local buffer */
-            
             if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: 0x%x bytes DMA to local buffer\n",
-                    user, device->name, device->size);
+                printf("pevRead %s %s: 0x%x bytes DMA to local buffer, swap=%d\n",
+                    user, device->name, device->size, device->swap);
 
-            int status = pevDmaToBufferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
+            status = pevDmaToBufferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
                 device->localBuffer, device->size | device->vmePktSize, device->vmeSwap);
             if (status != S_dev_success)
             {
-                errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x\n",
+                /* emulate swapping as used in DMA */
+                unsigned int bufferDlen = dlen;
+                unsigned int bufferNelem = device->size/dlen;
+                
+                switch (device->swap)
+                {
+                    case DMA_SPACE_WS:
+                        if (dlen == 2) break;
+                        if (pevDrvDebug & DBG_IN)
+                            printf("pevRead %s %s: manual swap fix for WS when dlen=%d\n",
+                                user, device->name, dlen);
+                        bufferNelem = device->size >> 1;
+                        bufferDlen = 2;
+                        break;
+                    case DMA_SPACE_DS:
+                        if (dlen == 4) break;
+                        if (pevDrvDebug & DBG_IN)
+                            printf("pevRead %s %s: manual swap fix for DS when dlen=%d\n",
+                                user, device->name, dlen);
+                        bufferNelem = device->size >> 2;
+                        bufferDlen = 4;
+                        break;
+                    case DMA_SPACE_QS:
+                        if (dlen == 8) break;
+                        if (pevDrvDebug & DBG_IN)
+                            printf("pevRead %s %s: manual swap fix for QS when dlen=%d\n",
+                                user, device->name, dlen);
+                        bufferNelem = device->size >> 3;
+                        bufferDlen = 8;
+                        break;
+                }
+                errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x. Do normal transfer.\n",
                     user, device->name, status);
-                regDevCopy(dlen, device->size/dlen, device->baseAddress,
-                    device->localBuffer, NULL, swap);
+
+                regDevCopy(bufferDlen, bufferNelem, device->baseAddress, device->localBuffer, NULL, device->swap);
             }
         }
+
         /* read from local buffer */
-        regDevCopy(dlen, nelem, device->localBuffer + offset, pdata, NULL, swap);
+        if (pevDrvDebug & DBG_IN)
+            printf("pevRead %s %s: read from to local buffer (dlen=%d nelem=%"Z"d)\n",
+                user, device->name, dlen, nelem);
+
+        regDevCopy(dlen, nelem, device->localBuffer + offset, pdata, NULL, 0);
         
-        if (prio == 2)
+        if (prio == 2) /* prio == HIGH: this is the trigger */
         {
             /* notify other records about new data */
             scanIoRequest(device->ioscanpvt);
@@ -166,17 +172,15 @@ int pevRead(
     
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE)  /* large array transfer */
     {
-        int status;
-
         if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: 0x%x bytes DMA of array data\n",
-                    user, device->name, nelem * dlen);
-        /* handle swapping here ! */
+                printf("pevRead %s %s: 0x%x bytes DMA of array data, swap=%d\n",
+                    user, device->name, nelem * dlen, device->swap);
         
-        status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset, pdata,
-            nelem * dlen | device->vmePktSize, device->vmeSwap, prio, (pevDmaCallback) callback, user);
+        status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset,
+            pdata, nelem * dlen | device->vmePktSize, device->vmeSwap, prio, (pevDmaCallback) callback, user);
 
-        if (status == S_dev_success) return ASYNC_COMPLETION;
+        if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
+        
         if (status != S_dev_badArgument) /* S_dev_badArgument = not a DMA buffer */
             errlogPrintf("pevRead %s %s: sending DMA request failed! status = 0x%x. Do normal & synchronous transfer\n",
                 user, device->name, status);
@@ -186,9 +190,39 @@ int pevRead(
             printf("pevRead %s %s: 0x%x bytes normal copy\n",
                 user, device->name, nelem * dlen);
     
-    regDevCopy(dlen, nelem, device->baseAddress + offset, pdata, NULL, swap);
+    /* emulate swapping as used in DMA */
+    switch (device->swap)
+    {
+        case DMA_SPACE_WS:
+            if (dlen == 2) break;
+            if (pevDrvDebug & DBG_IN)
+                printf("pevRead %s %s: manual swap fix for WS when dlen=%d\n",
+                    user, device->name, dlen);
+            nelem = (nelem * dlen) >> 1;
+            dlen = 2;
+            break;
+        case DMA_SPACE_DS:
+            if (dlen == 4) break;
+            if (pevDrvDebug & DBG_IN)
+                printf("pevRead %s %s: manual swap fix for DS when dlen=%d\n",
+                user, device->name, dlen);
+            nelem = (nelem * dlen) >> 2;
+            dlen = 4;
+            break;
+        case DMA_SPACE_QS:
+            if (dlen == 8) break;
+            if (pevDrvDebug & DBG_IN)
+                printf("pevRead %s %s: manual swap fix for QS when dlen=%d\n",
+                user, device->name, dlen);
+            nelem = (nelem * dlen) >> 3;
+            dlen = 8;
+            break;
+    }
+    
+    regDevCopy(dlen, nelem, device->baseAddress + offset, pdata, NULL, device->swap);
     
     return S_dev_success;
+
 }
 
 int pevWrite(
