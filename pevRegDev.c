@@ -20,7 +20,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.4 2014/03/19 15:54:31 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.5 2014/03/26 16:47:52 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -748,6 +748,11 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
     return -1;
   }
   
+  if( !pev_init(0) )
+  {
+    printf("pevVmeSlaveMainConfig(): ERROR, Cannot allocate data structures to control IFC\n");
+    return -1;
+  }
   pev_vme_conf_read(&vme_conf);
 
   if (strcmp(addrSpace, "AM32") == 0)
