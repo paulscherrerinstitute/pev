@@ -46,9 +46,19 @@ int pevInit();
     an existing hardware map will share it. A reference count is used to unmap the hardware map only after the last
     map is released. So is no need to try to optimize map usage yourself.
     
+    pevMapToAddr allows to set a localAddress. This is useful when mapping not to programm address space but for example
+    mapping MAP_SLAVE_VME to MAP_SPACE_USR1 or MAP_SPACE_SHM. In this case, localAddress is the address within USR1 or SHM.
 */
 
-volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size);
+volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size, int flags, size_t localAddress);
+
+#define pevMap(card, sg_id, map_mode, logicalAddress, size) \
+    pevMapExt((card), (sg_id), (map_mode), (logicalAddress), (size), 0, 0)
+
+#define pevMapToAddr(card, sg_id, map_mode, logicalAddress, size, localAddress) \
+    pevMapExt((card), (sg_id), (map_mode), (logicalAddress), (size), MAP_FLAG_FORCE, (localAddress))
+
+
 void pevUnmap(void*);
 
 const char* pevSgName(unsigned int sg_id);
@@ -122,32 +132,20 @@ typedef void (*pevDmaCallback)(void* usr, int status);
 int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr, unsigned int des_space, size_t des_addr, size_t size, unsigned int swap_mode,
     unsigned int priority, pevDmaCallback callback, void *usr);
 
-extern inline int pevDmaTransferWait(unsigned int card, unsigned int src_space, size_t src_addr, unsigned int des_space, size_t des_addr, size_t size, unsigned int swap_mode)
-{
-    return pevDmaTransfer(card, src_space, src_addr, des_space, des_addr, size, swap_mode, 0, NULL, NULL);
-}
+#define pevDmaTransferWait(card, src_space, src_addr, des_space, des_addr, size, swap_mode) \
+    pevDmaTransfer((card), (src_space), (src_addr), (des_space), (des_addr), (size), (swap_mode), 0, NULL, NULL)
 
-extern inline int pevDmaFromBuffer(unsigned int card, const void* buffer, unsigned int des_space, unsigned int des_addr, size_t size, unsigned int swap_mode,
-    unsigned int priority, pevDmaCallback callback, void *usr)
-{
-    return pevDmaTransfer(card, DMA_SPACE_BUF, (size_t)buffer, des_space, des_addr, size, swap_mode, priority, callback, usr);
-}
+#define pevDmaFromBuffer(card, buffer, des_space, des_addr, size, swap_mode, priority, callback, usr) \
+    pevDmaTransfer((card), DMA_SPACE_BUF, (size_t)(void*)(buffer), (des_space), (des_addr), (size), (swap_mode), (priority), (callback), (usr))
 
-extern inline int pevDmaToBuffer(unsigned int card, unsigned int src_space, size_t src_addr, void* buffer, size_t size, unsigned int swap_mode,
-    unsigned int priority, pevDmaCallback callback, void *usr)
-{
-    return pevDmaTransfer(card, src_space, src_addr, DMA_SPACE_BUF, (size_t)buffer, size, swap_mode, priority, callback, usr);
-}
+#define pevDmaToBuffer(card, src_space, src_addr, buffer, size, swap_mode, priority, callback, usr) \
+    pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), (priority), (callback), (usr))
 
-extern inline int pevDmaFromBufferWait(unsigned int card, void* buffer, unsigned int des_space, unsigned int des_addr, size_t size, unsigned int swap_mode)
-{
-    return pevDmaTransfer(card, DMA_SPACE_BUF, (size_t)buffer, des_space, des_addr, size, swap_mode, 0, NULL, NULL);
-}
+#define pevDmaFromBufferWait(card, buffer, des_space, des_addr, size, swap_mode) \
+    pevDmaTransfer((card), DMA_SPACE_BUF, (size_t)(void*)(buffer), (des_space), (des_addr), (size), (swap_mode), 0, NULL, NULL)
 
-extern inline int pevDmaToBufferWait(unsigned int card, unsigned int src_space, size_t src_addr, void* buffer, size_t size, unsigned int swap_mode)
-{
-    return pevDmaTransfer(card, src_space, src_addr, DMA_SPACE_BUF, (size_t)buffer, size, swap_mode, 0, NULL, NULL);
-}
+#define pevDmaToBufferWait(card, src_space, src_addr, buffer, size, swap_mode) \
+    pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), 0, NULL, NULL)
 
 void pevDmaReport(int level);
 

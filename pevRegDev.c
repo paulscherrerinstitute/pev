@@ -20,7 +20,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.5 2014/03/26 16:47:52 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.6 2014/04/02 15:35:01 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -114,7 +114,7 @@ int pevRead(
                     user, device->name, device->size, device->swap);
 
             status = pevDmaToBufferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
-                device->localBuffer, device->size | device->vmePktSize, device->vmeSwap);
+                device->localBuffer, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
                 /* emulate swapping as used in DMA */
@@ -177,7 +177,7 @@ int pevRead(
                     user, device->name, nelem * dlen, device->swap);
         
         status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset,
-            pdata, nelem * dlen | device->vmePktSize, device->vmeSwap, prio, (pevDmaCallback) callback, user);
+            pdata, nelem * dlen | device->vmePktSize, 0, prio, (pevDmaCallback) callback, user);
 
         if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
         
@@ -293,7 +293,7 @@ int pevWrite(
         {
             /* write complete buffer to device */
             int status = pevDmaFromBufferWait(device->card, device->localBuffer, device->dmaSpace | device->swap,
-                device->baseOffset, device->size | device->vmePktSize, device->vmeSwap);
+                device->baseOffset, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
                 errlogPrintf("pevWrite %s %s: DMA block transfer failed! status = 0x%x. Do normal & synchronous transfer\n",
@@ -308,7 +308,7 @@ int pevWrite(
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE && !pmask) /* large array transfer */
     {
         int status = pevDmaFromBuffer(device->card, pdata, device->dmaSpace | device->swap, device->baseOffset + offset,
-            nelem * dlen | device->vmePktSize, device->vmeSwap, prio, (pevDmaCallback) callback, user);
+            nelem * dlen | device->vmePktSize, 0, prio, (pevDmaCallback) callback, user);
 
         if (status == S_dev_success) return ASYNC_COMPLETION;
         if (status != S_dev_badArgument) /* S_dev_badArgument = not a DMA buffer */
@@ -558,42 +558,25 @@ int pevConfigure(
         }
     }
   
-    if (device->mode != MAP_SPACE_VME)
+    if (swap && *swap)
     {
-        if (swap && *swap)
-        {
-            if (strcmp(swap, "WS") == 0)
-                device->swap = DMA_SPACE_WS;
-            else
-            if (strcmp(swap, "DS") == 0)
-                device->swap |= DMA_SPACE_DS;
-            else
-            if (strcmp(swap, "QS") == 0)
-                device->swap |= DMA_SPACE_QS;
-        }
-    }
-    else
-    {
-        if (swap && *swap)
-        {
-            if (strcmp(swap, "WS") == 0)
-                device->vmeSwap = DMA_SPACE_WS;
-            else
-            if (strcmp(swap, "DS") == 0)
-                device->vmeSwap = DMA_SPACE_DS;
-            else
-            if (strcmp(swap, "QS") == 0)
-                device->vmeSwap = DMA_SPACE_QS;
-        }
+        if (strcmp(swap, "WS") == 0)
+            device->swap = DMA_SPACE_WS;
         else
-        {
-            device->vmeSwap = DMA_VME_SWAP;
-        }
-
+        if (strcmp(swap, "DS") == 0)
+            device->swap |= DMA_SPACE_DS;
+        else
+        if (strcmp(swap, "QS") == 0)
+            device->swap |= DMA_SPACE_QS;
+    }
+    
+    if (device->mode == MAP_SPACE_VME)
+    {
         if (device->dmaSpace != NO_DMA_SPACE)
         {
             switch (vmePktSize) 
             {
+                case 0:
                 case 128:  
                     device->vmePktSize = DMA_SIZE_PKT_128;
 	            break;
@@ -822,12 +805,8 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
 int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  unsigned int winSize, 
 		const char* vmeProtocol, const char* target, unsigned int targetOffset, const char* swapping)
 {
-  struct pev_ioctl_map_pg vme_slv_map;
-  unsigned int mainSlaveBase = 0;
-  epicsAddressType addrType; int dummyMap;
-  epicsUInt8 dmaSpace = 0;		/*  must be used also to contain user provided DMA_SPACE_W/D/QS */
-
-  if (!slaveAddrSpace || !vmeProtocol || !swapping)
+  int mapMode = MAP_ENABLE | MAP_ENABLE_WR | DMA_SPACE_VME;
+  if (!slaveAddrSpace || !vmeProtocol)
   {
     printf("usage: pevVmeSlaveTargetConfig (\"A24\"|\"A32\", base, size, \"BLT\"|\"MBLT\"|\"2eVME\"|\"2eSST160\"|\"2eSST233\"|\"2eSST320\", \"SH_MEM\"|\"PCIE\"|\"USR1/2\", offset, \"WS\"|\"DS\"|\"QS\")\n");
     return -1;
@@ -841,8 +820,6 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
               a32_size = 0x%x \n", glbVmeSlaveMap.a32_size);
       return -1;
     }
-    addrType = atVMEA32;
-    mainSlaveBase = glbVmeSlaveMap.a32_base;
   }
   else
   if (strcmp(slaveAddrSpace, "AM24") == 0)
@@ -853,75 +830,80 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
               a24_size = 0x%x \n", glbVmeSlaveMap.a24_size);
       return -1;
     }
-    addrType = atVMEA24;
-    mainSlaveBase = glbVmeSlaveMap.a24_base;
   }
   else
   {
-    printf("pevVmeSlaveTargetConfig(): ERROR, invalid slaveAddrSpace (must be \"AM32\" or \"AM24\")\n");
+    printf("pevVmeSlaveTargetConfig(): ERROR, invalid slaveAddrSpace \"%s\""
+        "(must be \"AM32\" or \"AM24\")\n",
+        slaveAddrSpace);
     return -1;
   }
-  if (strcmp(swapping, "WS") == 0)
-    dmaSpace = DMA_SPACE_WS;
-  if (strcmp(swapping, "DS") == 0)
-    dmaSpace = DMA_SPACE_DS;
-  if (strcmp(swapping, "QS") == 0)
-    dmaSpace = DMA_SPACE_QS;
+
+  if (swapping && *swapping)
+  {
+      if (strcmp(swapping, "WS") == 0)
+        mapMode |= DMA_SPACE_WS;
+      else
+      if (strcmp(swapping, "DS") == 0)
+        mapMode |= DMA_SPACE_DS;
+      else
+      if (strcmp(swapping, "QS") == 0)
+        mapMode |= DMA_SPACE_QS;
+      else
+      if (strcmp(swapping, "AUTO") == 0)
+        mapMode |= MAP_SWAP_AUTO;
+      else
+      {
+        printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid swapping \"%s\""
+            "[valid options: WS, DS, QS, AUTO]\n",
+            swapping);
+        return -1;
+      }
+  }
   
-/*
-  if(strcmp(vmeProtocol, "BLT") == 0) 
-    dmaSpace = DMA_SPACE_VME|DMA_VME_BLT;
-  else if(strcmp(vmeProtocol, "MBLT") == 0) 
-    dmaSpace = DMA_SPACE_VME|DMA_VME_MBLT;
-  else if(strcmp(vmeProtocol, "2eVME") == 0) 
-    dmaSpace = DMA_SPACE_VME|DMA_VME_2eVME;
-  else if(strcmp(vmeProtocol, "2eSST160") == 0) 
-    dmaSpace = DMA_SPACE_VME|DMA_VME_2e160;
-  else if(strcmp(vmeProtocol, "2eSST233") == 0) 
-    dmaSpace = DMA_SPACE_VME|DMA_VME_2e233;
-  else if(strcmp(vmeProtocol, "2eSST320") == 0) 
-    dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
-*/    
-  vme_slv_map.loc_addr = winBase;	       /* offset within main VME slave window */
-  vme_slv_map.rem_addr = targetOffset;  	       /* offset within target space */
-  vme_slv_map.mode = MAP_ENABLE|MAP_ENABLE_WR;
-  vme_slv_map.flag = MAP_FLAG_FORCE;
-  vme_slv_map.sg_id = MAP_SLAVE_VME;
-  vme_slv_map.size = winSize;
+
+  if (vmeProtocol && *vmeProtocol)
+  {
+      if(strcmp(vmeProtocol, "BLT")==0) 
+        mapMode |= DMA_VME_BLT;
+      else if(strcmp(vmeProtocol, "MBLT")==0) 
+        mapMode |= DMA_VME_MBLT;
+      else if(strcmp(vmeProtocol, "2eVME")==0) 
+        mapMode |= DMA_VME_2eVME;
+      else if(strcmp(vmeProtocol, "2eSST160")==0) 
+        mapMode |= DMA_VME_2e160;
+      else if(strcmp(vmeProtocol, "2eSST233")==0) 
+        mapMode |= DMA_VME_2e233;
+      else if(strcmp(vmeProtocol, "2eSST320")==0) 
+        mapMode |= DMA_VME_2e320;
+      else
+      {
+        printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid vmeProtocol \"%s\" "
+            "[valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320]\n",
+            vmeProtocol);
+        return -1;
+      }
+  }
+
+
   if (strcmp(target, "SH_MEM") == 0)
-    vme_slv_map.mode |= MAP_SPACE_SHM | dmaSpace;
+    mapMode |= MAP_SPACE_SHM;
   else
   if (strcmp(target, "USR1") == 0)
-    vme_slv_map.mode |= MAP_SPACE_USR1 | dmaSpace;
+    mapMode |= MAP_SPACE_USR1;
   else
   if (strcmp(target, "PCIE") == 0)
-    vme_slv_map.mode |= MAP_SPACE_PCIE | dmaSpace;
+    mapMode |= MAP_SPACE_PCIE;
   else
   {
-    printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid target [valid options: SH_MEM, USR1, PCIE]\n");
+    printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid target \"%s\""
+        "[valid options: SH_MEM, USR1, PCIE]\n",
+        target);
     return -1;
   }
 
-  pevMap(0, MAP_SLAVE_VME, MAP_ENABLE|MAP_ENABLE_WR, winBase, winSize);
+  pevMapToAddr(0, MAP_SLAVE_VME, mapMode, targetOffset, winSize, winBase);
 
-  if (pev_map_alloc(&vme_slv_map) || vme_slv_map.win_size!=winSize)
-  {
-    printf("  pevVmeSlaveTargetConfig(): == ERROR == translation window allocation failed! \
-    		\n\t [allocated mapped size 0x%x] \n\t Address/Size Granularity must be 1MB=0x100000 \n", vme_slv_map.win_size);
-    return -1;
-  }
-
-  if (devRegisterAddress (
-  	     target,			
-  	     addrType,  		    
-  	     mainSlaveBase+winBase,		       
-  	     winSize,		 
-  	     (volatile void **)(void *)&dummyMap) != 0) {
-      printf("  pevVmeSlaveTargetConfig(): == ERROR == devRegisterAddress() failed for slave at 0x%x\n", mainSlaveBase+winBase);
-      return -1;
-  }
-  printf("\t Mapped offset 0x%x in \"%s\" to VMEslave [%s] at 0x%x [size 0x%x]\n"
-  		, targetOffset, target, slaveAddrSpace, mainSlaveBase+winBase, vme_slv_map.win_size);
   return 0;
 }
 

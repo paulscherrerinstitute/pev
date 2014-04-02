@@ -31,7 +31,7 @@ LOCAL struct pevMapEntry {
 
 LOCAL epicsMutexId pevMapListLock[MAX_PEV_CARDS];
 
-volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size)
+volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size, int flag, size_t localAddress)
 {
     struct pevMapEntry** pmapEntry;
     
@@ -62,11 +62,13 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
         pevx_csr_wr(card, 0x80000404, mode);
     }
 
-    /* re-use existing maps as far as possible */
+    /* re-use existing maps as far as possible (is this necessary or does pev do so already?) */
     for (pmapEntry = &pevMapList[card]; *pmapEntry; pmapEntry = &(*pmapEntry)->next)
     {
         if ((*pmapEntry)->map.mode != map_mode) continue;
         if ((*pmapEntry)->map.sg_id != sg_id) continue;
+        if ((*pmapEntry)->map.flag != flag) continue;
+        if ((flag & MAP_FLAG_FORCE) && (*pmapEntry)->map.loc_addr != localAddress) continue;
 
         /* block has win_size bytes mapped from start address rem_base (in device address space) */
         if ((*pmapEntry)->map.rem_base <= logicalAddress &&
@@ -91,8 +93,10 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
         }
         (*pmapEntry)->map.sg_id = sg_id;
         (*pmapEntry)->map.mode = map_mode;
-        (*pmapEntry)->map.rem_addr = logicalAddress;                                
-        (*pmapEntry)->map.size = size;                                              
+        (*pmapEntry)->map.rem_addr = logicalAddress;
+        (*pmapEntry)->map.size = size;
+        (*pmapEntry)->map.loc_addr = localAddress;
+        (*pmapEntry)->map.flag = flag;
 
         /* pevx_map_alloc rounds boundaries as necessary, results in rem_base and win_size */
         pevx_map_alloc(card, &(*pmapEntry)->map);
@@ -121,15 +125,18 @@ volatile void* pevMap(unsigned int card, unsigned int sg_id, unsigned int map_mo
         (*pmapEntry)->map.loc_addr -= (*pmapEntry)->map.rem_addr - (*pmapEntry)->map.rem_base;
         (*pmapEntry)->map.size = (*pmapEntry)->map.win_size;
 
-        if (pevx_mmap(card, &(*pmapEntry)->map) == MAP_FAILED)
+        if (sg_id != MAP_SLAVE_VME) /* no mmap for VME slave windows */
         {
-            errlogPrintf("pevMap(card=%d, sg_id=0x%02x, mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): mapping to user space failed: %s\n",
-                card, sg_id, map_mode, logicalAddress, size, strerror(errno));
-            pevx_map_free(card, &(*pmapEntry)->map);
-            free(*pmapEntry);
-            *pmapEntry = NULL;
-            epicsMutexUnlock(pevMapListLock[card]);
-            return NULL;
+            if (pevx_mmap(card, &(*pmapEntry)->map) == MAP_FAILED)
+            {
+                errlogPrintf("pevMap(card=%d, sg_id=0x%02x, mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): mapping to user space failed: %s\n",
+                    card, sg_id, map_mode, logicalAddress, size, strerror(errno));
+                pevx_map_free(card, &(*pmapEntry)->map);
+                free(*pmapEntry);
+                *pmapEntry = NULL;
+                epicsMutexUnlock(pevMapListLock[card]);
+                return NULL;
+            }
         }
     }
 
