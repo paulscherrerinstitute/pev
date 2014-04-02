@@ -119,15 +119,17 @@ LOCAL void pevDmaThread(void* usr)
         dmaRequest.pev_dma.start_mode |= dmaChannelFlag;
         if (pevx_dma_move(card, &dmaRequest.pev_dma) != 0) /* blocks */
         {
-            errlogPrintf("pevDmaThread(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x\n",
+            errlogPrintf("pevDmaThread(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
                 card, dmaChannel, dmaRequest.pev_dma.size,
                 pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
                 pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr,
-                dmaRequest.pev_dma.dma_status);
+                dmaRequest.pev_dma.dma_status,
+                dmaRequest.pev_dma.dma_status & DMA_STATUS_TMO ? "Timeout" : 
+                dmaRequest.pev_dma.dma_status & DMA_STATUS_ERR ? "Error" : "");
         }
         pevDmaList[card].pevDmaLastTransferStatus = dmaRequest.pev_dma.dma_status;
         dmaRequest.callback(dmaRequest.usr,
-            dmaRequest.pev_dma.dma_status & DMA_STATUS_ENDED ? S_dev_success : dmaRequest.pev_dma.dma_status);
+            dmaRequest.pev_dma.dma_status & DMA_STATUS_DONE ? S_dev_success : dmaRequest.pev_dma.dma_status);
     }
 
     if (pevDmaDebug)
@@ -377,7 +379,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     }    
     
     if (pevx_dma_move(card, &dmaRequest.pev_dma) == 0 &&  /* blocks */
-            dmaRequest.pev_dma.dma_status & DMA_STATUS_ENDED)
+            dmaRequest.pev_dma.dma_status & DMA_STATUS_DONE)
     {
         return S_dev_success;
     }
