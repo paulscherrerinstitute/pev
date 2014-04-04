@@ -340,14 +340,22 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
 
     if (src_space == DMA_SPACE_BUF)
     {
-        src_addr = pevDmaUsrToBusAddr(card, (void*)src_addr);
+        size_t addr = pevDmaUsrToBusAddr(card, (void*)src_addr);
         if (!src_addr) return S_dev_badArgument;
+        if (pevDmaDebug)
+            printf("pevDmaTransfer(card=%d, ...): source address 0x%zx maps to PCI address 0x%zx\n",
+                card, src_addr, addr);
+        src_addr = addr;
         src_space = 0;
     }
     if (des_space == DMA_SPACE_BUF)
     {
-        des_addr = pevDmaUsrToBusAddr(card, (void*)des_addr);
+        size_t addr = pevDmaUsrToBusAddr(card, (void*)des_addr);
         if (!des_addr) return S_dev_badArgument;
+        if (pevDmaDebug)
+            printf("pevDmaTransfer(card=%d, ...): dest address 0x%zx maps to PCI address 0x%zx\n",
+                card, des_addr, addr);
+        des_addr = addr;
         des_space = 0;
     }
     
