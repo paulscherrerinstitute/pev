@@ -20,7 +20,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.6 2014/04/02 15:35:01 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.7 2014/04/04 10:02:58 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -805,7 +805,7 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
 int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  unsigned int winSize, 
 		const char* vmeProtocol, const char* target, unsigned int targetOffset, const char* swapping)
 {
-  int mapMode = MAP_ENABLE | MAP_ENABLE_WR | DMA_SPACE_VME;
+  int mapMode = MAP_ENABLE | MAP_ENABLE_WR;
   if (!slaveAddrSpace || !vmeProtocol)
   {
     printf("usage: pevVmeSlaveTargetConfig (\"A24\"|\"A32\", base, size, \"BLT\"|\"MBLT\"|\"2eVME\"|\"2eSST160\"|\"2eSST233\"|\"2eSST320\", \"SH_MEM\"|\"PCIE\"|\"USR1/2\", offset, \"WS\"|\"DS\"|\"QS\")\n");
@@ -841,21 +841,12 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
 
   if (swapping && *swapping)
   {
-      if (strcmp(swapping, "WS") == 0)
-        mapMode |= DMA_SPACE_WS;
-      else
-      if (strcmp(swapping, "DS") == 0)
-        mapMode |= DMA_SPACE_DS;
-      else
-      if (strcmp(swapping, "QS") == 0)
-        mapMode |= DMA_SPACE_QS;
-      else
       if (strcmp(swapping, "AUTO") == 0)
         mapMode |= MAP_SWAP_AUTO;
       else
       {
         printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid swapping \"%s\""
-            "[valid options: WS, DS, QS, AUTO]\n",
+            "[valid options: AUTO]\n",
             swapping);
         return -1;
       }
@@ -864,6 +855,7 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
 
   if (vmeProtocol && *vmeProtocol)
   {
+  
       if(strcmp(vmeProtocol, "BLT")==0) 
         mapMode |= DMA_VME_BLT;
       else if(strcmp(vmeProtocol, "MBLT")==0) 
@@ -877,14 +869,8 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
       else if(strcmp(vmeProtocol, "2eSST320")==0) 
         mapMode |= DMA_VME_2e320;
       else
-      {
-        printf("  pevVmeSlaveTargetConfig(): == ERROR == invalid vmeProtocol \"%s\" "
-            "[valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320]\n",
-            vmeProtocol);
-        return -1;
-      }
+        mapMode|=strtol(vmeProtocol, NULL, 0);
   }
-
 
   if (strcmp(target, "SH_MEM") == 0)
     mapMode |= MAP_SPACE_SHM;
