@@ -236,9 +236,14 @@ void pevMapShow(const iocshArgBuf *args)
             index = 0;
             for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
             {
-                printf("  %d: %-9s to %-8s %s swap=%s base=0x%08lx size=0x%08x %3dMB\n",
-                    index++,
-                    pevSgName(mapEntry->map.sg_id), pevMapName(mapEntry->map.mode), 
+                printf ("  %d: ", index++);
+                if (mapEntry->map.usr_addr)
+                    printf("0x%08lx", (unsigned long) mapEntry->map.usr_addr);
+                else
+                    printf("          ");
+                printf(" %-9s to %-8s %s swap=%s base=0x%08lx size=0x%08x %3dMB\n",
+                    pevSgName(mapEntry->map.sg_id),
+                    pevMapName(mapEntry->map.mode), 
                     mapEntry->map.mode & MAP_ENABLE ? mapEntry->map.mode & MAP_ENABLE_WR ? "rdwr" : "read" : "disa",
                     mapEntry->map.mode & MAP_SWAP_AUTO ? "auto" : "off ",
                     mapEntry->map.rem_base,
