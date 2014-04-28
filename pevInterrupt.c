@@ -25,11 +25,8 @@ struct isrEntry {
     struct isrEntry *next;
     unsigned int src_id;
     unsigned int vec_id;
-    void (*func)(void*, unsigned int src_id, unsigned int vec_id);
+    void (*func)();
     void* usr;
-    const char* funcfile;
-    const char* funcname;
-    int funcoffset;
 };
 
 struct intrThread {
@@ -50,6 +47,26 @@ LOCAL struct intrEngine {
 LOCAL epicsMutexId pevIntrListLock;
 
 static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
+
+/* Utility: return function name in allocated buffer */
+LOCAL char* funcName(void* func, int withFilename)
+{
+    Dl_info sym;
+    size_t l;
+    char *name;
+
+    memset(&sym, 0, sizeof(sym));
+    dladdr(func, &sym);
+    l = strlen(sym.dli_sname);
+    name = malloc(l + 20 + withFilename ? strlen(sym.dli_fname) + 3 : 0);
+    if (!name) return NULL;
+    if (l) strcpy(name, sym.dli_sname);
+    if (func != sym.dli_saddr)
+        l += sprintf(name + l, "%s0x%x", l ? "+" : "", func - sym.dli_saddr);
+    if (withFilename)
+        sprintf(name + l, " (%s)", sym.dli_fname);
+    return name;
+}
 
 /* Calculate thread priorities for interrupt handlers. 
    At the moment: max - 1 for all but VME interrupts
@@ -114,16 +131,23 @@ LOCAL void pevIntrThread(void* arg)
                 printf("pevIntrThread(card=%u): check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
                     card, isr->src_id, isr->vec_id);
 
+            /* if user installed handler for EVT_SRC_VME (without level), accept all VME levels */
             if ((isr->src_id == EVT_SRC_VME ? (src_id & 0xf0) : src_id) != isr->src_id)
                 continue;
 
+            /* if user installed handler for vector 0, accept all vectors */
             if (isr->vec_id && isr->vec_id != vec_id)
                 continue;
 
             if (pevIntrDebug >= 2)
-                printf("pevIntrThread(card=%u): match func=%p (%s) usr=%p\n",
-                    card, isr->func, isr->funcname, isr->usr);
+            {
+                char* funcname = funcName(isr->func, 0);
+                printf("pevIntrThread(card=%u): match func=%s usr=%p\n",
+                    card, funcname, isr->usr);
+                free (funcname);
+            }
             
+            /* pass src_id and vec_id to user function for closer inspection */
             isr->func(isr->usr, src_id, vec_id);
             handler_called = TRUE;
         }
@@ -186,24 +210,26 @@ static inline struct intrEngine* pevIntrGetEngine(unsigned int card)
     return pevIntrStartEngine(card);
 }
 
-int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(void* usr, unsigned int src_id, unsigned int vec_id), void* usr)
+int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr)
 {
     struct intrEngine* engine;
     struct isrEntry** pisr;
-    Dl_info sym;
-    
-    memset(&sym, 0, sizeof(sym));
-    dladdr(func, &sym);
     
     if (pevIntrDebug)
-        printf("pevIntrConnect(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%p (%s), usr=%p)\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);
+    {
+        char* funcname = funcName(func, 0);
+        printf("pevIntrConnect(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%s, usr=%p)\n",
+            card, src_id, vec_id, funcname, usr);
+        free(funcname);
+    }
 
     engine = pevIntrGetEngine(card);
     if (!engine)
     {
-        errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevIntrGetEngine() failed\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);
+        char* funcname = funcName(func, 0);
+        errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): pevIntrGetEngine() failed\n",
+            card, src_id, vec_id, funcname, usr);
+        free(funcname);
         return S_dev_noMemory;
     }
             
@@ -212,8 +238,10 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
     *pisr = calloc(1, sizeof(struct isrEntry));
     if (!*pisr)
     {
-        errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): out of memory\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);        
+        char* funcname = funcName(func, 0);
+        errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): out of memory\n",
+            card, src_id, vec_id, funcname, usr);        
+        free(funcname);
         epicsMutexUnlock(engine->lock);
         return S_dev_noMemory;
     }
@@ -221,33 +249,32 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
     (*pisr)->vec_id = vec_id;
     (*pisr)->func = func;
     (*pisr)->usr = usr;
-    (*pisr)->funcfile = sym.dli_fname;
-    (*pisr)->funcname = sym.dli_sname;
-    (*pisr)->funcoffset = (void*)func - sym.dli_saddr;
     epicsMutexUnlock(engine->lock);
 
     return S_dev_success;
 }
 
-int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(void* usr, unsigned int src_id, unsigned int vec_id), void* usr)
+int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr)
 {
     struct intrEngine* engine;
     struct isrEntry** pisr;
     struct isrEntry* isr;
-    Dl_info sym;
-    
-    memset(&sym, 0, sizeof(sym));
-    dladdr(func, &sym);
-    
+
     if (pevIntrDebug)
-        printf("pevIntrDisconnect(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%p (%s), usr=%p)\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);
+    {
+        char* funcname = funcName(func, 0);
+        printf("pevIntrDisconnect(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%s, usr=%p)\n",
+            card, src_id, vec_id, funcname, usr);
+        free(funcname);
+    }
 
     engine = pevIntrGetEngine(card);
     if (!engine)
     {
-        errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): pevIntrGetEngine() failed\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);
+        char* funcname = funcName(func, 0);
+        errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): pevIntrGetEngine() failed\n",
+            card, src_id, vec_id, funcname, usr);
+        free(funcname);
         return S_dev_noMemory;
     }
     
@@ -261,14 +288,13 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
     }
     if (!*pisr)
     {
-        errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): not connected\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);
+        char* funcname = funcName(func, 0);
+        errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): not connected\n",
+            card, src_id, vec_id, funcname, usr);
+        free(funcname);
         epicsMutexUnlock(engine->lock);
         return S_dev_noMemory;
     }
-    if (pevIntrDebug)
-        printf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%p (%s), usr=%p): removing handler\n",
-            card, src_id, vec_id, func, sym.dli_sname, usr);
     isr = *pisr;
     *pisr = (*pisr)->next;
     memset(isr, 0, sizeof(struct isrEntry));
@@ -403,27 +429,23 @@ void pevIntrShow(const iocshArgBuf *args)
         }
         for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
         {
+            char *funcname;
+
             printf("  src=0x%02x (%s",
                 isr->src_id, src_name[isr->src_id >> 4]);
             if (isr->src_id != EVT_SRC_VME || isr->src_id & 0xf)
                 printf(" %d", isr->src_id & 0xf);
+
             printf(") vec=");
             if (isr->vec_id)
                 printf("0x%02x (%d)", isr->vec_id, isr->vec_id);
             else
                 printf("any");
-            printf(" func=");
-            if (isr->funcname)
-            {
-                printf ("%s", isr->funcname);
-                if (isr->funcoffset) printf ("+0x%x", isr->funcoffset);
-            }
-            else
-            {
-                printf ("%p", isr->func);
-            }
-            if (isr->funcfile)
-                printf (" (%s)", isr->funcfile);
+
+            funcname = funcName(isr->func, 1);
+            printf(" func=%s", funcname);
+            free(funcname);
+
             if (isr->usr)
                 printf (" usr=%p", isr->usr);
             else
