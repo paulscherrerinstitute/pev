@@ -75,9 +75,10 @@ const char* pevMapName(unsigned int map_mode);
     * func can have up to 3 arguments: void* usr, int src_id, int vec_id
     * func must not block
     * func must not waste stack
-    * if src_id is EVT_SRC_VME (0x10) then all 7 VME interrupt lines (0x10 ... 0x17) will be registered
+    * if src_id is EVT_SRC_VME (0x10) then all 7 VME interrupt lines (0x11 ... 0x17) will be registered
     * if vec_id is 0 then func is called for any value of vec_id
     * func may inspect current setting for vec_id and src_id when called
+    * to ease debugging, func should be global
     
   All interrupt sources start in disabled mode.
 
