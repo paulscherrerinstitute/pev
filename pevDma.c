@@ -12,6 +12,7 @@
 #include <epicsMutex.h>
 #include <epicsExit.h>
 #include <epicsMessageQueue.h>
+#include <funcname.h>
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -331,13 +332,16 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     struct dmaReq dmaRequest;
     
     if (pevDmaDebug)
+    {
+        char* cbName = funcName(callback, 0);
         printf("pevDmaTransfer(card=%d, src_space=0x%x=%s, src_addr=0x%zx, "
             "des_space=0x%x=%s, des_addr=0x%zx, size=0x%zx, swap_mode=0x%x, "
-            "priority=%d, callback=%p, usr=%p)\n",
+            "priority=%d, callback=%s, usr=%p)\n",
             card, src_space, pevDmaSpaceName(src_space), src_addr,
             des_space, pevDmaSpaceName(des_space), des_addr,
-            size, swap_mode, priority, callback, usr);
-
+            size, swap_mode, priority, cbName, usr);
+        free(cbName);
+    }
     if (src_space == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)src_addr);

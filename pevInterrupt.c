@@ -1,8 +1,6 @@
-#define _GNU_SOURCE
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <dlfcn.h>
 
 #include <pevxulib.h>
 struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
@@ -13,6 +11,7 @@ struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
 #include <epicsThread.h>
 #include <epicsExit.h>
 #include <epicsMutex.h>
+#include <funcname.h>
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -47,26 +46,6 @@ LOCAL struct intrEngine {
 LOCAL epicsMutexId pevIntrListLock;
 
 static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
-
-/* Utility: return function name in allocated buffer */
-LOCAL char* funcName(void* func, int withFilename)
-{
-    Dl_info sym;
-    size_t l;
-    char *name;
-
-    memset(&sym, 0, sizeof(sym));
-    dladdr(func, &sym);
-    l = strlen(sym.dli_sname);
-    name = malloc(l + 20 + withFilename ? strlen(sym.dli_fname) + 3 : 0);
-    if (!name) return NULL;
-    if (l) strcpy(name, sym.dli_sname);
-    if (func != sym.dli_saddr)
-        l += sprintf(name + l, "%s0x%x", l ? "+" : "", func - sym.dli_saddr);
-    if (withFilename)
-        sprintf(name + l, " (%s)", sym.dli_fname);
-    return name;
-}
 
 /* Calculate thread priorities for interrupt handlers. 
    At the moment: max - 1 for all but VME interrupts

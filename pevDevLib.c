@@ -27,6 +27,8 @@
 #include <devLib.h>
 #include <errlog.h>
 #include <epicsTypes.h>
+#include <funcname.h>
+#include <stdlib.h>
 #include <epicsExport.h>
 
 #define VME24_MAP_SIZE 	0x1000000      	/* 16 MB A24 - fixed */
@@ -57,8 +59,12 @@ LOCAL long pevDevLibConnectInterruptVME(
     void  *parameter)
 {
     if (pevDevLibDebug)
-	printf("connecting VME Interrupt 0x%02x func=%p param=%p\n",
-            vectorNumber, pFunction, parameter);
+    {
+        char *fName = funcName(pFunction, 0);
+	printf("connecting VME Interrupt 0x%02x func=%s param=%p\n",
+            vectorNumber, fName, parameter);
+        free(fName);
+    }
     
     if (vectorNumber > 0xff)
         return S_dev_badVector;
@@ -73,8 +79,12 @@ LOCAL long pevDevLibDisconnectInterruptVME(
 )
 {
     if (pevDevLibDebug)
-	printf("disconnecting VME Interrupt 0x%02x func=%p\n",
-            vectorNumber, pFunction);
+    {
+        char *fName = funcName(pFunction, 0);
+	printf("disconnecting VME Interrupt 0x%02x func=%s\n",
+            vectorNumber, fName);
+        free(fName);
+    }
     
     return pevIntrDisconnect(0, EVT_SRC_VME, vectorNumber, pFunction, NULL);
 }

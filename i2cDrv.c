@@ -11,7 +11,6 @@
 #include <epicsTypes.h>
 #include <epicsExit.h>
 #include <epicsMutex.h>
-#include <epicsExport.h>
 #include <epicsRingPointer.h>
 #include <ellLib.h>           
 #include <errlog.h>
@@ -25,7 +24,8 @@
 #include <sys/time.h>
 #include <pevioctl.h>
 #include <pevulib.h>
-
+#include <funcname.h>
+#include <epicsExport.h>
 
 
 
@@ -39,7 +39,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.23 2014/03/19 15:52:44 zimoch Exp $";
+    "$Id: i2cDrv.c,v 1.24 2014/07/03 15:15:15 zimoch Exp $";
 */
 
 struct regDevice {
@@ -75,8 +75,12 @@ int pevI2cRead(
         return S_dev_noDevice;
     }
     if (pevI2cDebug & 2)
-        printf("pevI2cRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=@%p, user=%s)\n",
-            device->name, offset, dlen, nelem, pdata, prio, callback, user);
+    {
+        char* cbName = funcName(callback, 0);
+        printf("pevI2cRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=%s, user=%s)\n",
+            device->name, offset, dlen, nelem, pdata, prio, cbName, user);
+        free(cbName);
+    }
 
     switch (dlen)
     {
@@ -147,8 +151,12 @@ int pevI2cWrite(
     }
 
     if (pevI2cDebug & 2)
-        printf("pevI2cWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, prio=%d, callback=@%p, user=%s)\n",
-            device->name, offset, dlen, nelem, pdata, pmask, prio, callback, user);
+    {
+        char* cbName = funcName(callback, 0);
+        printf("pevI2cWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, prio=%d, callback=%s, user=%s)\n",
+            device->name, offset, dlen, nelem, pdata, pmask, prio, cbName, user);
+        free(cbName);
+    }
 
     switch (dlen)
     {

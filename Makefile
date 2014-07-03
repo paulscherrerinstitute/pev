@@ -12,6 +12,7 @@ SOURCES += pevDevLib.c
 SOURCES += ifcDev.c
 SOURCES += pevRegDev.c
 SOURCES += i2cDrv.c
+SOURCES += funcname.c
 
 HEADERS += pev.h
 
@@ -22,3 +23,7 @@ PEVDIR=$(PEVDIR_$(T_A))
 USR_INCLUDES += -I$(PEVDIR)/include
 USR_LDFLAGS  += -L$(PEVDIR)/lib
 USR_LIBS     += pev
+
+#for C++ function demangling
+USR_INCLUDES += -I/opt/eldk-5.2/powerpc-e500v2/sysroots/ppce500v2-linux-gnuspe/usr/include/c++
+USR_INCLUDES += -I/opt/eldk-5.2/powerpc-e500v2/sysroots/ppce500v2-linux-gnuspe/usr/include/c++/powerpc-linux-gnuspe

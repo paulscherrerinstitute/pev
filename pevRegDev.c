@@ -13,6 +13,7 @@
 #include <errlog.h>
 #include <epicsTypes.h>
 #include <dbAccess.h>
+#include <funcname.h>
 #include <epicsExport.h>
 
 #define MAGIC 		1100 		/*  pev1100 */
@@ -20,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.7 2014/04/04 10:02:58 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.8 2014/07/03 15:15:15 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -95,8 +96,12 @@ int pevRead(
         return S_dev_noDevice;
     }
     if (pevDrvDebug & DBG_IN)
-        printf("pevRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=@%p, user=%s)\n",
-            device->name, offset, dlen, nelem, pdata, prio, callback, user);
+    {
+        char* cbName = funcName(callback, 0);
+        printf("pevRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=%s, user=%s)\n",
+            device->name, offset, dlen, nelem, pdata, prio, cbName, user);
+        free(cbName);
+    }
     
     /* Use DMA if it is available and
            block mode is used and this is the trigger record
@@ -245,8 +250,12 @@ int pevWrite(
         return S_dev_noDevice;
     }
     if (pevDrvDebug & DBG_OUT)
-        printf("pevWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, prio=%d, callback=@%p, user=%s)\n",
-            device->name, offset, dlen, nelem, pdata, pmask, prio, callback, user);
+    {
+        char* cbName = funcName(callback, 0);
+        printf("pevWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, prio=%d, callback=%s, user=%s)\n",
+            device->name, offset, dlen, nelem, pdata, pmask, prio, cbName, user);
+        free(cbName);
+    }
 
     /* do swapping compatible with DMA swap */
     switch (device->swap)
