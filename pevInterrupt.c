@@ -154,8 +154,8 @@ LOCAL void pevIntrThread(void* arg)
         pevx_evt_unmask(card, intrQueue, src_id);
         if (!handler_called)
         {
-            errlogPrintf("pevIntrThread(card=%u): unhandled interrupt src_id=0x%02x vec_id=0x%02x\n",
-                card, src_id, vec_id);
+            errlogPrintf("pevIntrThread(card=%u): unhandled interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
+                card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
         }
     }
 }
