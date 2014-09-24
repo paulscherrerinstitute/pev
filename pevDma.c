@@ -18,6 +18,11 @@
 #include "pev.h"
 #include "pevPrivate.h"
 
+/* typo in old macro names */
+#ifndef DMA_START_CTRL_1
+#define DMA_START_CTRL_1 DMA_START_CTLR_1
+#endif
+
 int pevDmaDebug = 0;
 epicsExportAddress(int, pevDmaDebug);
 
@@ -100,7 +105,7 @@ LOCAL void pevDmaThread(void* usr)
     unsigned int card = ((int)usr) >> 8;
     unsigned int dmaChannel = ((int)usr) & 0xff;
     unsigned int dmaChannelMask = 1 << dmaChannel;
-    unsigned int dmaChannelFlag = dmaChannel * DMA_START_CTLR_1;
+    unsigned int dmaChannelFlag = dmaChannel * DMA_START_CTRL_1;
     
     if (pevDmaDebug)
         printf("pevDmaThread(card=%d, dmaChannel=%d) starting\n", card, dmaChannel);
