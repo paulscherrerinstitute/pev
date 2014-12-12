@@ -25,13 +25,14 @@ int pevInit();
         MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A32
         MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR1
         MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_SHM1
+        MAP_ENABLE|MAP_ENABLE_WR|MAP_SLAVE_VME
         
     Also see the pev manual for the meaning of sg_id and map_mode.
    
     logicalAddress is the start address of the requested map within the address space and might be larger than 0.
     The returned pointer will reference to this address.
     
-    There is no need that logicalAddress is on a page boundary or that size is a multiple  of a page size.
+    There is no need that logicalAddress is on a page boundary or that size is a multiple of a page size.
     The allocated map on the hardware may actually be larger than requested if this is required by the hardware.
     Still the returned pointer refers to the requested logical address.
     Never try to access memory before logicalAddress or after (and including) logicalAddress+size.
