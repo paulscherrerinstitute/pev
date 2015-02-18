@@ -21,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.9 2015/02/18 12:40:34 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.10 2015/02/18 13:58:58 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -94,6 +94,12 @@ int pevRead(
         errlogSevPrintf(errlogMajor,
             "pevRead %s: illegal device handle\n", user);
         return S_dev_noDevice;
+    }
+    if (!device->size) 
+    {
+        errlogSevPrintf(errlogMajor,
+            "pevRead %s: cannot read zero size map\n", user);
+        return S_dev_badRequest;
     }
     if (pevDrvDebug & DBG_IN)
     {
@@ -249,6 +255,12 @@ int pevWrite(
             "pevWrite: illegal device handle\n");
         return S_dev_noDevice;
     }
+    if (!device->size) 
+    {
+        errlogSevPrintf(errlogMajor,
+            "pevRead %s: cannot write zero size map\n", user);
+        return S_dev_badRequest;
+    }
     if (pevDrvDebug & DBG_OUT)
     {
         char* cbName = funcName(callback, 0);
@@ -380,7 +392,7 @@ int pevConfigure(
 {
     regDevice* device;
 
-    if (!name || !resource || !mapSize)
+    if (!name || !resource)
     {
         printf("usage: pevConfigure (card, \"name\", \"resource\", offset, \"protocol\", "
             "intrVec, mapSize, blockMode, \"swap\", vmePktSize)\n");
@@ -419,199 +431,204 @@ int pevConfigure(
     device->baseOffset = offset;
     device->size = mapSize;
   
-    if (blockMode)
+    if (mapSize)
     {
-        device->localBuffer = pevDmaRealloc(card, NULL, mapSize);
-        if (!device->localBuffer)
-        {
-            errlogSevPrintf(errlogFatal,
-                "pevConfigure %s: could not allocate dma buffer size %#x\n",
-                device->name, mapSize);
-            return S_dev_noMemory;
-        }
-        scanIoInit(&device->ioscanpvt);
-    }
-      
- /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
-    if (strcmp(resource, "SH_MEM") == 0)
-    {
-        device->dmaSpace = DMA_SPACE_SHM;
-        /* device->flags = FLAG_BLKMD; */
-        
-        /* Babak has only DMA here. Why? */
-        
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_SHM,
-            offset, mapSize);
-    }
-    else
-    if (strcmp(resource, "PCIE") == 0) 
-    {
-        device->mode = MAP_SPACE_PCIE;
-	device->dmaSpace = DMA_SPACE_PCIE;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_PCIE,
-            offset, mapSize);
-    }
-    else			
-    if (strcmp(resource, "USR") == 0) 
-    {
-        device->mode = MAP_SPACE_USR;
-	device->dmaSpace = DMA_SPACE_USR;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR,
-            offset, mapSize);
-    }
-    else			
-    if (strcmp(resource, "USR1") == 0) 
-    {
-        device->mode = MAP_SPACE_USR1;
-	device->dmaSpace = DMA_SPACE_USR1;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR1,
-            offset, mapSize);
-    }
-    else			
-    if (strcmp(resource, "USR2") == 0) 
-    {
-        device->mode = MAP_SPACE_USR2;
-	device->dmaSpace = DMA_SPACE_USR2;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR2,
-            offset, mapSize);
-    }
-    else
-    if (strcmp(resource, "VME_A16") == 0)
-    {
-        device->mode = MAP_SPACE_VME;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A16,
-            offset, mapSize);
-    }
-    else
-    if (strcmp(resource, "VME_A24") == 0) 
-    {
-        device->mode = MAP_SPACE_VME;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A24,
-            offset, mapSize);
-    }
-    else
-    if (strcmp(resource, "VME_A32") == 0) 
-    {
-        device->mode = MAP_SPACE_VME;
-        device->baseAddress = pevMap(card, MAP_MASTER_64,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A32,
-            offset, mapSize);
-    }
-    else
-    if (strcmp(resource, "VME_CSR") == 0) 
-    {
-        device->mode = MAP_SPACE_VME;
-        device->baseAddress = pevMap(card, MAP_MASTER_32,
-            MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_CR,
-            offset, mapSize);
-    }
-    else 
-    { 
-        errlogSevPrintf(errlogFatal,
-            "pevConfigure %s: Unknown resource %s\n  valid options: SH_MEM, PCIE, VME_A16, VME_A24, VME_A32, VME_CSR\n",
-            name, resource);
-    	return S_dev_uknAddrType;
-    }
-     
-    if (!device->baseAddress)
-    {
-    	errlogSevPrintf(errlogFatal,
-            "pevConfigure %s: address mapping failed.\n",
-            name);
-        return S_dev_addrMapFail;
-    }
+        /* mapSize == 0  =>  interrupt only */
 
-    if (strcmp(protocol, "NODMA") == 0)
-    {   
-        device->dmaSpace = NO_DMA_SPACE;
-    }
-    
-    if (device->mode == MAP_SPACE_VME && protocol && *protocol)
-    {
-        if (strcmp(protocol, "BLT") == 0) 
+        if (blockMode)
         {
-            device->dmaSpace = DMA_SPACE_VME|DMA_VME_BLT;
-        }
-        else if (strcmp(protocol, "MBLT") == 0) 
-        {
-            device->dmaSpace = DMA_SPACE_VME|DMA_VME_MBLT;
-        }
-        else if (strcmp(protocol, "2eVME") == 0) 
-        {
-            device->dmaSpace = DMA_SPACE_VME|DMA_VME_2eVME;
-        }
-        else if (strcmp(protocol, "2eSST160") == 0) 
-        {
-            device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e160;
-        }
-        else if (strcmp(protocol, "2eSST233") == 0) 
-        {
-            device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e233;
-        }
-        else if (strcmp(protocol, "2eSST320") == 0) 
-        {
-            device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
-        }
-        else
-        {
-            errlogSevPrintf(errlogFatal,
-                "pevConfigure %s: Unknown vme protocol %s\n  valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320\n",
-                name, resource);
-            return S_dev_badFunction;
-        }
-    }
-  
-    if (swap && *swap)
-    {
-        if (strcmp(swap, "WS") == 0)
-            device->swap = DMA_SPACE_WS;
-        else
-        if (strcmp(swap, "DS") == 0)
-            device->swap |= DMA_SPACE_DS;
-        else
-        if (strcmp(swap, "QS") == 0)
-            device->swap |= DMA_SPACE_QS;
-        else
-        if (strcmp(swap, "NS") != 0)
-            errlogSevPrintf(errlogInfo,
-                "pevConfigure %s: Unknown swap mode %s\n  valid options: WS, DS, QS, NS. Using No Swap now.\n",
-                name, swap);
-    }
-    
-    if (device->mode == MAP_SPACE_VME)
-    {
-        if (device->dmaSpace != NO_DMA_SPACE)
-        {
-            switch (vmePktSize) 
+            device->localBuffer = pevDmaRealloc(card, NULL, mapSize);
+            if (!device->localBuffer)
             {
-                case 0:
-                case 128:  
-                    device->vmePktSize = DMA_SIZE_PKT_128;
-	            break;
-                case 256:  
-                    device->vmePktSize = DMA_SIZE_PKT_256;
-	            break;
-                case 512:  
-                    device->vmePktSize = DMA_SIZE_PKT_512;
-	            break;
-                case 1024:  
-                    device->vmePktSize = DMA_SIZE_PKT_1K;
-	            break;
-                default:
-                    errlogSevPrintf(errlogInfo,
-                        "pevConfigure %s: Invalid vmePktSize %d\n  valid options: 128, 256, 512, 1024. Using 128 now.\n",
-                         name, vmePktSize);
-                    device->vmePktSize = DMA_SIZE_PKT_128;
+                errlogSevPrintf(errlogFatal,
+                    "pevConfigure %s: could not allocate dma buffer size %#x\n",
+                    device->name, mapSize);
+                return S_dev_noMemory;
+            }
+            scanIoInit(&device->ioscanpvt);
+        }
+
+        /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
+        if (strcmp(resource, "SH_MEM") == 0)
+        {
+            device->dmaSpace = DMA_SPACE_SHM;
+            /* device->flags = FLAG_BLKMD; */
+
+            /* Babak has only DMA here. Why? */
+
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_SHM,
+                offset, mapSize);
+        }
+        else
+        if (strcmp(resource, "PCIE") == 0) 
+        {
+            device->mode = MAP_SPACE_PCIE;
+	    device->dmaSpace = DMA_SPACE_PCIE;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_PCIE,
+                offset, mapSize);
+        }
+        else			
+        if (strcmp(resource, "USR") == 0) 
+        {
+            device->mode = MAP_SPACE_USR;
+	    device->dmaSpace = DMA_SPACE_USR;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR,
+                offset, mapSize);
+        }
+        else			
+        if (strcmp(resource, "USR1") == 0) 
+        {
+            device->mode = MAP_SPACE_USR1;
+	    device->dmaSpace = DMA_SPACE_USR1;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR1,
+                offset, mapSize);
+        }
+        else			
+        if (strcmp(resource, "USR2") == 0) 
+        {
+            device->mode = MAP_SPACE_USR2;
+	    device->dmaSpace = DMA_SPACE_USR2;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_USR2,
+                offset, mapSize);
+        }
+        else
+        if (strcmp(resource, "VME_A16") == 0)
+        {
+            device->mode = MAP_SPACE_VME;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A16,
+                offset, mapSize);
+        }
+        else
+        if (strcmp(resource, "VME_A24") == 0) 
+        {
+            device->mode = MAP_SPACE_VME;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A24,
+                offset, mapSize);
+        }
+        else
+        if (strcmp(resource, "VME_A32") == 0) 
+        {
+            device->mode = MAP_SPACE_VME;
+            device->baseAddress = pevMap(card, MAP_MASTER_64,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_A32,
+                offset, mapSize);
+        }
+        else
+        if (strcmp(resource, "VME_CSR") == 0) 
+        {
+            device->mode = MAP_SPACE_VME;
+            device->baseAddress = pevMap(card, MAP_MASTER_32,
+                MAP_ENABLE|MAP_ENABLE_WR|MAP_SPACE_VME|MAP_VME_CR,
+                offset, mapSize);
+        }
+        else 
+        { 
+            errlogSevPrintf(errlogFatal,
+                "pevConfigure %s: Unknown resource %s\n  valid options: SH_MEM, PCIE, VME_A16, VME_A24, VME_A32, VME_CSR\n",
+                name, resource);
+    	    return S_dev_uknAddrType;
+        }
+
+        if (!device->baseAddress)
+        {
+    	    errlogSevPrintf(errlogFatal,
+                "pevConfigure %s: address mapping failed.\n",
+                name);
+            return S_dev_addrMapFail;
+        }
+
+        if (strcmp(protocol, "NODMA") == 0)
+        {   
+            device->dmaSpace = NO_DMA_SPACE;
+        }
+
+        if (device->mode == MAP_SPACE_VME && protocol && *protocol)
+        {
+            if (strcmp(protocol, "BLT") == 0) 
+            {
+                device->dmaSpace = DMA_SPACE_VME|DMA_VME_BLT;
+            }
+            else if (strcmp(protocol, "MBLT") == 0) 
+            {
+                device->dmaSpace = DMA_SPACE_VME|DMA_VME_MBLT;
+            }
+            else if (strcmp(protocol, "2eVME") == 0) 
+            {
+                device->dmaSpace = DMA_SPACE_VME|DMA_VME_2eVME;
+            }
+            else if (strcmp(protocol, "2eSST160") == 0) 
+            {
+                device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e160;
+            }
+            else if (strcmp(protocol, "2eSST233") == 0) 
+            {
+                device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e233;
+            }
+            else if (strcmp(protocol, "2eSST320") == 0) 
+            {
+                device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
+            }
+            else
+            {
+                errlogSevPrintf(errlogFatal,
+                    "pevConfigure %s: Unknown vme protocol %s\n  valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320\n",
+                    name, resource);
+                return S_dev_badFunction;
             }
         }
-    }
+
+        if (swap && *swap)
+        {
+            if (strcmp(swap, "WS") == 0)
+                device->swap = DMA_SPACE_WS;
+            else
+            if (strcmp(swap, "DS") == 0)
+                device->swap |= DMA_SPACE_DS;
+            else
+            if (strcmp(swap, "QS") == 0)
+                device->swap |= DMA_SPACE_QS;
+            else
+            if (strcmp(swap, "NS") != 0)
+                errlogSevPrintf(errlogInfo,
+                    "pevConfigure %s: Unknown swap mode %s\n  valid options: WS, DS, QS, NS. Using No Swap now.\n",
+                    name, swap);
+        }
+
+        if (device->mode == MAP_SPACE_VME)
+        {
+            if (device->dmaSpace != NO_DMA_SPACE)
+            {
+                switch (vmePktSize) 
+                {
+                    case 0:
+                    case 128:  
+                        device->vmePktSize = DMA_SIZE_PKT_128;
+	                break;
+                    case 256:  
+                        device->vmePktSize = DMA_SIZE_PKT_256;
+	                break;
+                    case 512:  
+                        device->vmePktSize = DMA_SIZE_PKT_512;
+	                break;
+                    case 1024:  
+                        device->vmePktSize = DMA_SIZE_PKT_1K;
+	                break;
+                    default:
+                        errlogSevPrintf(errlogInfo,
+                            "pevConfigure %s: Invalid vmePktSize %d\n  valid options: 128, 256, 512, 1024. Using 128 now.\n",
+                             name, vmePktSize);
+                        device->vmePktSize = DMA_SIZE_PKT_128;
+                }
+            }
+        }
+    } /* if (mapSize) */
 
     if (intrVec)
     {
