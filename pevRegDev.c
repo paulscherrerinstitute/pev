@@ -21,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.8 2014/07/03 15:15:15 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.9 2015/02/18 12:40:34 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -331,24 +331,21 @@ int pevWrite(
 }
 
 /**
-*	pevConfigure(card, name, resource, offset, vmeProtocol, intrVec, mapSize, blockMode)  
+*	pevConfigure(card, name, resource, offset, protocol, intrVec, mapSize, blockMode)  
 *
 * 	card: 		normally 0; inceremnts if there are more cards in PCIe tree
 *
 *	name: 		virtual device name to refer to in EPICS record links (INP/OUT)
 *
 *	resource: 	PCIe resource; shared mem, VME space, FPGA user area -
-*			- options: "SH_MEM", "PCIE", "VME_A16/24/32" -  ("USR" is missing!!!)
+*			- options: "SH_MEM", "PCIE", "VME_A16/24/32", "USR", "USR1", "USR2"
 *
 *	offset		offset in bytes within the resource space
 *
-*	vmeProtocol	VME transfer protocol for DMA. -
-*                       - valid ptions: "BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
+*	protocol	VME transfer protocol for DMA. -
+*                       - valid ptions: "NODMA","BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
 *
-*
-*	size 		? this parameter might be added for how much kernel memory to be allocated for DMA
-*
-*	 blockMode	does a bock read from a mapped resource to a kernel buffer using DMA (epics records read from kernel buffer)		
+*	blockMode	does a bock read from a mapped resource to a kernel buffer using DMA (epics records read from kernel buffer)		
 *
 **/
 
@@ -374,7 +371,7 @@ int pevConfigure(
     const char* name,
     const char* resource,
     unsigned int offset,
-    char* vmeProtocol,
+    char* protocol,
     int intrVec,
     int mapSize,
     int blockMode,
@@ -385,10 +382,14 @@ int pevConfigure(
 
     if (!name || !resource || !mapSize)
     {
-        printf("usage: pevConfigure (card, \"name\", "
-            "\"SH_MEM\"|\"PCIE\"|\"VME_A16\"|\"VME_A24\"|\"VME_A32\", "
-            "offset, \"BLT\"|\"MBLT\"|\"2eVME\"|\"2eSST160\"|\"2eSST233\"|\"2eSST320\", "
-            "intrVec, dmaSize, blockMode, \"WS\"|\"DS\"|\"QS\", vmePktSize)\n");
+        printf("usage: pevConfigure (card, \"name\", \"resource\", offset, \"protocol\", "
+            "intrVec, mapSize, blockMode, \"swap\", vmePktSize)\n");
+        printf("  resource = SH_MEM|PCIE|USR[1|2]|VME_{A16|A24|A32|CSR}\n");
+        printf("  protocol = NODMA|BLT|MBLT|2eVME|2eSST{160|233|320} (mainly for VME resources)\n");
+        printf("  blockMode = 0|1\n");
+        printf("  swap = WS|DS|QS|NS (or empty) for word|double word|quad word|no swap\n");
+        printf("  vmePktSize = 128|256|512|1024 (only when protocol != NODMA)\n");
+            
         return -1;
     }
 
@@ -514,7 +515,7 @@ int pevConfigure(
     else 
     { 
         errlogSevPrintf(errlogFatal,
-            "pevConfigure %s: Unknown PCIe remote area %s - valid options: SH_MEM, PCIE, VME_A16/24/32/CSR\n",
+            "pevConfigure %s: Unknown resource %s\n  valid options: SH_MEM, PCIE, VME_A16, VME_A24, VME_A32, VME_CSR\n",
             name, resource);
     	return S_dev_uknAddrType;
     }
@@ -527,41 +528,41 @@ int pevConfigure(
         return S_dev_addrMapFail;
     }
 
-    if (strcmp(vmeProtocol, "NODMA") == 0)
+    if (strcmp(protocol, "NODMA") == 0)
     {   
         device->dmaSpace = NO_DMA_SPACE;
     }
     
-    if (device->mode == MAP_SPACE_VME && vmeProtocol && *vmeProtocol)
+    if (device->mode == MAP_SPACE_VME && protocol && *protocol)
     {
-        if (strcmp(vmeProtocol, "BLT") == 0) 
+        if (strcmp(protocol, "BLT") == 0) 
         {
             device->dmaSpace = DMA_SPACE_VME|DMA_VME_BLT;
         }
-        else if (strcmp(vmeProtocol, "MBLT") == 0) 
+        else if (strcmp(protocol, "MBLT") == 0) 
         {
             device->dmaSpace = DMA_SPACE_VME|DMA_VME_MBLT;
         }
-        else if (strcmp(vmeProtocol, "2eVME") == 0) 
+        else if (strcmp(protocol, "2eVME") == 0) 
         {
             device->dmaSpace = DMA_SPACE_VME|DMA_VME_2eVME;
         }
-        else if (strcmp(vmeProtocol, "2eSST160") == 0) 
+        else if (strcmp(protocol, "2eSST160") == 0) 
         {
             device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e160;
         }
-        else if (strcmp(vmeProtocol, "2eSST233") == 0) 
+        else if (strcmp(protocol, "2eSST233") == 0) 
         {
             device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e233;
         }
-        else if (strcmp(vmeProtocol, "2eSST320") == 0) 
+        else if (strcmp(protocol, "2eSST320") == 0) 
         {
             device->dmaSpace = DMA_SPACE_VME|DMA_VME_2e320;
         }
         else
         {
             errlogSevPrintf(errlogFatal,
-                "pevConfigure %s: Unknown vme protocol %s - valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320\n",
+                "pevConfigure %s: Unknown vme protocol %s\n  valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320\n",
                 name, resource);
             return S_dev_badFunction;
         }
@@ -577,6 +578,11 @@ int pevConfigure(
         else
         if (strcmp(swap, "QS") == 0)
             device->swap |= DMA_SPACE_QS;
+        else
+        if (strcmp(swap, "NS") != 0)
+            errlogSevPrintf(errlogInfo,
+                "pevConfigure %s: Unknown swap mode %s\n  valid options: WS, DS, QS, NS. Using No Swap now.\n",
+                name, swap);
     }
     
     if (device->mode == MAP_SPACE_VME)
@@ -600,7 +606,8 @@ int pevConfigure(
 	            break;
                 default:
                     errlogSevPrintf(errlogInfo,
-                        "pevConfigure: vmePktSize parameter not specified/wrong - set to DMA_SIZE_PKT_128\n");
+                        "pevConfigure %s: Invalid vmePktSize %d\n  valid options: 128, 256, 512, 1024. Using 128 now.\n",
+                         name, vmePktSize);
                     device->vmePktSize = DMA_SIZE_PKT_128;
             }
         }
@@ -624,7 +631,8 @@ int pevConfigure(
                     if (intrVec<1)
                     {
                         errlogSevPrintf(errlogFatal,
-                            "pevConfigure: intrVec out of range (1<=VME<=255)\n");
+                            "pevConfigure %s: Invalid intrVec %d\n  valid options: 1 ... 255\n",
+                            name, intrVec);
                         return S_dev_badVector;
                     }
                     src_id = EVT_SRC_VME;
@@ -633,7 +641,8 @@ int pevConfigure(
                     if (intrVec<1 || intrVec>16)
                     {
                         errlogSevPrintf(errlogFatal,
-                            "pevConfigure: intrVec out of range (1<=USR1<=16)\n");
+                            "pevConfigure %s: Invalid intrVec %d\n  valid options: 1 ... 16\n",
+                            name, intrVec);
                         return S_dev_badVector;
                     }
                     src_id = EVT_SRC_USR1+intrVec-1;
@@ -667,7 +676,7 @@ int pevConfigure(
 *
 *	offset		offset in bytes within the resource space
 *
-*	vmeProtocol	VME transfer protocol for DMA. -
+*	protocol	VME transfer protocol for DMA. -
 *                       - valid options: "BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
 *
 *
@@ -686,14 +695,21 @@ int pevAsynConfigure(
     const char* name,
     const char* resource,
     unsigned int offset,
-    char* vmeProtocol,
+    char* protocol,
     int intrVec,
     int mapSize,
     int blockMode,
     const char* swap,
     int vmePktSize)
 {
-    return pevConfigure(card, name, resource, offset, vmeProtocol, intrVec, mapSize, 0, swap, vmePktSize);
+    static int first=1;
+    if (first)
+    {
+        first = 0;
+        errlogSevPrintf(errlogInfo,
+            "pevAsynConfigure is obsolete. It only calls pevConfigure() now.\n");
+    }
+    return pevConfigure(card, name, resource, offset, protocol, intrVec, mapSize, 0, swap, vmePktSize);
 }
 
 /**
@@ -805,17 +821,17 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
 **  slaveAddrSpace 	:	"AM32" or "AM24"
 **  winBase		:	baseOffset in main VME slave space  		
 **  winSize		:	window size
-**  vmeProtocol		:	"BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
+**  protocol		:	"BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
 **  target		: 	"SH_MEM", "PCIE", "USR1/2"
 **  targetOffset	:	offset in the remote target
 **  swapping		:	"WS", "DS" or "QS"
 **/
  
 int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  unsigned int winSize, 
-		const char* vmeProtocol, const char* target, unsigned int targetOffset, const char* swapping)
+		const char* protocol, const char* target, unsigned int targetOffset, const char* swapping)
 {
   int mapMode = MAP_ENABLE | MAP_ENABLE_WR;
-  if (!slaveAddrSpace || !vmeProtocol)
+  if (!slaveAddrSpace || !protocol)
   {
     printf("usage: pevVmeSlaveTargetConfig (\"A24\"|\"A32\", base, size, \"BLT\"|\"MBLT\"|\"2eVME\"|\"2eSST160\"|\"2eSST233\"|\"2eSST320\", \"SH_MEM\"|\"PCIE\"|\"USR1/2\", offset, \"WS\"|\"DS\"|\"QS\")\n");
     return -1;
@@ -862,23 +878,23 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
   }
   
 
-  if (vmeProtocol && *vmeProtocol)
+  if (protocol && *protocol)
   {
   
-      if(strcmp(vmeProtocol, "BLT")==0) 
+      if(strcmp(protocol, "BLT")==0) 
         mapMode |= DMA_VME_BLT;
-      else if(strcmp(vmeProtocol, "MBLT")==0) 
+      else if(strcmp(protocol, "MBLT")==0) 
         mapMode |= DMA_VME_MBLT;
-      else if(strcmp(vmeProtocol, "2eVME")==0) 
+      else if(strcmp(protocol, "2eVME")==0) 
         mapMode |= DMA_VME_2eVME;
-      else if(strcmp(vmeProtocol, "2eSST160")==0) 
+      else if(strcmp(protocol, "2eSST160")==0) 
         mapMode |= DMA_VME_2e160;
-      else if(strcmp(vmeProtocol, "2eSST233")==0) 
+      else if(strcmp(protocol, "2eSST233")==0) 
         mapMode |= DMA_VME_2e233;
-      else if(strcmp(vmeProtocol, "2eSST320")==0) 
+      else if(strcmp(protocol, "2eSST320")==0) 
         mapMode |= DMA_VME_2e320;
       else
-        mapMode|=strtol(vmeProtocol, NULL, 0);
+        mapMode|=strtol(protocol, NULL, 0);
   }
 
   if (strcmp(target, "SH_MEM") == 0)
@@ -910,7 +926,7 @@ static const iocshArg pevConfigureArg0 = { "card", iocshArgInt };
 static const iocshArg pevConfigureArg1 = { "name", iocshArgString };
 static const iocshArg pevConfigureArg2 = { "resource", iocshArgString };
 static const iocshArg pevConfigureArg3 = { "offset", iocshArgInt };
-static const iocshArg pevConfigureArg4 = { "dmaSpace", iocshArgString };
+static const iocshArg pevConfigureArg4 = { "protocol", iocshArgString };
 static const iocshArg pevConfigureArg5 = { "intrVec", iocshArgInt };
 static const iocshArg pevConfigureArg6 = { "mapSize", iocshArgInt };
 static const iocshArg pevConfigureArg7 = { "blockMode", iocshArgInt };
@@ -988,7 +1004,7 @@ static void pevVmeSlaveMainConfigFunc (const iocshArgBuf *args)
 static const iocshArg pevVmeSlaveTargetConfigArg0 = { "slaveAddrSpace", iocshArgString };
 static const iocshArg pevVmeSlaveTargetConfigArg1 = { "winBase", iocshArgInt };
 static const iocshArg pevVmeSlaveTargetConfigArg2 = { "winSize", iocshArgInt };
-static const iocshArg pevVmeSlaveTargetConfigArg3 = { "vmeProtocol", iocshArgString };
+static const iocshArg pevVmeSlaveTargetConfigArg3 = { "protocol", iocshArgString };
 static const iocshArg pevVmeSlaveTargetConfigArg4 = { "target", iocshArgString };
 static const iocshArg pevVmeSlaveTargetConfigArg5 = { "targetOffset", iocshArgInt };
 static const iocshArg pevVmeSlaveTargetConfigArg6 = { "swapping", iocshArgString };
