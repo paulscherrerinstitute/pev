@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: zimoch $*/
-/*$Date: 2013/03/18 12:30:18 $*/
-/*$Revision: 1.16 $*/
+/*$Date: 2015/02/18 16:04:32 $*/
+/*$Revision: 1.17 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -25,7 +25,7 @@
 #define I2CEXEC_MASK	0x0300000
 #define BIT_31_SET  0x80000000
 
-long  ifc1210Init(){ return 0; }
+long  ifc1210Init(){ pev_init(0); return 0; }
 struct {
     long number;
     long (*report) ();
@@ -46,7 +46,7 @@ typedef struct ifcPrivate{
     unsigned int count;
 } ifcPrivate;
 
-static long devIfc1210InitRecord(dbCommon* record, struct link* link)
+long devIfc1210InitRecord(dbCommon* record, struct link* link)
 {
     ifcPrivate* p;
      
