@@ -29,8 +29,8 @@ struct isrEntry {
     unsigned long long intrCount;
 };
 
-struct intrThread {
-    struct intrThread* next;
+struct intrHandler {
+    struct intrHandler* next;
     struct intrEngine* engine;
     unsigned int priority;
     struct pev_ioctl_evt *intrQueue;
@@ -40,8 +40,8 @@ struct intrThread {
 static struct intrEngine {
     unsigned int card;
     struct isrEntry *isrList;
-    epicsMutexId lock;
-    struct intrThread *threadList;
+    epicsMutexId handlerListLock;
+    struct intrHandler *handlerList;
     unsigned long long intrCount;
     unsigned long long unhandledIntrCount;
 } pevIntrList[MAX_PEV_CARDS];
@@ -72,32 +72,32 @@ unsigned int pevIntrGetPriorityFromSrcId(unsigned int src_id)
     return priority;
 }
 
-void pevIntrThread(void* arg)
+void pevIntrHandlerThread(void* arg)
 {
-    struct intrThread* self = arg;
+    struct intrHandler* self = arg;
     struct intrEngine* engine = self->engine;
     struct pev_ioctl_evt *intrQueue = self->intrQueue;
-    epicsMutexId lock = engine->lock;
+    epicsMutexId handlerListLock = engine->handlerListLock;
     unsigned int card = engine->card;
     unsigned int intr, src_id, vec_id, handler_called;
     struct isrEntry* isr;
     
     if (pevx_evt_queue_enable(card, intrQueue) != 0)
     {
-        errlogPrintf("pevIntrThread(card=%u): pevx_evt_queue_enable failed\n",
+        errlogPrintf("pevIntrHandlerThread(card=%u): pevx_evt_queue_enable failed\n",
             card);        
         return;
     }
 
     if (pevIntrDebug)
-        printf("pevIntrThread(card=%u) starting\n", card);
+        printf("pevIntrHandlerThread(card=%u) starting\n", card);
 
-    epicsMutexLock(lock);
+    epicsMutexLock(handlerListLock);
     while (1)
     {
-        epicsMutexUnlock(lock);
+        epicsMutexUnlock(handlerListLock);
         intr = pevx_evt_read(card, intrQueue, -1); /* wait until event occurs */
-        epicsMutexLock(lock); /* make sure the list does not change, see also pevIntrExit */
+        epicsMutexLock(handlerListLock); /* make sure the list does not change, see also pevIntrExit */
 
         engine->intrCount++;
 
@@ -105,14 +105,14 @@ void pevIntrThread(void* arg)
         vec_id = intr&0xff;
 
         if (pevIntrDebug >= 2)
-            printf("pevIntrThread(card=%u): New interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
+            printf("pevIntrHandlerThread(card=%u): New interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
                 card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
 
         handler_called = FALSE;
-        for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
+        for (isr = pevIntrList[card].isrList; isr != NULL; isr = isr->next)
         {
             if (pevIntrDebug >= 2)
-                printf("pevIntrThread(card=%u): check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
+                printf("pevIntrHandlerThread(card=%u): check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
                     card, isr->src_id, isr->vec_id);
 
             /* if user installed handler for EVT_SRC_VME (without level), accept all VME levels */
@@ -128,7 +128,7 @@ void pevIntrThread(void* arg)
             if (pevIntrDebug >= 2)
             {
                 char* funcname = funcName(isr->func, 0);
-                printf("pevIntrThread(card=%u): match func=%s usr=%p count=%llu\n",
+                printf("pevIntrHandlerThread(card=%u): match func=%s usr=%p count=%llu\n",
                     card, funcname, isr->usr, isr->intrCount);
                 free (funcname);
             }
@@ -143,7 +143,7 @@ void pevIntrThread(void* arg)
             engine->unhandledIntrCount++;
             
             if (pevIntrDebug >= 2)
-                printf("pevIntrThread(card=%u): unhandled interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
+                printf("pevIntrHandlerThread(card=%u): unhandled interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
                     card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
         }
     }
@@ -163,7 +163,7 @@ struct intrEngine* pevIntrStartEngine(unsigned int card)
     epicsMutexLock(pevIntrListLock);
 
     /* maybe the card has been initialized by another thread meanwhile? */
-    if (pevIntrList[card].lock)
+    if (pevIntrList[card].handlerListLock)
     {
         epicsMutexUnlock(pevIntrListLock);
         return &pevIntrList[card];
@@ -180,8 +180,8 @@ struct intrEngine* pevIntrStartEngine(unsigned int card)
     }
 
     /* add new card to interrupt handling */
-    pevIntrList[card].lock = epicsMutexCreate();
-    if (!pevIntrList[card].lock)
+    pevIntrList[card].handlerListLock = epicsMutexCreate();
+    if (!pevIntrList[card].handlerListLock)
     {
         errlogPrintf("pevIntrStartEngine(card=%u): epicsMutexCreate() failed\n",
             card);
@@ -195,7 +195,7 @@ struct intrEngine* pevIntrStartEngine(unsigned int card)
 static inline struct intrEngine* pevIntrGetEngine(unsigned int card)
 {
     if (card > MAX_PEV_CARDS) return NULL;
-    if (pevIntrList[card].lock) return &pevIntrList[card];
+    if (pevIntrList[card].handlerListLock) return &pevIntrList[card];
     return pevIntrStartEngine(card);
 }
 
@@ -222,8 +222,8 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
         return S_dev_noMemory;
     }
             
-    epicsMutexLock(engine->lock);
-    for (pisr = &engine->isrList; *pisr; pisr=&(*pisr)->next);
+    epicsMutexLock(engine->handlerListLock);
+    for (pisr = &engine->isrList; *pisr != NULL; pisr=&(*pisr)->next);
     *pisr = calloc(1, sizeof(struct isrEntry));
     if (!*pisr)
     {
@@ -231,14 +231,14 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
         errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): out of memory\n",
             card, src_id, vec_id, funcname, usr);        
         free(funcname);
-        epicsMutexUnlock(engine->lock);
+        epicsMutexUnlock(engine->handlerListLock);
         return S_dev_noMemory;
     }
     (*pisr)->src_id = src_id;
     (*pisr)->vec_id = vec_id;
     (*pisr)->func = func;
     (*pisr)->usr = usr;
-    epicsMutexUnlock(engine->lock);
+    epicsMutexUnlock(engine->handlerListLock);
 
     return S_dev_success;
 }
@@ -267,8 +267,8 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
         return S_dev_noMemory;
     }
     
-    epicsMutexLock(engine->lock);
-    for (pisr = &engine->isrList; *pisr; pisr = &(*pisr)->next)
+    epicsMutexLock(engine->handlerListLock);
+    for (pisr = &engine->isrList; *pisr != NULL; pisr = &(*pisr)->next)
     {
         if ((*pisr)->src_id == src_id &&
             (*pisr)->vec_id == vec_id &&
@@ -281,88 +281,88 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
         errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): not connected\n",
             card, src_id, vec_id, funcname, usr);
         free(funcname);
-        epicsMutexUnlock(engine->lock);
+        epicsMutexUnlock(engine->handlerListLock);
         return S_dev_noMemory;
     }
     isr = *pisr;
     *pisr = (*pisr)->next;
     memset(isr, 0, sizeof(struct isrEntry));
     free (isr);
-    epicsMutexUnlock(engine->lock);
+    epicsMutexUnlock(engine->handlerListLock);
     return S_dev_success;
 }
 
-struct intrThread* pevIntrGetHandler(unsigned int card, unsigned int src_id)
+struct intrHandler* pevIntrGetHandler(unsigned int card, unsigned int src_id)
 {
     unsigned int priority;
     struct intrEngine* engine;
-    struct intrThread** pt;
+    struct intrHandler** phandler;
     char threadName[16];
     
     priority = pevIntrGetPriorityFromSrcId(src_id);
     engine = pevIntrGetEngine(card);
-    epicsMutexLock(engine->lock);
-    for (pt = &engine->threadList; *pt; pt = &(*pt)->next)
+    epicsMutexLock(engine->handlerListLock);
+    for (phandler = &engine->handlerList; *phandler != NULL; phandler = &(*phandler)->next)
     {
-        if ((*pt)->priority == priority)
+        if ((*phandler)->priority == priority)
         {
             if (pevIntrDebug)
             {
-                epicsThreadGetName((*pt)->tid, threadName, sizeof(threadName));
+                epicsThreadGetName((*phandler)->tid, threadName, sizeof(threadName));
                 printf("pevIntrGetHandler(card=%u, src_id=0x%02x): re-using existing handler %s\n",
                     card, src_id, threadName);
             }
-            epicsMutexUnlock(engine->lock);
-            return *pt;
+            epicsMutexUnlock(engine->handlerListLock);
+            return *phandler;
         }
     }
     sprintf(threadName, "pevIntr%u.%02x", card, src_id);
     if (pevIntrDebug)
         printf("pevIntrGetHandler(card=%u, src_id=0x%02x): creating new handler %s\n",
             card, src_id, threadName);
-    *pt = (struct intrThread*) calloc(1, sizeof(struct intrThread));
-    if (!*pt)
+    *phandler = (struct intrHandler*) calloc(1, sizeof(struct intrHandler));
+    if (!*phandler)
     {
         errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#04x): out of memory\n",
             card, src_id);
-        epicsMutexUnlock(engine->lock);
+        epicsMutexUnlock(engine->handlerListLock);
         return NULL;
     }
-    (*pt)->engine = engine;
-    (*pt)->priority = priority;
-    (*pt)->intrQueue = pevx_evt_queue_alloc(card, 0);
-    if (!(*pt)->intrQueue)
+    (*phandler)->engine = engine;
+    (*phandler)->priority = priority;
+    (*phandler)->intrQueue = pevx_evt_queue_alloc(card, 0);
+    if (!(*phandler)->intrQueue)
     {
         errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#04x): pevx_evt_queue_alloc() failed\n",
             card, src_id);
-        free(*pt);
-        *pt = NULL;
-        epicsMutexUnlock(engine->lock);
+        free(*phandler);
+        *phandler = NULL;
+        epicsMutexUnlock(engine->handlerListLock);
         return NULL;
     }
-    (*pt)->tid = epicsThreadCreate(threadName, priority,
+    (*phandler)->tid = epicsThreadCreate(threadName, priority,
         epicsThreadGetStackSize(epicsThreadStackSmall),
-        pevIntrThread, *pt);
-    if (!(*pt)->tid)
+        pevIntrHandlerThread, *phandler);
+    if (!(*phandler)->tid)
     {
         errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#04x): epicsThreadCreate(%s, %d, %d, %p, %p) failed\n",
             card, src_id,
             threadName, priority,
             epicsThreadGetStackSize(epicsThreadStackSmall),
-            pevIntrThread, *pt);
-        pevx_evt_queue_free(card, (*pt)->intrQueue);
-        free(*pt);
-        *pt = NULL;
-        epicsMutexUnlock(engine->lock);
+            pevIntrHandlerThread, *phandler);
+        pevx_evt_queue_free(card, (*phandler)->intrQueue);
+        free(*phandler);
+        *phandler = NULL;
+        epicsMutexUnlock(engine->handlerListLock);
         return NULL;
     }
-    epicsMutexUnlock(engine->lock);
-    return *pt;
+    epicsMutexUnlock(engine->handlerListLock);
+    return *phandler;
 }
 
 int pevIntrEnable(unsigned int card, unsigned int src_id)
 {
-    struct intrThread* handler;
+    struct intrHandler* handler;
 
     if (pevIntrDebug)
         printf("pevIntrEnable(card=%u, src_id=0x%02x)\n", card, src_id);
@@ -383,7 +383,7 @@ int pevIntrEnable(unsigned int card, unsigned int src_id)
 
 int pevIntrDisable(unsigned int card, unsigned int src_id)
 {
-    struct intrThread* handler;
+    struct intrHandler* handler;
 
     if (pevIntrDebug)
         printf("pevIntrDisable(card=%u, src_id=0x%02x)\n", card, src_id);
@@ -402,23 +402,23 @@ int pevIntrDisable(unsigned int card, unsigned int src_id)
 void pevIntrShow(const iocshArgBuf *args)
 {
     struct isrEntry* isr;
-    struct intrThread* t;
+    struct intrHandler* handler;
     unsigned int card;
     int level = args[0].ival;
 
     printf("pev interrupts:\n");
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
-        if (pevIntrList[card].threadList || pevIntrList[card].isrList)
+        if (pevIntrList[card].handlerList || pevIntrList[card].isrList)
             printf (" card %u: %lld interrupts (%lld unhandled)\n",
                 card, pevIntrList[card].intrCount, pevIntrList[card].unhandledIntrCount);
-        for (t = pevIntrList[card].threadList; t; t = t->next)
+        for (handler = pevIntrList[card].handlerList; handler != NULL; handler = handler->next)
         {
             char threadName[16];
-            epicsThreadGetName(t->tid, threadName, sizeof(threadName));
-            printf("  thread %s priority %u\n", threadName, t->priority);
+            epicsThreadGetName(handler->tid, threadName, sizeof(threadName));
+            printf("  thread %s priority %u\n", threadName, handler->priority);
         }
-        for (isr = pevIntrList[card].isrList; isr; isr = isr->next)
+        for (isr = pevIntrList[card].isrList; isr != NULL; isr = isr->next)
         {
             char *funcname;
 
@@ -457,25 +457,25 @@ static const iocshFuncDef pevIntrShowDef =
 void pevIntrExit(void* dummy)
 {
     unsigned int card;
-    struct intrThread* t;
+    struct intrHandler* handler;
     
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
-        if (!pevIntrList[card].lock) continue;
+        if (!pevIntrList[card].handlerListLock) continue;
         if (pevIntrDebug)
             printf("pevIntrExit(): stopping interrupt handling on card %d\n",
                 card);
 
         /* make sure that no handler is active */
-        epicsMutexLock(pevIntrList[card].lock);
+        epicsMutexLock(pevIntrList[card].handlerListLock);
         
         /* we cannot kill a thread nor can we wake up pevx_evt_read() */
         /* but since we don't release the lock, the thread is effectively stopped */
         
-        for (t = pevIntrList[card].threadList; t; t = t->next)
+        for (handler = pevIntrList[card].handlerList; handler != NULL; handler = handler->next)
         {
-            pevx_evt_queue_disable(card, t->intrQueue);
-            pevx_evt_queue_free(card, t->intrQueue);
+            pevx_evt_queue_disable(card, handler->intrQueue);
+            pevx_evt_queue_free(card, handler->intrQueue);
         }
     }
     if (pevIntrDebug)
