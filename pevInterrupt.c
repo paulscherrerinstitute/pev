@@ -63,10 +63,6 @@ unsigned int pevIntrGetPriorityFromSrcId(unsigned int src_id)
 
     if ((src_id & 0xf0) == EVT_SRC_VME)
     {
-/*
-        while (src_id++ <= EVT_SRC_VME+7)
-            epicsThreadHighestPriorityLevelBelow(priority, &priority);
-*/
         priority += (src_id & 0x0f)-9;
     }
     return priority;
@@ -316,7 +312,7 @@ struct intrHandler* pevIntrGetHandler(unsigned int card, unsigned int src_id)
             return *phandler;
         }
     }
-    sprintf(threadName, "pevIntr%u.%02x", card, src_id);
+    sprintf(threadName, "pevIntr%u.%d", card, priority);
     if (pevIntrDebug)
         printf("pevIntrGetHandler(card=%u, src_id=0x%02x): creating new handler %s\n",
             card, src_id, threadName);
@@ -416,13 +412,13 @@ void pevIntrShow(const iocshArgBuf *args)
         {
             char threadName[16];
             epicsThreadGetName(handler->tid, threadName, sizeof(threadName));
-            printf("  thread %s priority %u\n", threadName, handler->priority);
+            printf("  thread %s\n", threadName);
         }
         for (isr = pevIntrList[card].isrList; isr != NULL; isr = isr->next)
         {
             char *funcname;
 
-            printf("  src=0x%02x (%s",
+            printf("   src=0x%02x (%s",
                 isr->src_id, src_name[isr->src_id >> 4]);
             if (isr->src_id != EVT_SRC_VME)
                 printf(" %d", (isr->src_id & 0xf) + 1);
