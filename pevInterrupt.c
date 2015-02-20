@@ -25,7 +25,8 @@ struct isrEntry {
     unsigned int src_id;
     unsigned int vec_id;
     void (*func)();
-    void* usr;unsigned long long intr_count;
+    void* usr;
+    unsigned long long intrCount;
 };
 
 struct intrThread {
@@ -41,6 +42,8 @@ static struct intrEngine {
     struct isrEntry *isrList;
     epicsMutexId lock;
     struct intrThread *threadList;
+    unsigned long long intrCount;
+    unsigned long long unhandledIntrCount;
 } pevIntrList[MAX_PEV_CARDS];
 
 static epicsMutexId pevIntrListLock;
@@ -77,7 +80,7 @@ void pevIntrThread(void* arg)
     epicsMutexId lock = engine->lock;
     unsigned int card = engine->card;
     unsigned int intr, src_id, vec_id, handler_called;
-    const struct isrEntry* isr;
+    struct isrEntry* isr;
     
     if (pevx_evt_queue_enable(card, intrQueue) != 0)
     {
@@ -95,6 +98,8 @@ void pevIntrThread(void* arg)
         epicsMutexUnlock(lock);
         intr = pevx_evt_read(card, intrQueue, -1); /* wait until event occurs */
         epicsMutexLock(lock); /* make sure the list does not change, see also pevIntrExit */
+
+        engine->intrCount++;
 
         src_id = intr>>8;
         vec_id = intr&0xff;
@@ -118,14 +123,16 @@ void pevIntrThread(void* arg)
             if (isr->vec_id && isr->vec_id != vec_id)
                 continue;
 
+            isr->intrCount++;
+
             if (pevIntrDebug >= 2)
             {
                 char* funcname = funcName(isr->func, 0);
-                printf("pevIntrThread(card=%u): match func=%s usr=%p\n",
-                    card, funcname, isr->usr);
+                printf("pevIntrThread(card=%u): match func=%s usr=%p count=%llu\n",
+                    card, funcname, isr->usr, isr->intrCount);
                 free (funcname);
             }
-            
+                        
             /* pass src_id and vec_id to user function for closer inspection */
             isr->func(isr->usr, src_id, vec_id);
             handler_called = TRUE;
@@ -133,8 +140,11 @@ void pevIntrThread(void* arg)
         pevx_evt_unmask(card, intrQueue, src_id);
         if (!handler_called)
         {
-            errlogPrintf("pevIntrThread(card=%u): unhandled interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
-                card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
+            engine->unhandledIntrCount++;
+            
+            if (pevIntrDebug >= 2)
+                printf("pevIntrThread(card=%u): unhandled interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
+                    card, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
         }
     }
 }
@@ -394,12 +404,14 @@ void pevIntrShow(const iocshArgBuf *args)
     struct isrEntry* isr;
     struct intrThread* t;
     unsigned int card;
+    int level = args[0].ival;
 
     printf("pev interrupts:\n");
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         if (pevIntrList[card].threadList || pevIntrList[card].isrList)
-            printf (" card %u\n", card);
+            printf (" card %u: %lld interrupts (%lld unhandled)\n",
+                card, pevIntrList[card].intrCount, pevIntrList[card].unhandledIntrCount);
         for (t = pevIntrList[card].threadList; t; t = t->next)
         {
             char threadName[16];
@@ -412,16 +424,18 @@ void pevIntrShow(const iocshArgBuf *args)
 
             printf("  src=0x%02x (%s",
                 isr->src_id, src_name[isr->src_id >> 4]);
-            if (isr->src_id != EVT_SRC_VME || isr->src_id & 0xf)
+            if (isr->src_id != EVT_SRC_VME)
+                printf(" %d", (isr->src_id & 0xf) + 1);
+            else if (isr->src_id & 0xf)
                 printf(" %d", isr->src_id & 0xf);
+            printf(")");
 
-            printf(") vec=");
             if (isr->vec_id)
-                printf("0x%02x (%d)", isr->vec_id, isr->vec_id);
-            else
-                printf("any");
+                printf (" vec=0x%02x (%d)", isr->vec_id, isr->vec_id);
 
-            funcname = funcName(isr->func, 1);
+            printf(" count=%llu", isr->intrCount);
+            
+            funcname = funcName(isr->func, level);
             printf(" func=%s", funcname);
             free(funcname);
 
@@ -433,6 +447,12 @@ void pevIntrShow(const iocshArgBuf *args)
         }
     }
 }
+static const iocshArg pevIntrShowArg0 = { "level", iocshArgInt };
+static const iocshArg * const pevIntrShowArgs[] = {
+    &pevIntrShowArg0,
+};
+static const iocshFuncDef pevIntrShowDef =
+    { "pevIntrShow", 1, pevIntrShowArgs };
 
 void pevIntrExit(void* dummy)
 {
@@ -461,9 +481,6 @@ void pevIntrExit(void* dummy)
     if (pevIntrDebug)
         printf("pevIntrExit(): done\n");
 }
-
-static const iocshFuncDef pevIntrShowDef =
-    { "pevIntrShow", 0, NULL };
 
 int pevIntrInit()
 {
