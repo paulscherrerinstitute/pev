@@ -13,7 +13,7 @@
 #include <errlog.h>
 #include <epicsTypes.h>
 #include <dbAccess.h>
-#include <funcname.h>
+#include <symbolname.h>
 #include <epicsExport.h>
 
 #define MAGIC 		1100 		/*  pev1100 */
@@ -21,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.11 2015/02/20 08:51:42 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.12 2015/02/20 14:23:24 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -103,9 +103,11 @@ int pevRead(
     }
     if (pevDrvDebug & DBG_IN)
     {
-        char* cbName = funcName(callback, 0);
+        char* cbName = symbolName(callback, 0);
+        char* dataName = symbolName(pdata, 0);
         printf("pevRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=%s, user=%s)\n",
-            device->name, offset, dlen, nelem, pdata, prio, cbName, user);
+            device->name, offset, dlen, nelem, dataName, prio, cbName, user);
+        free(dataName);
         free(cbName);
     }
     
@@ -263,9 +265,11 @@ int pevWrite(
     }
     if (pevDrvDebug & DBG_OUT)
     {
-        char* cbName = funcName(callback, 0);
+        char* cbName = symbolName(callback, 0);
+        char* dataName = symbolName(pdata, 0);
         printf("pevWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, prio=%d, callback=%s, user=%s)\n",
-            device->name, offset, dlen, nelem, pdata, pmask, prio, cbName, user);
+            device->name, offset, dlen, nelem, dataName, pmask, prio, cbName, user);
+        free(dataName);
         free(cbName);
     }
 

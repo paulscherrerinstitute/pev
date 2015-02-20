@@ -27,7 +27,7 @@
 #include <devLib.h>
 #include <errlog.h>
 #include <epicsTypes.h>
-#include <funcname.h>
+#include <symbolname.h>
 #include <stdlib.h>
 #include <epicsExport.h>
 
@@ -60,9 +60,11 @@ long pevDevLibConnectInterruptVME(
 {
     if (pevDevLibDebug)
     {
-        char *fName = funcName(pFunction, 0);
-	printf("connecting VME Interrupt 0x%02x func=%s param=%p\n",
-            vectorNumber, fName, parameter);
+        char *fName = symbolName(pFunction, 0);
+        char *pName = symbolName(parameter, 0);
+	printf("connecting VME Interrupt 0x%02x func=%s param=%s\n",
+            vectorNumber, fName, pName);
+        free(pName);
         free(fName);
     }
     
@@ -80,7 +82,7 @@ long pevDevLibDisconnectInterruptVME(
 {
     if (pevDevLibDebug)
     {
-        char *fName = funcName(pFunction, 0);
+        char *fName = symbolName(pFunction, 0);
 	printf("disconnecting VME Interrupt 0x%02x func=%s\n",
             vectorNumber, fName);
         free(fName);

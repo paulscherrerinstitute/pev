@@ -11,7 +11,7 @@ struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
 #include <epicsThread.h>
 #include <epicsExit.h>
 #include <epicsMutex.h>
-#include <funcname.h>
+#include <symbolname.h>
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -123,10 +123,12 @@ void pevIntrHandlerThread(void* arg)
 
             if (pevIntrDebug >= 2)
             {
-                char* funcname = funcName(isr->func, 0);
-                printf("pevIntrHandlerThread(card=%u): match func=%s usr=%p count=%llu\n",
-                    card, funcname, isr->usr, isr->intrCount);
-                free (funcname);
+                char* fname = symbolName(isr->func, 0);
+                char* uname = symbolName(isr->usr, 0);
+                printf("pevIntrHandlerThread(card=%u): match func=%s usr=%s count=%llu\n",
+                    card, fname, uname, isr->intrCount);
+                free (uname);
+                free (fname);
             }
                         
             /* pass src_id and vec_id to user function for closer inspection */
@@ -195,6 +197,16 @@ static inline struct intrEngine* pevIntrGetEngine(unsigned int card)
     return pevIntrStartEngine(card);
 }
 
+static void debugMsg(const char* caller, unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr, const char* msg)
+{
+    char* fname = symbolName(func, 0);
+    char* uname = symbolName(usr, 0);
+    errlogPrintf("%s(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%s, usr=%s)%s%s\n",
+        caller, card, src_id, vec_id, fname, uname, msg ? ": " : "", msg ? msg : "");
+    free (uname);
+    free (fname);
+}
+
 int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr)
 {
     struct intrEngine* engine;
@@ -202,19 +214,13 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
     
     if (pevIntrDebug)
     {
-        char* funcname = funcName(func, 0);
-        printf("pevIntrConnect(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%s, usr=%p)\n",
-            card, src_id, vec_id, funcname, usr);
-        free(funcname);
+        debugMsg("pevIntrConnect", card, src_id, vec_id, func, usr, NULL);
     }
 
     engine = pevIntrGetEngine(card);
     if (!engine)
     {
-        char* funcname = funcName(func, 0);
-        errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): pevIntrGetEngine() failed\n",
-            card, src_id, vec_id, funcname, usr);
-        free(funcname);
+        debugMsg("pevIntrConnect", card, src_id, vec_id, func, usr, "pevIntrGetEngine() failed");
         return S_dev_noMemory;
     }
             
@@ -223,10 +229,7 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
     *pisr = calloc(1, sizeof(struct isrEntry));
     if (!*pisr)
     {
-        char* funcname = funcName(func, 0);
-        errlogPrintf("pevIntrConnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): out of memory\n",
-            card, src_id, vec_id, funcname, usr);        
-        free(funcname);
+        debugMsg("pevIntrConnect", card, src_id, vec_id, func, usr, "out of memory");
         epicsMutexUnlock(engine->handlerListLock);
         return S_dev_noMemory;
     }
@@ -247,19 +250,13 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
 
     if (pevIntrDebug)
     {
-        char* funcname = funcName(func, 0);
-        printf("pevIntrDisconnect(card=%u, src_id=0x%02x, vec_id = 0x%02x, func=%s, usr=%p)\n",
-            card, src_id, vec_id, funcname, usr);
-        free(funcname);
+        debugMsg("pevIntrDisconnect", card, src_id, vec_id, func, usr, NULL);
     }
 
     engine = pevIntrGetEngine(card);
     if (!engine)
     {
-        char* funcname = funcName(func, 0);
-        errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): pevIntrGetEngine() failed\n",
-            card, src_id, vec_id, funcname, usr);
-        free(funcname);
+        debugMsg("pevIntrDisconnect", card, src_id, vec_id, func, usr, "pevIntrGetEngine() failed");
         return S_dev_noMemory;
     }
     
@@ -273,12 +270,9 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
     }
     if (!*pisr)
     {
-        char* funcname = funcName(func, 0);
-        errlogPrintf("pevIntrDisconnect(card=%u, src_id=%#04x, vec_id=%#04x, func=%s, usr=%p): not connected\n",
-            card, src_id, vec_id, funcname, usr);
-        free(funcname);
+        debugMsg("pevIntrDisconnect", card, src_id, vec_id, func, usr, "not connected");
         epicsMutexUnlock(engine->handlerListLock);
-        return S_dev_noMemory;
+        return S_dev_vectorNotInUse;;
     }
     isr = *pisr;
     *pisr = (*pisr)->next;
@@ -416,7 +410,7 @@ void pevIntrShow(const iocshArgBuf *args)
         }
         for (isr = pevIntrList[card].isrList; isr != NULL; isr = isr->next)
         {
-            char *funcname;
+            char *name;
 
             printf("   src=0x%02x (%s",
                 isr->src_id, src_name[isr->src_id >> 4]);
@@ -431,14 +425,14 @@ void pevIntrShow(const iocshArgBuf *args)
 
             printf(" count=%llu", isr->intrCount);
             
-            funcname = funcName(isr->func, level);
-            printf(" func=%s", funcname);
-            free(funcname);
+            name = symbolName(isr->func, level);
+            printf(" func=%s", name);
+            free(name);
 
-            if (isr->usr)
-                printf (" usr=%p", isr->usr);
-            else
-                printf (" usr=NULL");
+            name = symbolName(isr->usr, 0);
+            printf (" usr=%s", name);
+            free(name);
+            
             printf ("\n");
         }
     }
