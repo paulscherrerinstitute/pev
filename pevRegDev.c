@@ -21,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.10 2015/02/18 13:58:58 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.11 2015/02/20 08:51:42 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -673,6 +673,7 @@ int pevConfigure(
             }
         }
         pevIntrConnect(card, src_id, intrVec, scanIoRequest, device->ioscanpvt);
+        pevIntrEnable(card, src_id);
     }
  	
     regDevRegisterDevice(name, &pevSupport, device, mapSize);
