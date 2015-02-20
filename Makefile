@@ -12,7 +12,7 @@ SOURCES += pevDevLib.c
 SOURCES += ifcDev.c
 SOURCES += pevRegDev.c
 SOURCES += i2cDrv.c
-SOURCES += funcname.cc
+SOURCES += symbolname.cc
 
 HEADERS += pev.h
 

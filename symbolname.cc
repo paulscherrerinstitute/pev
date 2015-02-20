@@ -4,10 +4,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <cxxabi.h>
-#include "funcname.h"
+#include "symbolname.h"
 
 extern "C"
-char* funcName(void* funcPtr, int withFilename /* 1=file, 2=full path */)
+char* symbolName(void* ptr, int withFilename /* 1=file, 2=full path */)
 {
     Dl_info sym;
     size_t funcNameLength;
@@ -17,9 +17,9 @@ char* funcName(void* funcPtr, int withFilename /* 1=file, 2=full path */)
     const char *fileName;
     int demangleFailed;
 
-    if (!funcPtr) return strdup("NULL");
+    if (!ptr) return strdup("NULL");
     memset(&sym, 0, sizeof(sym));
-    dladdr(funcPtr, &sym);
+    dladdr(ptr, &sym);
     if (!sym.dli_fname) withFilename = 0;
     funcName = __cxxabiv1::__cxa_demangle(sym.dli_sname, NULL, NULL, &demangleFailed);
     if (demangleFailed)
@@ -36,16 +36,16 @@ char* funcName(void* funcPtr, int withFilename /* 1=file, 2=full path */)
         }
         totalLength += strlen(fileName) + 3;
     }
-    if (funcPtr != sym.dli_saddr)
+    if (ptr != sym.dli_saddr)
         totalLength += 20;
     
     result = (char*) malloc(totalLength);
     if (result != NULL)
     {
         if (funcNameLength != 0) strcpy(result, funcName);
-        if (funcPtr != sym.dli_saddr)
+        if (ptr != sym.dli_saddr)
             funcNameLength += sprintf(result + funcNameLength,
-                "%s0x%x", funcNameLength ? "+" : "", (char*)funcPtr - (char*)sym.dli_saddr);
+                "%s0x%x", funcNameLength ? "+" : "", (char*)ptr - (char*)sym.dli_saddr);
         if (withFilename)
             sprintf(result + funcNameLength, " (%s)", fileName);
     }
