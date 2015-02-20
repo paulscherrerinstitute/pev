@@ -7,33 +7,40 @@
 #include "funcname.h"
 
 extern "C"
-char* funcName(void* funcPtr, int withFilename)
+char* funcName(void* funcPtr, int withFilename /* 1=file, 2=full path */)
 {
     Dl_info sym;
     size_t l;
     char *name;
-    char *fname;
-    int demangle_failed;
+    char *funcName;
+    const char *fileName;
+    int demangleFailed;
 
     if (!funcPtr) return strdup("NULL");
     memset(&sym, 0, sizeof(sym));
     dladdr(funcPtr, &sym);
     if (!sym.dli_fname) withFilename = 0;
-    fname = __cxxabiv1::__cxa_demangle(sym.dli_sname, NULL, &l, &demangle_failed);
-    if (demangle_failed)
+    funcName = __cxxabiv1::__cxa_demangle(sym.dli_sname, NULL, &l, &demangleFailed);
+    if (demangleFailed)
     {
-        fname = (char*)sym.dli_sname;
-        l = fname ? strlen(fname) : 0;
+        funcName = (char*)sym.dli_sname;
+        l = funcName ? strlen(funcName) : 0;
+    }
+    fileName = sym.dli_fname;
+    if (withFilename == 1)
+    {
+        const char *p = strrchr(fileName, '/');
+        if (p) fileName = p+1;
     }        
-    name = (char*) malloc(l + 20 + (withFilename ? strlen(sym.dli_fname) + 3 : 0));
+    name = (char*) malloc(l + 20 + (withFilename ? strlen(fileName) + 3 : 0));
     if (name)
     {
-        if (l) strcpy(name, fname);
+        if (l) strcpy(name, funcName);
         if (funcPtr != sym.dli_saddr)
             l += sprintf(name + l, "%s0x%x", l ? "+" : "", (char*)funcPtr - (char*)sym.dli_saddr);
         if (withFilename)
-            sprintf(name + l, " (%s)", sym.dli_fname);
+            sprintf(name + l, " (%s)", fileName);
     }
-    if (!demangle_failed) free(fname);
+    if (!demangleFailed) free(funcName);
     return name;
 }
