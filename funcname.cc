@@ -10,8 +10,9 @@ extern "C"
 char* funcName(void* funcPtr, int withFilename /* 1=file, 2=full path */)
 {
     Dl_info sym;
-    size_t l;
-    char *name;
+    size_t funcNameLength;
+    size_t totalLength;
+    char *result;
     char *funcName;
     const char *fileName;
     int demangleFailed;
@@ -20,27 +21,34 @@ char* funcName(void* funcPtr, int withFilename /* 1=file, 2=full path */)
     memset(&sym, 0, sizeof(sym));
     dladdr(funcPtr, &sym);
     if (!sym.dli_fname) withFilename = 0;
-    funcName = __cxxabiv1::__cxa_demangle(sym.dli_sname, NULL, &l, &demangleFailed);
+    funcName = __cxxabiv1::__cxa_demangle(sym.dli_sname, NULL, NULL, &demangleFailed);
     if (demangleFailed)
-    {
         funcName = (char*)sym.dli_sname;
-        l = funcName ? strlen(funcName) : 0;
-    }
+    funcNameLength = funcName ? strlen(funcName) : 0;
+    totalLength = funcNameLength;
     fileName = sym.dli_fname;
-    if (withFilename == 1)
+    if (withFilename)
     {
-        const char *p = strrchr(fileName, '/');
-        if (p) fileName = p+1;
-    }        
-    name = (char*) malloc(l + 20 + (withFilename ? strlen(fileName) + 3 : 0));
-    if (name)
+        if (withFilename == 1)
+        {
+            const char *p = strrchr(fileName, '/');
+            if (p) fileName = p+1;
+        }
+        totalLength += strlen(fileName) + 3;
+    }
+    if (funcPtr != sym.dli_saddr)
+        totalLength += 20;
+    
+    result = (char*) malloc(totalLength);
+    if (result != NULL)
     {
-        if (l) strcpy(name, funcName);
+        if (funcNameLength != 0) strcpy(result, funcName);
         if (funcPtr != sym.dli_saddr)
-            l += sprintf(name + l, "%s0x%x", l ? "+" : "", (char*)funcPtr - (char*)sym.dli_saddr);
+            funcNameLength += sprintf(result + funcNameLength,
+                "%s0x%x", funcNameLength ? "+" : "", (char*)funcPtr - (char*)sym.dli_saddr);
         if (withFilename)
-            sprintf(name + l, " (%s)", fileName);
+            sprintf(result + funcNameLength, " (%s)", fileName);
     }
     if (!demangleFailed) free(funcName);
-    return name;
+    return result;
 }
