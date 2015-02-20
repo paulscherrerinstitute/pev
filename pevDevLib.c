@@ -48,12 +48,12 @@ epicsExportAddress(int, pevDevLibDebug);
  * Interrupt handling
  */
 
-LOCAL int pevDevLibInterruptInUseVME(unsigned vectorNumber)
+int pevDevLibInterruptInUseVME(unsigned vectorNumber)
 {
     return 0;
 }
 
-LOCAL long pevDevLibConnectInterruptVME(
+long pevDevLibConnectInterruptVME(
     unsigned vectorNumber,
     void (*pFunction)(),
     void  *parameter)
@@ -73,7 +73,7 @@ LOCAL long pevDevLibConnectInterruptVME(
     return S_dev_success;
 }
 
-LOCAL long pevDevLibDisconnectInterruptVME(
+long pevDevLibDisconnectInterruptVME(
     unsigned vectorNumber,
     void (*pFunction)()
 )
@@ -89,7 +89,7 @@ LOCAL long pevDevLibDisconnectInterruptVME(
     return pevIntrDisconnect(0, EVT_SRC_VME, vectorNumber, pFunction, NULL);
 }
 
-LOCAL long pevDevLibEnableInterruptLevelVME(unsigned level)
+long pevDevLibEnableInterruptLevelVME(unsigned level)
 {
     if (pevDevLibDebug)
 	printf("enabling VME Interrupt level 0x%02x\n", level);
@@ -102,7 +102,7 @@ LOCAL long pevDevLibEnableInterruptLevelVME(unsigned level)
     return pevIntrEnable(0, EVT_SRC_VME+level);
 }
 
-LOCAL long pevDevLibDisableInterruptLevelVME(unsigned level)
+long pevDevLibDisableInterruptLevelVME(unsigned level)
 {
     if (pevDevLibDebug)
 	printf("disabling VME Interrupt level 0x%02x\n", level);
@@ -120,7 +120,7 @@ LOCAL long pevDevLibDisableInterruptLevelVME(unsigned level)
  * two device drivers that are using the same address range
  */
 
-LOCAL long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
+long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
             size_t logicalAddress, size_t size, volatile void **ppPhysicalAddress)
 {
     if (ppPhysicalAddress==NULL) {
@@ -205,14 +205,14 @@ LOCAL long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
     return *ppPhysicalAddress ? S_dev_success : S_dev_addrMapFail;
 }
 
-LOCAL jmp_buf pevDevLibProbeFail;
+static jmp_buf pevDevLibProbeFail;
 
-LOCAL void pevDevLibProbeSigHandler(int sig)
+void pevDevLibProbeSigHandler(int sig)
 {
     longjmp(pevDevLibProbeFail, 1);
 }
 
-LOCAL long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void *pValue)
+long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void *pValue)
 {
     struct sigaction sa, oldsa;
 
@@ -281,7 +281,7 @@ LOCAL long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr
  * unsuccessful status if the device isnt present
  */
  
-LOCAL long pevDevLibReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
+long pevDevLibReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
 {
     return pevDevLibProbe(0, wordSize, ptr, pValue);
 }
@@ -293,18 +293,18 @@ LOCAL long pevDevLibReadProbe (unsigned wordSize, volatile const void *ptr, void
  *
  */
 
-LOCAL long pevDevLibWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue)
+long pevDevLibWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue)
 {
     return pevDevLibProbe(1, wordSize, ptr, (void *)pValue);
 }
 
 /*devA24Malloc and devA24Free are not implemented*/
-LOCAL void *pevDevLibA24Malloc(size_t size) { return NULL;}
-LOCAL void pevDevLibA24Free(void *pBlock) {};
-LOCAL long pevDevLibInit(void);
+void *pevDevLibA24Malloc(size_t size) { return NULL;}
+void pevDevLibA24Free(void *pBlock) {};
+long pevDevLibInit(void);
 
 /* PEV1100 specific initialization */
-LOCAL long pevDevLibInit(void)
+long pevDevLibInit(void)
 {
     struct pev_ioctl_vme_conf vme_conf;
 

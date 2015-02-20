@@ -1,4 +1,3 @@
-#define LOCAL static
 extern int pevDebug;
 
 #define MAX_PEV_CARDS 16

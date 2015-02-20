@@ -35,14 +35,14 @@ struct pevDmaBufEntry {
     struct pev_ioctl_buf buf;
 };
 
-LOCAL struct pevDmaEngine {
+static struct pevDmaEngine {
     epicsMessageQueueId dmaMsgQ;
     struct pevDmaBufEntry* dmaBufList;
     epicsMutexId bufListLock;
     unsigned int pevDmaLastTransferStatus;
 } pevDmaList[MAX_PEV_CARDS];
 
-LOCAL epicsMutexId pevDmaListLock;
+static epicsMutexId pevDmaListLock;
 
 struct dmaReq {
     struct pev_ioctl_dma_req pev_dma;
@@ -98,7 +98,7 @@ const char* pevDmaSpaceName(unsigned int dma_space)
     }
 }
 
-LOCAL void pevDmaThread(void* usr)
+void pevDmaThread(void* usr)
 {
     struct dmaReq dmaRequest;
 
@@ -142,7 +142,7 @@ LOCAL void pevDmaThread(void* usr)
         printf("pevDmaThread(card=%d, dmaChannel=%d) stopped\n", card, dmaChannel);
 }
 
-LOCAL struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
+struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
 {
     unsigned int dmaChannel = 0;
     unsigned int dmaChannelMask = pevDmaControllerMask & 3; /* only 2 dma channels at the moment */
@@ -220,7 +220,7 @@ static inline struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
     return pevDmaStartEngine(card);
 }
 
-LOCAL size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
+size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
 {
     struct pevDmaBufEntry *bufEntry;
     size_t dmaaddr;

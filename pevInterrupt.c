@@ -25,7 +25,7 @@ struct isrEntry {
     unsigned int src_id;
     unsigned int vec_id;
     void (*func)();
-    void* usr;
+    void* usr;unsigned long long intr_count;
 };
 
 struct intrThread {
@@ -36,14 +36,14 @@ struct intrThread {
     epicsThreadId tid;
 };
 
-LOCAL struct intrEngine {
+static struct intrEngine {
     unsigned int card;
     struct isrEntry *isrList;
     epicsMutexId lock;
     struct intrThread *threadList;
 } pevIntrList[MAX_PEV_CARDS];
 
-LOCAL epicsMutexId pevIntrListLock;
+static epicsMutexId pevIntrListLock;
 
 static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
 
@@ -54,7 +54,7 @@ static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","??
    will be handled by the same thread (fifo based).
    NB: DMA interrupts are max - 10
 */
-LOCAL unsigned int pevIntrGetPriorityFromSrcId(unsigned int src_id)
+unsigned int pevIntrGetPriorityFromSrcId(unsigned int src_id)
 {
     unsigned int priority = epicsThreadPriorityBaseMax-1;
 
@@ -69,7 +69,7 @@ LOCAL unsigned int pevIntrGetPriorityFromSrcId(unsigned int src_id)
     return priority;
 }
 
-LOCAL void pevIntrThread(void* arg)
+void pevIntrThread(void* arg)
 {
     struct intrThread* self = arg;
     struct intrEngine* engine = self->engine;
@@ -139,7 +139,7 @@ LOCAL void pevIntrThread(void* arg)
     }
 }
 
-LOCAL struct intrEngine* pevIntrStartEngine(unsigned int card)
+struct intrEngine* pevIntrStartEngine(unsigned int card)
 {
     if (pevIntrDebug)
         printf("pevIntrStartEngine(card=%u)\n", card);
@@ -434,7 +434,7 @@ void pevIntrShow(const iocshArgBuf *args)
     }
 }
 
-LOCAL void pevIntrExit(void* dummy)
+void pevIntrExit(void* dummy)
 {
     unsigned int card;
     struct intrThread* t;
