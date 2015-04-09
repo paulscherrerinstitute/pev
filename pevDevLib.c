@@ -29,6 +29,7 @@
 #include <epicsTypes.h>
 #include <symbolname.h>
 #include <stdlib.h>
+#include <epicsMutex.h>
 #include <epicsExport.h>
 
 #define VME24_MAP_SIZE 	0x1000000      	/* 16 MB A24 - fixed */
@@ -207,6 +208,7 @@ long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
     return *ppPhysicalAddress ? S_dev_success : S_dev_addrMapFail;
 }
 
+static epicsMutexId pevDevLibProbeLock;
 static jmp_buf pevDevLibProbeFail;
 
 void pevDevLibProbeSigHandler(int sig)
@@ -217,6 +219,10 @@ void pevDevLibProbeSigHandler(int sig)
 long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void *pValue)
 {
     struct sigaction sa, oldsa;
+    int status = S_dev_success;
+
+    /* serialize concurrent probes because we use global resources (jmp_buf, signals, PVME_ADDERR register) */
+    epicsMutexMustLock(pevDevLibProbeLock);
 
     /* clear BERR */
     pev_csr_rd(PVME_ADDERR);
@@ -240,8 +246,7 @@ long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void
               case 4: *(epicsUInt32 *)(ptr) = *(epicsUInt32 *)pValue;
                 break;
               default:
-                sigaction(SIGSEGV, &oldsa, NULL);
-	        return S_dev_badArgument;
+                status = S_dev_badArgument;
             }
             /* wait for writes to get posted */
             usleep(10);
@@ -257,25 +262,24 @@ long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void
               case 4: *(epicsUInt32 *)pValue = *(epicsUInt32 *)(ptr);
                 break;
               default:
-                sigaction(SIGSEGV, &oldsa, NULL);
-	        return S_dev_badArgument;
+                status = S_dev_badArgument;
             }
         }
+        /* check BERR */
+        if (pev_csr_rd(PVME_ADDERR) & VME_BERR)
+            status = S_dev_noDevice;
+
     }
     else
     {
-        sigaction(SIGSEGV, &oldsa, NULL);
         errlogPrintf("pevDev%sProbe: address %p not mapped\n", 
             write ? "Write" : "Read", pValue);
-        return S_dev_noDevice;
+        status = S_dev_noDevice;
     }
+
     sigaction(SIGSEGV, &oldsa, NULL);
-
-    /* check BERR */
-    if (pev_csr_rd(PVME_ADDERR) & VME_BERR)
-        return S_dev_noDevice;
-
-    return S_dev_success;
+    epicsMutexUnlock(pevDevLibProbeLock);
+    return status;
 }
 
 /* pevDevReadProbe
@@ -318,6 +322,7 @@ long pevDevLibInit(void)
         printf("pevDevLibInit: pev_init(0) failed\n");
         return -1;
     }
+    pevDevLibProbeLock = epicsMutexMustCreate();
     pev_vme_conf_read(&vme_conf);
     if (vme_conf.mas_ena == 0 )
     {
