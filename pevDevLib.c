@@ -134,8 +134,8 @@ long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
     *ppPhysicalAddress = NULL;
 
     if (pevDevLibDebug)
-        printf("pevDevLibMapAddr(addrType=%d, options=0x%x, logicalAddress=0x%zx, size=0x%zx, ppPhysicalAddress=%p\n",
-            addrType, options, logicalAddress, size, ppPhysicalAddress);
+        printf("pevDevLibMapAddr(addrType=%d %s, options=0x%x, logicalAddress=0x%zx, size=0x%zx, ppPhysicalAddress=%p)\n",
+            addrType, addrType<atLast ? epicsAddressTypeName[addrType] : "unknown", options, logicalAddress, size, ppPhysicalAddress);
     switch (addrType)
     {
         /* what is the use of this? */
