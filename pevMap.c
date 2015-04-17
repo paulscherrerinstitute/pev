@@ -166,10 +166,10 @@ void pevUnmap(void* ptr)
                 if (--mapEntry->refcount == 0)
                 {
                     if (pevMapDebug)
-                        printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x\n",
+                        printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x %3dMB\n",
                             card,
                             pevMapName(mapEntry->map.mode),
-                            mapEntry->map.rem_base,mapEntry->map.win_size);
+                            mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);
                     pevx_map_free(card, &mapEntry->map);
                     epicsMutexUnlock(pevMapListLock[card]);
                     return;
@@ -444,10 +444,10 @@ LOCAL void pevMapExit(void* dummy)
         for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
         {
             if (pevMapDebug)
-                printf("pevMapExit(): releasing memory map card %d %s base=0x%08lx size=0x%x\n",
+                printf("pevMapExit(): releasing memory map card %d %s base=0x%08lx size=0x%x %3dMB\n",
                     card,
                     pevMapName(mapEntry->map.mode),
-                    mapEntry->map.rem_base,mapEntry->map.win_size);
+                    mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);
             if (mapEntry->map.usr_addr != MAP_FAILED && mapEntry->map.usr_addr != NULL)
                 pevx_munmap(card, &mapEntry->map);
             if (mapEntry->map.win_size != 0)
