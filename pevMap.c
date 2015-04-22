@@ -166,7 +166,7 @@ void pevUnmap(void* ptr)
                 if (--mapEntry->refcount == 0)
                 {
                     if (pevMapDebug)
-                        printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x %3dMB\n",
+                        printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x %dMB\n",
                             card,
                             pevMapName(mapEntry->map.mode),
                             mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);
@@ -241,7 +241,7 @@ void pevMapShow(const iocshArgBuf *args)
                     printf("0x%08lx", (unsigned long) mapEntry->map.usr_addr);
                 else
                     printf("          ");
-                printf(" %-9s to %-8s %s swap=%s base=0x%08lx size=0x%08x %3dMB\n",
+                printf(" %-9s to %-8s %s swap=%s base=0x%08lx size=0x%08x %dMB\n",
                     pevSgName(mapEntry->map.sg_id),
                     pevMapName(mapEntry->map.mode), 
                     mapEntry->map.mode & MAP_ENABLE ? mapEntry->map.mode & MAP_ENABLE_WR ? "rdwr" : "read" : "disa",
@@ -444,7 +444,7 @@ LOCAL void pevMapExit(void* dummy)
         for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
         {
             if (pevMapDebug)
-                printf("pevMapExit(): releasing memory map card %d %s base=0x%08lx size=0x%x %3dMB\n",
+                printf("pevMapExit(): releasing memory map card %d %s base=0x%08lx size=0x%x %dMB\n",
                     card,
                     pevMapName(mapEntry->map.mode),
                     mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);
