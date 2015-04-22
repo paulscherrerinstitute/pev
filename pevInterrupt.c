@@ -497,7 +497,7 @@ void pevIntrShow(const iocshArgBuf *args)
         printf ("\n");
     }
 }
-static const iocshArg pevIntrShowArg0 = { "level", iocshArgInt };
+static const iocshArg pevIntrShowArg0 = { "level (negative for periodic update)", iocshArgInt };
 static const iocshArg * const pevIntrShowArgs[] = {
     &pevIntrShowArg0,
 };
