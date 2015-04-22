@@ -27,7 +27,7 @@ char* symbolName(void* ptr, int withFilename /* 1=file, 2=full path */)
     funcNameLength = funcName ? strlen(funcName) : 0;
     totalLength = funcNameLength;
     fileName = sym.dli_fname;
-    if (withFilename)
+    if (withFilename > 0)
     {
         if (withFilename == 1)
         {
@@ -46,7 +46,7 @@ char* symbolName(void* ptr, int withFilename /* 1=file, 2=full path */)
         if (ptr != sym.dli_saddr)
             funcNameLength += sprintf(result + funcNameLength,
                 "%s0x%x", funcNameLength ? "+" : "", (char*)ptr - (char*)sym.dli_saddr);
-        if (withFilename)
+        if (withFilename > 0)
             sprintf(result + funcNameLength, " (%s)", fileName);
     }
     if (!demangleFailed) free(funcName);
