@@ -175,7 +175,10 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
                 }
                 break;
         }
-        errlogPrintf ("\nStack trace:\n--------------------\n");
+        errlogPrintf ("\n");
+        if (sig != SIGINT || pevSigDebug > 1)
+        {
+            errlogPrintf ("Stack trace:\n--------------------\n");
 
 #ifdef __i386__
 #define FAULT_INSTRUCTION_ADDRESS eip
@@ -192,10 +195,11 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
 #define WASTEINDEX 2
 #endif
 
-        size = backtrace(array, 50);
-        array[WASTEINDEX] = (void *) ((ucontext_t *)ctx)->uc_mcontext.FAULT_INSTRUCTION_ADDRESS;
-        backtrace_symbols_fd(array+WASTEINDEX, size-WASTEINDEX, STDERR_FILENO);
-        errlogPrintf ("--------------------\n\n");
+            size = backtrace(array, 50);
+            array[WASTEINDEX] = (void *) ((ucontext_t *)ctx)->uc_mcontext.FAULT_INSTRUCTION_ADDRESS;
+            backtrace_symbols_fd(array+WASTEINDEX, size-WASTEINDEX, STDERR_FILENO);
+            errlogPrintf ("--------------------\n\n");
+        }
     }
 
     switch (sig)
