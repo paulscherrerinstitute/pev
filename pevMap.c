@@ -7,6 +7,8 @@
 #include <sys/mman.h>
 
 #include <pevxulib.h>
+#define MAP_SPACE_MASK     0xf000
+#define MAP_VME_SPACE_MASK 0x0f00
 
 #include <errlog.h>
 #include <devLib.h>
@@ -195,11 +197,11 @@ const char* pevSgName(unsigned int sg_id)
 
 const char* pevMapName(unsigned int map_mode)
 {
-    switch (map_mode & 0xF000)
+    switch (map_mode & MAP_SPACE_MASK)
     {
         case MAP_SPACE_VME:
         {
-            switch (map_mode & 0x0f00)
+            switch (map_mode & MAP_VME_SPACE_MASK)
             {
                 case MAP_VME_CR:   return "VME CSR";
                 case MAP_VME_A16:  return "VME A16";
@@ -219,36 +221,31 @@ const char* pevMapName(unsigned int map_mode)
     }
 }
 
-void pevMapShow(const iocshArgBuf *args)
+void pevMapShow(int vmeOnly)
 {
     struct pevMapEntry* mapEntry;
     unsigned int card;
     unsigned int index;
     
-    printf("pev memory maps:\n");
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         if (pevMapList[card])
         {
-            printf(" card %d: (VME maps use %s mode)\n",
+            printf("card %d: (VME maps use %s mode)\n",
                 card, pevx_csr_rd(card, 0x80000404) & (1<<5) ?
                     "supervisory" : "user");
-            index = 0;
-            for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
+            for (mapEntry = pevMapList[card], index = 0; mapEntry; mapEntry = mapEntry->next, index++)
             {
-                printf ("  %d: ", index++);
-                if (mapEntry->map.usr_addr)
-                    printf("0x%08lx", (unsigned long) mapEntry->map.usr_addr);
-                else
-                    printf("          ");
-                printf(" %-9s to %-8s %s swap=%s base=0x%08lx size=0x%08x %dMB\n",
+                if (vmeOnly && (mapEntry->map.mode & MAP_SPACE_MASK) != MAP_SPACE_VME) continue;
+                printf(" %d: %-9s -> %-8s base=0x%08lx size=0x%08x %dMB %s %s\n",
+                    index,
                     pevSgName(mapEntry->map.sg_id),
                     pevMapName(mapEntry->map.mode), 
-                    mapEntry->map.mode & MAP_ENABLE ? mapEntry->map.mode & MAP_ENABLE_WR ? "rdwr" : "read" : "disa",
-                    mapEntry->map.mode & MAP_SWAP_AUTO ? "auto" : "off ",
                     mapEntry->map.rem_base,
                     mapEntry->map.win_size,
-                    mapEntry->map.win_size>>20);
+                    mapEntry->map.win_size>>20,
+                    mapEntry->map.mode & MAP_ENABLE ? mapEntry->map.mode & MAP_ENABLE_WR ? "R/W" : "R" : "disabled",
+                    mapEntry->map.mode & MAP_SWAP_AUTO ? "auto swap" : "");
             }
         }
     }
@@ -341,7 +338,12 @@ void pevMapDisplay(unsigned int card, int map, size_t start, unsigned int dlen, 
     }
     if (offset + bytes > size) bytes = size - offset;
     
-    printf ("%s base=0x%08lx @%p\n", pevMapName(mapEntry->map.mode), mapEntry->map.rem_base, mapEntry->map.usr_addr);   
+    printf ("%s base=0x%08lx @%p\n", pevMapName(mapEntry->map.mode), mapEntry->map.rem_base, mapEntry->map.usr_addr);
+    if (mapEntry->map.usr_addr == NULL)
+    {
+        printf ("Not mapped to user space\n");
+        return;
+    }
     for (i = 0; i < bytes; i += 16)
     {
         printf ("%08x: ", offset + i);
@@ -430,8 +432,18 @@ static void pevMapDisplayFunc (const iocshArgBuf *args)
 static const iocshFuncDef pevMapShowDef =
     { "pevMapShow", 0, NULL };
 
+static void pevMapShowFunc (const iocshArgBuf *args)
+{
+    pevMapShow(0);
+}
+
 static const iocshFuncDef vmeMapShowDef =
     { "vmeMapShow", 0, NULL };
+
+static void vmeMapShowFunc (const iocshArgBuf *args)
+{
+    pevMapShow(1);
+}
 
 LOCAL void pevMapExit(void* dummy)
 {
@@ -474,8 +486,8 @@ int pevMapInit()
 
     epicsAtExit(pevMapExit, NULL);
     
-    iocshRegister(&pevMapShowDef, pevMapShow);
-    iocshRegister(&vmeMapShowDef, pevMapShow);
+    iocshRegister(&pevMapShowDef, pevMapShowFunc);
+    iocshRegister(&vmeMapShowDef, vmeMapShowFunc);
     iocshRegister(&pevMapDisplayDef, pevMapDisplayFunc);
     
     return S_dev_success;
