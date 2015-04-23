@@ -21,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.12 2015/02/20 14:23:24 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.13 2015/04/23 16:05:28 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -739,20 +739,25 @@ int pevAsynConfigure(
 * EPICS shell debug utility
 *
 **/
-int pevExpertReport(int level)
+void pevExpertReport(int level)
 { 
- printf("pevExpertReport:");
- if(glbVmeSlaveMap.a32_size == 0)
-   printf("\n\t Main VME slave window (A32) has been turned OFF!\n");
- else
-   printf("\n\t Main VME slave window (A32) at 0x%x [size = 0x%x]\n", glbVmeSlaveMap.a32_base, glbVmeSlaveMap.a32_size);
+    printf("pevExpertReport:\n");
  
-    if (level > 0)
-    {
-        printf("DMA:");
-        pevDmaReport(level);
-    }
-    return 0;
+    printf("Main VME slave window (A32) ");
+    if(glbVmeSlaveMap.a32_size == 0)
+        printf("turned OFF!\n");
+    else
+        printf("base=0x%08x size=0x%08x %dMB\n",
+            glbVmeSlaveMap.a32_base, glbVmeSlaveMap.a32_size, glbVmeSlaveMap.a32_size<<20);
+ 
+    printf("Maps:\n");
+    pevMapShow(0);
+
+    printf("DMA:\n");
+    pevDmaReport(level);
+
+    printf("Interrupts:\n");
+    pevIntrShow(level);
 }
  
 /**
@@ -998,9 +1003,7 @@ static const iocshFuncDef pevExpertReportDef =
     
 static void pevExpertReportFunc (const iocshArgBuf *args)
 {
-    int status = pevExpertReport(
-        args[0].ival);
-    if (status != 0 && !interruptAccept) epicsExit(1);
+    pevExpertReport(args[0].ival);
 }
 
 static const iocshArg pevVmeSlaveMainConfigArg0 = { "addrSpace", iocshArgString };
