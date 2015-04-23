@@ -66,6 +66,8 @@ const char* pevSgName(unsigned int sg_id);
 
 const char* pevMapName(unsigned int map_mode);
 
+void pevMapShow(int vmeOnly);
+
 /**** interrupts *****/
 
 /*
@@ -91,6 +93,8 @@ const char* pevMapName(unsigned int map_mode);
   except for usr, wich can be NULL.
 */
 
+const char* pevIntrSrcName(unsigned int src_id);
+
 int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
 
 int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr);
@@ -98,6 +102,8 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
 int pevIntrEnable(unsigned int card, unsigned int src_id);
 
 int pevIntrDisable(unsigned int card, unsigned int src_id);
+
+void pevIntrShow(int level); /* negative level for periodic updates */
 
 /**** DMA ****/
 
