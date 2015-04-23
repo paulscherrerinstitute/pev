@@ -29,6 +29,9 @@ epicsExportAddress(int, pevDmaDebug);
 volatile int pevDmaControllerMask = 3; /* use both DMA engines */
 epicsExportAddress(int, pevDmaControllerMask);
 
+int pevDmaPrio = 72;                   /* default priority */
+epicsExportAddress(int, pevDmaPrio);
+
 /* mental note: a hash table or a binary tree would be more efficient than a linked list */
 struct pevDmaBufEntry {
     struct pevDmaBufEntry* next;
@@ -142,15 +145,23 @@ void pevDmaThread(void* usr)
         printf("pevDmaThread(card=%d, dmaChannel=%d) stopped\n", card, dmaChannel);
 }
 
-struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
+struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
 {
     unsigned int dmaChannel = 0;
     unsigned int dmaChannelMask = pevDmaControllerMask & 3; /* only 2 dma channels at the moment */
-    char threadName [16];
+#define THREAD_NAME_LEN 16
+    char threadName [THREAD_NAME_LEN];
     
+    if (card > MAX_PEV_CARDS)
+    {
+        errlogPrintf("pevDmaGetEngine(card=%d): pev supports only %d cards\n", card, MAX_PEV_CARDS);
+        return NULL;
+    }
+    if (pevDmaList[card].dmaMsgQ) return &pevDmaList[card];
+ 
     if (!pevDmaListLock)
     {
-        errlogPrintf("pevDmaStartEngine(card=%d): pevDmaListLock is not initialized\n",
+        errlogPrintf("pevDmaGetEngine(card=%d): pevDmaListLock is not initialized\n",
             card);
         return NULL;
     }
@@ -165,7 +176,7 @@ struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
     
     if (!pevx_init(card))
     {
-        errlogPrintf("pevDmaStartEngine(card=%d): pevx_init() failed\n",
+        errlogPrintf("pevDmaGetEngine(card=%d): pevx_init() failed\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -175,7 +186,7 @@ struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
     pevDmaList[card].dmaMsgQ = epicsMessageQueueCreate(1000, sizeof(struct dmaReq));
     if (!pevDmaList[card].dmaMsgQ)
     {
-        errlogPrintf("pevDmaStartEngine(card=%d): Cannot create message queue\n",
+        errlogPrintf("pevDmaGetEngine(card=%d): Cannot create message queue\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -184,7 +195,7 @@ struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
     pevDmaList[card].bufListLock = epicsMutexCreate();
     if (!pevDmaList[card].bufListLock)
     {
-        errlogPrintf("pevDmaStartEngine(card=%d): Cannot create mutex\n",
+        errlogPrintf("pevDmaGetEngine(card=%d): Cannot create mutex\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -193,11 +204,11 @@ struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
     /* distribute DMA request between DMA channels */
     while (dmaChannelMask)
     {
-        sprintf(threadName, "pevDma%d.%d", card, dmaChannel);
+        sprintf(threadName, "pev%d.DMA%d", card, dmaChannel);
         if (pevDmaDebug)
-            printf("pevDmaStartEngine(card=%d): starting thread %s\n",
+            printf("pevDmaGetEngine(card=%d): starting thread %s\n",
                 card, threadName);
-        if (!epicsThreadCreate(threadName, epicsThreadPriorityBaseMax-10,
+        if (!epicsThreadCreate(threadName, 70,
             epicsThreadGetStackSize(epicsThreadStackSmall),
             pevDmaThread, (void*)(card<<8|dmaChannel)))
         {
@@ -211,13 +222,6 @@ struct pevDmaEngine* pevDmaStartEngine(unsigned int card)
     }
     epicsMutexUnlock(pevDmaListLock);
     return &pevDmaList[card];
-}
-
-static inline struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
-{
-    if (card > MAX_PEV_CARDS) return NULL;
-    if (pevDmaList[card].dmaMsgQ) return &pevDmaList[card];
-    return pevDmaStartEngine(card);
 }
 
 size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
@@ -440,20 +444,34 @@ void pevDmaReport(int level)
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         if (!pevDmaList[card].dmaMsgQ) continue;
-        printf("\t dmaMessageQueue card %d: ", card);
+        printf("card %d dmaMessageQueue", card);
         epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
 /*  No description what pevx_dma_status does
         printf("\n\t dmaStatus = %d", pevx_dma_status(card, &dmaStatus));
 */
         dmaStatus = pevDmaList[card].pevDmaLastTransferStatus;
-        printf("\n\t Last DMA transfer Status : 0x%x =", dmaStatus);
+        printf(" Last DMA transfer Status : 0x%x =", dmaStatus);
         if (dmaStatus & DMA_STATUS_WAITING) printf(" START_WAITING");
         if (dmaStatus & DMA_STATUS_TMO) printf(" TIMEOUT");
         if (dmaStatus & DMA_STATUS_ENDED) printf(" ENDED_WAITING");
         if (dmaStatus & DMA_STATUS_DONE) printf(" DONE");
+        if (dmaStatus == 0) printf(" Never used");
         printf("\n");
     }
 }
+
+void pevDmaReportFunc(const iocshArgBuf *args)
+{
+    int level = args[0].ival;
+
+    pevDmaReport(level);
+}
+static const iocshArg pevDmaReportArg0 = { "level", iocshArgInt };
+static const iocshArg * const pevDmaReportArgs[] = {
+    &pevDmaReportArg0,
+};
+static const iocshFuncDef pevDmaReportDef =
+    { "pevDmaReport", 1, pevDmaReportArgs };
 
 void pevDmaExit()
 {
@@ -482,7 +500,7 @@ void pevDmaExit()
         dmaChannel = 0;
         while (dmaChannelMask)
         {
-            char threadName [16];
+            char threadName[THREAD_NAME_LEN];
 
             sprintf(threadName, "pevDma%d.%d", card, dmaChannel);
             while (epicsThreadGetId(threadName)) epicsThreadSleep(0.1);
@@ -500,6 +518,19 @@ void pevDmaExit()
         printf("pevDmaExit(): done\n");
 }
 
+void pevDmaStartHandler(const iocshArgBuf *args)
+{
+    int card = args[0].ival;
+
+    pevDmaGetEngine(card);
+}
+static const iocshArg pevDmaStartHandlerArg0 = { "card", iocshArgInt };
+static const iocshArg * const pevDmaStartHandlerArgs[] = {
+    &pevDmaStartHandlerArg0,
+};
+static const iocshFuncDef pevDmaStartHandlerDef =
+    { "pevDmaStartHandler", 1, pevDmaStartHandlerArgs };
+
 int pevDmaInit()
 {
     if (pevDmaDebug)
@@ -515,6 +546,9 @@ int pevDmaInit()
     }
 
     epicsAtExit(pevDmaExit, NULL);
+
+    iocshRegister(&pevDmaStartHandlerDef, pevDmaStartHandler);
+    iocshRegister(&pevDmaReportDef, pevDmaReportFunc);
     
     return S_dev_success;
 }
