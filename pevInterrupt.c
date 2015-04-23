@@ -1,6 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <termios.h>
+#include <unistd.h> 
+#include <errno.h> 
 
 #include <pevxulib.h>
 struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
@@ -20,6 +23,9 @@ struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
 int pevIntrDebug = 0;
 epicsExportAddress(int, pevIntrDebug);
 
+int pevIntrPrio = 73;                   /* default (lowest) priority */
+epicsExportAddress(int, pevIntrPrio);
+
 struct isrEntry {
     struct isrEntry *next;
     unsigned int src_id;
@@ -37,40 +43,35 @@ struct intrHandler {
     struct pev_ioctl_evt *intrQueue;
     unsigned long long intrCount;
     unsigned long long lastCount;
+    unsigned long long unhandledIntrCount;
+    unsigned long long queuedIntrCount;
     epicsThreadId tid;
 };
 
 static struct intrEngine {
-    unsigned int card;
     struct isrEntry *isrList;
     epicsMutexId handlerListLock;
     struct intrHandler *handlerList;
     unsigned long long intrCount;
-    unsigned long long unhandledIntrCount;
-    unsigned long long multiIntrCount;
     unsigned long long lastCount;
 } pevIntrList[MAX_PEV_CARDS];
 
 static epicsMutexId pevIntrListLock;
 
-static const char* src_name[] = {"LOC","VME","DMA","USR","USR1","USR2","???","???"};
-
-/* Calculate thread priorities for interrupt handlers. 
-   At the moment: max - 1 for all but VME interrupts
-   VME: level 7 => max - 2, level 6 => max - 3, ...
-   Interrupts from the same card with the same priority
-   will be handled by the same thread (fifo based).
-   NB: DMA interrupts are max - 10
-*/
-unsigned int pevIntrGetPriorityFromSrcId(unsigned int src_id)
+const char* pevIntrSrcName(unsigned int src_id)
 {
-    unsigned int priority = epicsThreadPriorityBaseMax-1;
-
-    if ((src_id & 0xf0) == EVT_SRC_VME)
+    switch (src_id & ~0xf)
     {
-        priority += (src_id & 0x0f)-9;
+        case EVT_SRC_LOC:  return "LOC";
+        case EVT_SRC_VME:  return "VME";
+        case EVT_SRC_DMA:  return "DMA";
+        case EVT_SRC_USR:  return "USR";
+        case EVT_SRC_USR1: return "USR1";
+        case EVT_SRC_USR2: return "USR2";
+        case 0x60:         return "SRC6"; 
+        case 0x70:         return "SRC7"; 
+        default:           return "????";
     }
-    return priority;
 }
 
 void pevIntrHandlerThread(void* arg)
@@ -79,19 +80,19 @@ void pevIntrHandlerThread(void* arg)
     struct intrEngine* engine = self->engine;
     struct pev_ioctl_evt *intrQueue = self->intrQueue;
     epicsMutexId handlerListLock = engine->handlerListLock;
-    unsigned int card = engine->card;
+    unsigned int card = pevIntrList - engine;
     unsigned int intr, src_id, vec_id, handler_called;
     struct isrEntry* isr;
     const char* threadName = epicsThreadGetNameSelf();
     
+    if (pevIntrDebug)
+        printf("pevIntrHandlerThread %s starting. card = %d\n", threadName, card);
+
     if (pevx_evt_queue_enable(card, intrQueue) != 0)
     {
         errlogPrintf("pevIntrHandlerThread %s: pevx_evt_queue_enable failed\n", threadName);        
         return;
     }
-
-    if (pevIntrDebug)
-        printf("pevIntrHandlerThread %s starting\n", threadName);
 
     epicsMutexLock(handlerListLock);
     while (1)
@@ -108,11 +109,11 @@ void pevIntrHandlerThread(void* arg)
 
         if (pevIntrDebug >= 3)
             printf("pevIntrHandlerThread %s: New interrupt src_id=0x%02x (%s %i) vec_id=0x%02x queue_size=%d\n",
-                threadName, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id, intrQueue->evt_cnt);
+                threadName, src_id, pevIntrSrcName(src_id), src_id & 0xf, vec_id, intrQueue->evt_cnt);
 
         if (intrQueue->evt_cnt > 0)
         {
-            engine->multiIntrCount += intrQueue->evt_cnt;
+            self->queuedIntrCount += intrQueue->evt_cnt;
             if (pevIntrDebug >= 2)
                 printf("pevIntrHandlerThread %s: %d interrupts left in queue\n",
                     threadName, intrQueue->evt_cnt);
@@ -151,24 +152,33 @@ void pevIntrHandlerThread(void* arg)
         }
         if (!handler_called)
         {
-            engine->unhandledIntrCount++;
+            self->unhandledIntrCount++;
             
             if (pevIntrDebug >= 2)
                 printf("pevIntrHandlerThread %s: unhandled interrupt src_id=0x%02x (%s %i) vec_id=0x%02x\n",
-                    threadName, src_id, src_name[src_id >> 4], src_id & 0xf, vec_id);
+                    threadName, src_id, pevIntrSrcName(src_id), src_id & 0xf, vec_id);
         }
         pevx_evt_unmask(card, intrQueue, src_id);
     }
 }
 
-struct intrEngine* pevIntrStartEngine(unsigned int card)
+struct intrEngine* pevIntrGetEngine(unsigned int card)
 {
     if (pevIntrDebug)
-        printf("pevIntrStartEngine(card=%u)\n", card);
+        printf("pevIntrGetEngine(card=%u)\n", card);
+
+    if (card > MAX_PEV_CARDS)
+    {
+        errlogPrintf("pevIntrGetEngine(card=%d): pev supports only %d cards\n", card, MAX_PEV_CARDS);
+        return NULL;
+    }
+
+    if (pevIntrList[card].handlerListLock)
+        return &pevIntrList[card];
 
     if (!pevIntrListLock)
     {
-        errlogPrintf("pevIntrStartEngine(card=%u): pevIntrListLock is not initialized\n",
+        errlogPrintf("pevIntrGetEngine(card=%u): pevIntrListLock is not initialized\n",
             card);
         return NULL;
     }
@@ -181,11 +191,9 @@ struct intrEngine* pevIntrStartEngine(unsigned int card)
         return &pevIntrList[card];
     }
 
-    pevIntrList[card].card = card;
-    
     if (!pevx_init(card))
     {
-        errlogPrintf("pevIntrStartEngine(card=%u): pevx_init() failed\n",
+        errlogPrintf("pevIntrGetEngine(card=%u): pevx_init() failed\n",
             card);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
@@ -195,20 +203,13 @@ struct intrEngine* pevIntrStartEngine(unsigned int card)
     pevIntrList[card].handlerListLock = epicsMutexCreate();
     if (!pevIntrList[card].handlerListLock)
     {
-        errlogPrintf("pevIntrStartEngine(card=%u): epicsMutexCreate() failed\n",
+        errlogPrintf("pevIntrGetEngine(card=%u): epicsMutexCreate() failed\n",
             card);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
     }
     epicsMutexUnlock(pevIntrListLock);
     return &pevIntrList[card];
-}
-
-static inline struct intrEngine* pevIntrGetEngine(unsigned int card)
-{
-    if (card > MAX_PEV_CARDS) return NULL;
-    if (pevIntrList[card].handlerListLock) return &pevIntrList[card];
-    return pevIntrStartEngine(card);
 }
 
 static void debugMsg(const char* caller, unsigned int card, unsigned int src_id, unsigned int vec_id, void (*func)(), void* usr, const char* msg)
@@ -232,11 +233,7 @@ int pevIntrConnect(unsigned int card, unsigned int src_id, unsigned int vec_id, 
     }
 
     engine = pevIntrGetEngine(card);
-    if (!engine)
-    {
-        debugMsg("pevIntrConnect", card, src_id, vec_id, func, usr, "pevIntrGetEngine() failed");
-        return S_dev_noMemory;
-    }
+    if (!engine) return S_dev_noMemory;
             
     epicsMutexLock(engine->handlerListLock);
     for (pisr = &engine->isrList; *pisr != NULL; pisr=&(*pisr)->next);
@@ -268,11 +265,7 @@ int pevIntrDisconnect(unsigned int card, unsigned int src_id, unsigned int vec_i
     }
 
     engine = pevIntrGetEngine(card);
-    if (!engine)
-    {
-        debugMsg("pevIntrDisconnect", card, src_id, vec_id, func, usr, "pevIntrGetEngine() failed");
-        return S_dev_noMemory;
-    }
+    if (!engine) return S_dev_noMemory;
     
     epicsMutexLock(engine->handlerListLock);
     for (pisr = &engine->isrList; *pisr != NULL; pisr = &(*pisr)->next)
@@ -301,29 +294,68 @@ struct intrHandler* pevIntrGetHandler(unsigned int card, unsigned int src_id)
     unsigned int priority;
     struct intrEngine* engine;
     struct intrHandler** phandler;
-    char threadName[16];
+    char* p;
+
+/* Calculate thread priorities for interrupt handlers. 
+   At the moment: max - 1 for all but VME interrupts
+   VME: level 7 => max - 2, level 6 => max - 3, ...
+   Interrupts from the same card with the same priority
+   will be handled by the same thread (fifo based).
+   NB: DMA interrupts are max - 10
+*/
+
+/* make sure that THREAD_NAME_LEN matches thead name format below */
+#define THREAD_NAME_LEN 16
+    char threadName[THREAD_NAME_LEN];
     
-    priority = pevIntrGetPriorityFromSrcId(src_id);
     engine = pevIntrGetEngine(card);
+    if (!engine) return NULL;
+    
+    if ((src_id & 0x7f) != src_id)
+    {
+        errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#02x): TOSCA II has only 8 interrupt controllers\n",
+            card, src_id);        
+        return NULL;
+    }
+    
+/* PEV limitation and bug: We can have only 16 event queues.
+   After that the driver crashes and we need to reboot the IFC.
+   Thus re-use event queues:
+    - ine for each IRQ controller (8)
+    - one for each VME IRQ levels (7)
+   The VME IRQs have higher priority, all others share one priority.
+*/
+    priority = pevIntrPrio;
+    p = threadName + sprintf(threadName, "pev%u.%s-IRQ", card, pevIntrSrcName(src_id));
+    if ((src_id & 0x70) == EVT_SRC_VME)
+    {
+        int lvl = src_id & 0x0f;
+        if (lvl >= 1 && lvl <= 7)
+        {
+            sprintf(p, "%d", lvl);
+            priority += lvl;
+        }
+    }
+
     epicsMutexLock(engine->handlerListLock);
     for (phandler = &engine->handlerList; *phandler != NULL; phandler = &(*phandler)->next)
     {
-        if ((*phandler)->priority == priority)
+        char otherthreadName[THREAD_NAME_LEN];
+        epicsThreadGetName((*phandler)->tid, otherthreadName, sizeof(otherthreadName));
+        if (strcmp(threadName, otherthreadName) == 0)
         {
             if (pevIntrDebug)
             {
-                epicsThreadGetName((*phandler)->tid, threadName, sizeof(threadName));
                 printf("pevIntrGetHandler(card=%u, src_id=0x%02x): re-using existing handler %s\n",
-                    card, src_id, threadName);
+                    card, src_id, otherthreadName);
             }
             epicsMutexUnlock(engine->handlerListLock);
             return *phandler;
         }
     }
-    sprintf(threadName, "pevIntr%u.%d", card, priority);
     if (pevIntrDebug)
-        printf("pevIntrGetHandler(card=%u, src_id=0x%02x): creating new handler %s\n",
-            card, src_id, threadName);
+        printf("pevIntrGetHandler(card=%u, src_id=0x%02x): creating new handler %s priority %d\n",
+            card, src_id, threadName, priority);
     *phandler = (struct intrHandler*) calloc(1, sizeof(struct intrHandler));
     if (!*phandler)
     {
@@ -337,8 +369,8 @@ struct intrHandler* pevIntrGetHandler(unsigned int card, unsigned int src_id)
     (*phandler)->intrQueue = pevx_evt_queue_alloc(card, 0);
     if (!(*phandler)->intrQueue)
     {
-        errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#04x): pevx_evt_queue_alloc() failed\n",
-            card, src_id);
+        errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#04x): pevx_evt_queue_alloc() failed: %s\n",
+            card, src_id, strerror(errno));
         free(*phandler);
         *phandler = NULL;
         epicsMutexUnlock(engine->handlerListLock);
@@ -403,18 +435,35 @@ int pevIntrDisable(unsigned int card, unsigned int src_id)
     return pevx_evt_mask(card, handler->intrQueue, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
 }
 
-void pevIntrShow(const iocshArgBuf *args)
+static int waitForKeypress(int timeout_sec)
+{
+    static struct termios oldt, newt;
+    fd_set fdset;
+    struct timeval timeout;
+    int status;
+
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    newt.c_lflag &= ~(ICANON | ECHO );
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    FD_ZERO(&fdset);
+    FD_SET(STDIN_FILENO, &fdset);
+    timeout.tv_sec = timeout_sec;
+    timeout.tv_usec = 0;
+    status = select (STDIN_FILENO+1, &fdset, NULL, NULL, &timeout);
+    if (status == 1) getchar();
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    return status;
+}
+
+void pevIntrShow(int level)
 {
     struct isrEntry* isr;
     struct intrHandler* handler;
     unsigned int card;
-    int level = args[0].ival;
     long long count;
-    int printRate = 0;
-    fd_set fdset;
-    struct timeval timeout;
+    int period = 0;
 
-    printf("pev interrupts:\n");
     if (level < 0) printf("redrawing every %d seconds (press any key to stop)\n", -level);
     while (1)
     {
@@ -423,41 +472,45 @@ void pevIntrShow(const iocshArgBuf *args)
             if (pevIntrList[card].handlerList || pevIntrList[card].isrList)
             {
                 count = pevIntrList[card].intrCount;
-                printf (" card %u: %lld interrupts (%lld unhandled, %lld multiple",
-                    card, count, pevIntrList[card].unhandledIntrCount, pevIntrList[card].multiIntrCount);
-                if (printRate)
+                printf ("card %u: %lld interrupts received", card, count);
+                if (period)
                 {
-                    printf(", rate=%.2f Hz", ((double)(count - pevIntrList[card].lastCount))/-level);
-                    pevIntrList[card].unhandledIntrCount = 0;
-                    pevIntrList[card].multiIntrCount = 0;
+                    printf(", period=%.2f Hz", ((double)(count - pevIntrList[card].lastCount))/period);
                 }
                 pevIntrList[card].lastCount = count;
-                printf (")\n");
+                printf ("\n");
             }
-                    
+            
+            if (pevIntrList[card].handlerList)
+                printf (" Interrupt threads:\n");
             for (handler = pevIntrList[card].handlerList; handler != NULL; handler = handler->next)
             {
-                char threadName[16];
+                char threadName[THREAD_NAME_LEN];
                 count = handler->intrCount;
                 epicsThreadGetName(handler->tid, threadName, sizeof(threadName));
-                printf("  thread %s (%lld handled interrupts", threadName, count);
-                if (printRate)
+                printf("  %s: %lld interrupts, %lld unhandled, %lld queued",
+                    threadName, count, handler->unhandledIntrCount, handler->queuedIntrCount);
+                if (period)
                 {
-                    printf(", rate=%.2f Hz", ((double)(count - handler->lastCount))/-level);
+                    printf(", period=%.2f Hz", ((double)(count - handler->lastCount))/period);
+                    handler->unhandledIntrCount = 0;
+                    handler->queuedIntrCount = 0;
                 }
                 handler->lastCount = count;
-                printf (")\n");
+                printf ("\n");
             }
+            if (pevIntrList[card].isrList)
+                printf (" Interrupt handlers:\n");
             for (isr = pevIntrList[card].isrList; isr != NULL; isr = isr->next)
             {
                 char *name;
                 count = isr->intrCount;
-                printf("   src=0x%02x=%s",
-                    isr->src_id, src_name[isr->src_id >> 4]);
+                printf("  src=0x%02x=%s",
+                    isr->src_id, pevIntrSrcName(isr->src_id));
                 if (isr->src_id != EVT_SRC_VME)
-                    printf(" %d", (isr->src_id & 0xf) + 1);
+                    printf("-%d", (isr->src_id & 0xf) + 1);
                 else if (isr->src_id & 0xf)
-                    printf(" %d", isr->src_id & 0xf);
+                    printf("-%d", isr->src_id & 0xf);
 
                 if (isr->vec_id)
                     printf (" vec=0x%02x=%-3d", isr->vec_id, isr->vec_id);
@@ -474,28 +527,26 @@ void pevIntrShow(const iocshArgBuf *args)
                 }
                 printf(" count=%llu", count);
 
-                if (printRate)
+                if (period)
                 {
-                    printf(" rate=%.2f Hz", ((double)(count - isr->lastCount))/-level);
+                    printf(" period=%.2f Hz", ((double)(count - isr->lastCount))/period);
                 }
                 isr->lastCount = count;
 
                 printf ("\n");
             }
         }
-        if (level >= 0) break;
-        FD_ZERO(&fdset);
-        FD_SET(0,&fdset);
-        timeout.tv_sec = -level;
-        timeout.tv_usec = 0;
-        if (select (1, &fdset, NULL, NULL, &timeout))
-        {
-            getchar();
-            break;
-        }
-        printRate = 1;
+        if (level >= 0 || waitForKeypress(period)) break;
+        period = -level;
         printf ("\n");
     }
+}
+
+void pevIntrShowFunc(const iocshArgBuf *args)
+{
+    int level = args[0].ival;
+    
+    pevIntrShow(level);
 }
 static const iocshArg pevIntrShowArg0 = { "level (negative for periodic update)", iocshArgInt };
 static const iocshArg * const pevIntrShowArgs[] = {
@@ -503,6 +554,23 @@ static const iocshArg * const pevIntrShowArgs[] = {
 };
 static const iocshFuncDef pevIntrShowDef =
     { "pevIntrShow", 1, pevIntrShowArgs };
+
+
+void pevIntrStartHandler(const iocshArgBuf *args)
+{
+    int card = args[0].ival;
+    int src_id = args[1].ival;
+    
+    pevIntrGetHandler(card, src_id);
+}
+static const iocshArg pevIntrStartHandlerArg0 = { "card", iocshArgInt };
+static const iocshArg pevIntrStartHandlerArg1 = { "src_id", iocshArgInt };
+static const iocshArg * const pevIntrStartHandlerArgs[] = {
+    &pevIntrStartHandlerArg0,
+    &pevIntrStartHandlerArg1,
+};
+static const iocshFuncDef pevIntrStartHandlerDef =
+    { "pevIntrStartHandler", 2, pevIntrStartHandlerArgs };
 
 void pevIntrExit(void* dummy)
 {
@@ -524,7 +592,15 @@ void pevIntrExit(void* dummy)
         
         for (handler = pevIntrList[card].handlerList; handler != NULL; handler = handler->next)
         {
+            if (pevIntrDebug)
+            {
+                char threadName[THREAD_NAME_LEN];
+                epicsThreadGetName(handler->tid, threadName, sizeof(threadName));
+                printf("pevIntrExit(): stopping %s\n", threadName);
+                printf("pevIntrExit(): calling pevx_evt_queue_disable()\n");
+            }
             pevx_evt_queue_disable(card, handler->intrQueue);
+            if (pevIntrDebug) printf("pevIntrExit(): calling pevx_evt_queue_free()\n"); 
             pevx_evt_queue_free(card, handler->intrQueue);
         }
     }
@@ -537,8 +613,6 @@ int pevIntrInit()
     if (pevIntrDebug)
         printf("pevIntrInit()\n");
 
-    iocshRegister(&pevIntrShowDef, pevIntrShow);
-
     pevIntrListLock = epicsMutexCreate();
     if (!pevIntrListLock)
     {
@@ -547,6 +621,9 @@ int pevIntrInit()
     }
 
     epicsAtExit(pevIntrExit, NULL);
+
+    iocshRegister(&pevIntrShowDef, pevIntrShowFunc);
+    iocshRegister(&pevIntrStartHandlerDef, pevIntrStartHandler);
 
     return S_dev_success;
 }
