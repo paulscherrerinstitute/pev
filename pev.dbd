@@ -1,5 +1,7 @@
 variable(pevSigDebug, int)
 variable(pevMapDebug, int)
 variable(pevIntrDebug, int)
+variable(pevIntrPrio, int)
 variable(pevDmaDebug, int)
+variable(pevDmaPrio, int)
 registrar(pevRegistrar)
