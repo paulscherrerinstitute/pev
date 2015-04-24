@@ -538,7 +538,7 @@ void pevIntrShow(int level)
         }
         if (level >= 0) break;
         period = -level;
-        if (waitForKeypress(period) break;
+        if (waitForKeypress(period)) break;
         printf ("\n");
     }
 }
