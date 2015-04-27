@@ -475,7 +475,7 @@ void pevIntrShow(int level)
                 printf ("card %u: %lld interrupts received", card, count);
                 if (period)
                 {
-                    printf(", period=%.2f Hz", ((double)(count - pevIntrList[card].lastCount))/period);
+                    printf(", %.2f Hz", ((double)(count - pevIntrList[card].lastCount))/period);
                 }
                 pevIntrList[card].lastCount = count;
                 printf ("\n");
@@ -492,7 +492,7 @@ void pevIntrShow(int level)
                     threadName, count, handler->unhandledIntrCount, handler->queuedIntrCount);
                 if (period)
                 {
-                    printf(", period=%.2f Hz", ((double)(count - handler->lastCount))/period);
+                    printf(", %.2f Hz", ((double)(count - handler->lastCount))/period);
                     handler->unhandledIntrCount = 0;
                     handler->queuedIntrCount = 0;
                 }
@@ -529,7 +529,7 @@ void pevIntrShow(int level)
 
                 if (period)
                 {
-                    printf(" period=%.2f Hz", ((double)(count - isr->lastCount))/period);
+                    printf(" %.2f Hz", ((double)(count - isr->lastCount))/period);
                 }
                 isr->lastCount = count;
 
