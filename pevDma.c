@@ -208,7 +208,7 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
         if (pevDmaDebug)
             printf("pevDmaGetEngine(card=%d): starting thread %s\n",
                 card, threadName);
-        if (!epicsThreadCreate(threadName, 70,
+        if (!epicsThreadCreate(threadName, pevDmaPrio,
             epicsThreadGetStackSize(epicsThreadStackSmall),
             pevDmaThread, (void*)(card<<8|dmaChannel)))
         {
