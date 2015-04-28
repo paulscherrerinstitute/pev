@@ -72,7 +72,8 @@ long pevDevLibConnectInterruptVME(
     if (vectorNumber > 0xff)
         return S_dev_badVector;
 
-    pevIntrConnect(0, EVT_SRC_VME, vectorNumber, pFunction, parameter);
+    /* connect to range VME IRQ-1 ... IRQ-7 */
+    pevIntrConnect(0, EVT_SRC_VME_ANY_LEVEL, vectorNumber, pFunction, parameter);
     return S_dev_success;
 }
 
@@ -89,7 +90,7 @@ long pevDevLibDisconnectInterruptVME(
         free(fName);
     }
     
-    return pevIntrDisconnect(0, EVT_SRC_VME, vectorNumber, pFunction, NULL);
+    return pevIntrDisconnect(0, EVT_SRC_VME_ANY_LEVEL, vectorNumber, pFunction, NULL);
 }
 
 long pevDevLibEnableInterruptLevelVME(unsigned level)

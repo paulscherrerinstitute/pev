@@ -60,7 +60,7 @@ static epicsMutexId pevIntrListLock;
 
 const char* pevIntrSrcName(unsigned int src_id)
 {
-    switch (src_id & ~0xf)
+    switch (src_id & 0xf0)
     {
         case EVT_SRC_LOC:  return "LOC";
         case EVT_SRC_VME:  return "VME";
@@ -126,9 +126,15 @@ void pevIntrHandlerThread(void* arg)
                 printf("pevIntrHandlerThread %s: check isr->src_id=0x%02x isr->vec_id=0x%02x\n",
                     threadName, isr->src_id, isr->vec_id);
 
-            /* if user installed handler for EVT_SRC_VME (without level), accept all VME levels */
-            if ((isr->src_id == EVT_SRC_VME ? (src_id & 0xf0) : src_id) != isr->src_id)
-                continue;
+            if (isr->src_id & 0xff00)
+            {
+                /* range of src_ids  */
+                if (((isr->src_id >> 8) & 0xff) < src_id || (isr->src_id & 0xff) > src_id)
+                    continue;
+            }
+            else
+                if (isr->src_id != src_id)
+                    continue;
 
             /* if user installed handler for vector 0, accept all vectors */
             if (isr->vec_id && isr->vec_id != vec_id)
@@ -505,13 +511,17 @@ void pevIntrShow(int level)
             {
                 char *name;
                 count = isr->intrCount;
-                printf("  src=0x%02x=%s",
-                    isr->src_id, pevIntrSrcName(isr->src_id));
-                if (isr->src_id != EVT_SRC_VME)
-                    printf("-%d", (isr->src_id & 0xf) + 1);
-                else if (isr->src_id & 0xf)
-                    printf("-%d", isr->src_id & 0xf);
-
+                printf("  src=0x%02x=%s-%d",
+                    isr->src_id, pevIntrSrcName(isr->src_id), isr->src_id & 0xf);
+                if (isr->src_id & 0xff00)
+                {
+                    /* range */
+                    int s = isr->src_id >> 8;
+                    if ((s & 0xf0) != (isr->src_id & 0xf0))
+                        printf("-%s", pevIntrSrcName(s));
+                    printf ("-%d", s & 0xf);
+                }
+                    
                 if (isr->vec_id)
                     printf (" vec=0x%02x=%-3d", isr->vec_id, isr->vec_id);
 
@@ -529,7 +539,7 @@ void pevIntrShow(int level)
 
                 if (period)
                 {
-                    printf(" %.2f Hz", ((double)(count - isr->lastCount))/period);
+                    printf(", %.2f Hz", ((double)(count - isr->lastCount))/period);
                 }
                 isr->lastCount = count;
 

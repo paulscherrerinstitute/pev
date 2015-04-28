@@ -78,7 +78,7 @@ void pevMapShow(int vmeOnly);
     * func can have up to 3 arguments: void* usr, int src_id, int vec_id
     * func must not block
     * func must not waste stack
-    * if src_id is EVT_SRC_VME (0x10) then all 7 VME interrupt lines (0x11 ... 0x17) will be registered
+    * to connect to a range use src_id_start|(src_id_end<<8), see EVT_SRC_VME_ANY_LEVEL
     * if vec_id is 0 then func is called for any value of vec_id
     * func may inspect current setting for vec_id and src_id when called
     * to ease debugging, func should be global
@@ -92,6 +92,8 @@ void pevMapShow(int vmeOnly);
   All arguments must be the same as used for pevConnectInterrupt, in order to avoid uninstalling the wrong handler,
   except for usr, wich can be NULL.
 */
+
+#define EVT_SRC_VME_ANY_LEVEL ((EVT_SRC_VME+1)|((EVT_SRC_VME+7)<<8))
 
 const char* pevIntrSrcName(unsigned int src_id);
 

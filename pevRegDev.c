@@ -21,7 +21,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.13 2015/04/23 16:05:28 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.14 2015/04/28 12:02:13 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -637,6 +637,7 @@ int pevConfigure(
     if (intrVec)
     {
         int src_id = 0;
+        int i;
 
         scanIoInit(&device->ioscanpvt);
         if (intrVec > 0xff)
@@ -656,7 +657,7 @@ int pevConfigure(
                             name, intrVec);
                         return S_dev_badVector;
                     }
-                    src_id = EVT_SRC_VME;
+                    src_id = EVT_SRC_VME_ANY_LEVEL;
                     break;
                 case MAP_SPACE_USR1:
                     if (intrVec<1 || intrVec>16)
@@ -677,7 +678,11 @@ int pevConfigure(
             }
         }
         pevIntrConnect(card, src_id, intrVec, scanIoRequest, device->ioscanpvt);
-        pevIntrEnable(card, src_id);
+        /* enable interrupt (range) */
+        i = src_id & 0xff;
+        do {
+            pevIntrEnable(card, i);
+        } while (++i < ((src_id >> 8) & 0xff));
     }
  	
     regDevRegisterDevice(name, &pevSupport, device, mapSize);
