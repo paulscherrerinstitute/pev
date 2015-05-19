@@ -1,7 +1,7 @@
 /*$Name:  $*/
 /*$Author: zimoch $*/
-/*$Date: 2015/02/18 16:04:32 $*/
-/*$Revision: 1.17 $*/
+/*$Date: 2015/05/19 14:12:03 $*/
+/*$Revision: 1.18 $*/
 /*$Source: /cvs/G/DRV/pev/ifcDev.c,v $*/
 
 #include <stdlib.h>
@@ -391,7 +391,7 @@ long devIfc1210InitRecordStringin(stringinRecord* record)
 long devIfc1210ReadStringin(stringinRecord* record)
 {
    ifcPrivate* p = record->dpvt;
-   int i = 0;
+   unsigned int i = 0;
     
    if (p == NULL || (p->devType != IFC_ELB))
     {

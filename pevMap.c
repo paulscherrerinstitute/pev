@@ -274,7 +274,7 @@ int pevMapGetMapInfo(const void* address, struct pevMapInfo* info)
     return 0;
 }
 
-void pevMapDisplay(unsigned int card, int map, size_t start, unsigned int dlen, size_t bytes)
+void pevMapDisplay(unsigned int card, unsigned int map, size_t start, unsigned int dlen, size_t bytes)
 {
     struct pevMapEntry* mapEntry;
     static size_t offset = 0;
@@ -286,7 +286,7 @@ void pevMapDisplay(unsigned int card, int map, size_t start, unsigned int dlen, 
     unsigned int size;
     char buffer[16];
 
-    int i, j;
+    unsigned int i, j;
     
     if (card > MAX_PEV_CARDS || !pevMapList[card])
     {

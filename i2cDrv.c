@@ -39,7 +39,7 @@
 
 /*
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: i2cDrv.c,v 1.25 2015/02/20 14:23:24 zimoch Exp $";
+    "$Id: i2cDrv.c,v 1.26 2015/05/19 14:12:03 zimoch Exp $";
 */
 
 struct regDevice {
@@ -64,7 +64,7 @@ int pevI2cRead(
     regDevTransferComplete callback,
     char* user)
 {
-    int i;
+    unsigned int i;
     unsigned int val;
     int status;
 
@@ -142,7 +142,7 @@ int pevI2cWrite(
     char* user)
 {
     unsigned int val;
-    int i;
+    unsigned int i;
     int status;
            
     if (!device || device->magic != MAGIC)
