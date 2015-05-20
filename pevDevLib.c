@@ -21,8 +21,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include <pevulib.h>
-#include <pev.h>
+#include <pevxulib.h>
 
 #include <devLib.h>
 #include <errlog.h>
@@ -31,6 +30,8 @@
 #include <stdlib.h>
 #include <epicsMutex.h>
 #include <epicsExport.h>
+
+#include "pev.h"
 
 #define VME24_MAP_SIZE 	0x1000000      	/* 16 MB A24 - fixed */
 #define VMECR_MAP_SIZE 	0x1000000	/* 16 MB CR/CSR - fixed */
@@ -226,7 +227,7 @@ long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void
     epicsMutexMustLock(pevDevLibProbeLock);
 
     /* clear BERR */
-    pev_csr_rd(PVME_ADDERR);
+    pevx_csr_rd(0, PVME_ADDERR);
 
     /* check address */
     sa.sa_handler = pevDevLibProbeSigHandler;
@@ -267,7 +268,7 @@ long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void
             }
         }
         /* check BERR */
-        if (pev_csr_rd(PVME_ADDERR) & VME_BERR)
+        if (pevx_csr_rd(0, PVME_ADDERR) & VME_BERR)
             status = S_dev_noDevice;
 
     }
@@ -318,13 +319,13 @@ long pevDevLibInit(void)
     if (pevDevLibDebug)
 	printf("pevDevLibInit\n");
 
-    if (!pev_init(0))
+    if (!pevx_init(0))
     {
         printf("pevDevLibInit: pev_init(0) failed\n");
         return -1;
     }
     pevDevLibProbeLock = epicsMutexMustCreate();
-    pev_vme_conf_read(&vme_conf);
+    pevx_vme_conf_read(0, &vme_conf);
     if (vme_conf.mas_ena == 0 )
     {
         printf("VME master -> disabled\n");
