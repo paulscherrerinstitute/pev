@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int pevInit();
+void pevVersionShow(int level);
 
 /**** memory maps ****/
 
@@ -158,6 +158,11 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr, u
     pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), 0, NULL, NULL)
 
 void pevDmaReport(int level);
+
+/**** VME Slave Window ****/
+
+void pevVmeSlaveShow(int level);
+
 
 #ifdef __cplusplus
 }

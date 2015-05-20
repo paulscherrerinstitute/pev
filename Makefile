@@ -11,6 +11,7 @@ SOURCES += pevDma.c
 SOURCES += pevDevLib.c
 SOURCES += ifcDev.c
 SOURCES += pevRegDev.c
+SOURCES += pevSlaveWindow.c
 SOURCES += i2cDrv.c
 SOURCES += symbolname.cc
 
