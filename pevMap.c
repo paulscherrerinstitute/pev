@@ -226,18 +226,19 @@ void pevMapShow(int vmeOnly)
     struct pevMapEntry* mapEntry;
     unsigned int card;
     unsigned int index;
+    int anything_reported = 0;
     
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         if (pevMapList[card])
         {
-            printf("card %d: (VME maps use %s mode)\n",
+            printf("  card %d: (VME maps use %s mode)\n",
                 card, pevx_csr_rd(card, 0x80000404) & (1<<5) ?
                     "supervisory" : "user");
             for (mapEntry = pevMapList[card], index = 0; mapEntry; mapEntry = mapEntry->next, index++)
             {
                 if (vmeOnly && (mapEntry->map.mode & MAP_SPACE_MASK) != MAP_SPACE_VME) continue;
-                printf(" %d: %-9s -> %-8s base=0x%08lx size=0x%08x %dMB %s %s\n",
+                printf("   %d: %-9s -> %-8s base=0x%08lx size=0x%08x %dMB %s %s\n",
                     index,
                     pevSgName(mapEntry->map.sg_id),
                     pevMapName(mapEntry->map.mode), 
@@ -247,7 +248,12 @@ void pevMapShow(int vmeOnly)
                     mapEntry->map.mode & MAP_ENABLE ? mapEntry->map.mode & MAP_ENABLE_WR ? "R/W" : "R" : "disabled",
                     mapEntry->map.mode & MAP_SWAP_AUTO ? "auto swap" : "");
             }
+            anything_reported = 1;
         }
+    }
+    if (!anything_reported)
+    {
+        printf("  No map installed\n");
     }
 }
 

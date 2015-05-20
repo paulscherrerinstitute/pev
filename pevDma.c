@@ -440,23 +440,29 @@ void pevDmaReport(int level)
 */
     unsigned int card;
     unsigned int dmaStatus;
+    int anything_reported = 0;
   
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         if (!pevDmaList[card].dmaMsgQ) continue;
-        printf("card %d dmaMessageQueue", card);
+        printf("  card %d dmaMessageQueue", card);
         epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
 /*  No description what pevx_dma_status does
         printf("\n\t dmaStatus = %d", pevx_dma_status(card, &dmaStatus));
 */
         dmaStatus = pevDmaList[card].pevDmaLastTransferStatus;
-        printf(" Last DMA transfer Status : 0x%x =", dmaStatus);
+        printf("   Last DMA transfer Status : 0x%x =", dmaStatus);
         if (dmaStatus & DMA_STATUS_WAITING) printf(" START_WAITING");
         if (dmaStatus & DMA_STATUS_TMO) printf(" TIMEOUT");
         if (dmaStatus & DMA_STATUS_ENDED) printf(" ENDED_WAITING");
         if (dmaStatus & DMA_STATUS_DONE) printf(" DONE");
         if (dmaStatus == 0) printf(" Never used");
         printf("\n");
+        anything_reported = 1;
+    }
+    if (!anything_reported)
+    {
+        printf("  No DMA in use\n");
     }
 }
 

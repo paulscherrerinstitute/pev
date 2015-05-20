@@ -469,6 +469,7 @@ void pevIntrShow(int level)
     unsigned int card;
     long long count;
     int period = 0;
+    int anything_reported = 0;
 
     if (level < 0) printf("redrawing every %d seconds (press any key to stop)\n", -level);
     while (1)
@@ -478,23 +479,24 @@ void pevIntrShow(int level)
             if (pevIntrList[card].handlerList || pevIntrList[card].isrList)
             {
                 count = pevIntrList[card].intrCount;
-                printf ("card %u: %lld interrupts received", card, count);
+                printf ("  card %u: %lld interrupts received", card, count);
                 if (period)
                 {
                     printf(", %.2f Hz", ((double)(count - pevIntrList[card].lastCount))/period);
                 }
                 pevIntrList[card].lastCount = count;
                 printf ("\n");
+                anything_reported = 1;
             }
             
             if (pevIntrList[card].handlerList)
-                printf (" Interrupt threads:\n");
+                printf ("   Interrupt threads:\n");
             for (handler = pevIntrList[card].handlerList; handler != NULL; handler = handler->next)
             {
                 char threadName[THREAD_NAME_LEN];
                 count = handler->intrCount;
                 epicsThreadGetName(handler->tid, threadName, sizeof(threadName));
-                printf("  %s: %lld interrupts, %lld unhandled, %lld queued",
+                printf("    %s: %lld interrupts, %lld unhandled, %lld queued",
                     threadName, count, handler->unhandledIntrCount, handler->queuedIntrCount);
                 if (period)
                 {
@@ -506,12 +508,12 @@ void pevIntrShow(int level)
                 printf ("\n");
             }
             if (pevIntrList[card].isrList)
-                printf (" Interrupt handlers:\n");
+                printf ("   Interrupt handlers:\n");
             for (isr = pevIntrList[card].isrList; isr != NULL; isr = isr->next)
             {
                 char *name;
                 count = isr->intrCount;
-                printf("  src=0x%02x=%s-%d",
+                printf("    src=0x%02x=%s-%d",
                     isr->src_id, pevIntrSrcName(isr->src_id), isr->src_id & 0xf);
                 if (isr->src_id & 0xff00)
                 {
@@ -550,6 +552,10 @@ void pevIntrShow(int level)
         period = -level;
         if (waitForKeypress(period)) break;
         printf ("\n");
+    }
+    if (!anything_reported)
+    {
+        printf ("  No interrupt installed\n");
     }
 }
 
