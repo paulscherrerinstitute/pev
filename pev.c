@@ -7,12 +7,14 @@
 #include <ucontext.h>
 #include <execinfo.h>
 
-#include <pevulib.h>
+#include <pevxulib.h>
 
 #include <errlog.h>
 #include <devLib.h>
+#include <drvSup.h>
 #include <epicsThread.h>
 #include <epicsExit.h>
+#include <iocsh.h>
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -229,6 +231,77 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
     raise(sig);
 }
 
+/**
+*
+* EPICS shell debug utility
+*
+**/
+
+void pevVersionShow(int level)
+{
+    unsigned int card;
+    const char *b;
+
+    pevx_init(0);
+    printf("  pev library version  : %s\n", pevx_get_lib_version());
+    printf("  kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
+    if (level < 1) return;
+    for (card = 0; card < MAX_PEV_CARDS; card++)
+    {
+        pevx_init(card);
+        b = pevx_board_name(card);
+        if (b != NULL) printf("  card %-2d              : %s\n", card, b);
+    }
+}
+
+static const iocshArg pevVersionShowArg0 = { "level", iocshArgInt };
+
+static const iocshArg * const pevVersionShowArgs[] = {
+    &pevVersionShowArg0
+};
+
+static const iocshFuncDef pevVersionShowDef =
+    { "pevVersionShow", 1, pevVersionShowArgs };
+    
+static void pevVersionShowFunc (const iocshArgBuf *args)
+{
+    pevVersionShow(args[0].ival);
+}
+
+void pevExpertReport(int level)
+{ 
+    printf(" pevExpertReport:\n");
+ 
+    printf(" == Version ==\n");
+    pevVersionShow(level);
+    
+    printf(" == Maps ==\n");
+    pevMapShow(level);
+
+    printf(" == VME Slave Window ==\n");
+    pevVmeSlaveShow(level);
+ 
+    printf(" == DMA ==\n");
+    pevDmaReport(level);
+
+    printf(" == Interrupts ==\n");
+    pevIntrShow(level);
+}
+
+static const iocshArg pevExpertReportArg0 = { "level", iocshArgInt };
+
+static const iocshArg * const pevExpertReportArgs[] = {
+    &pevExpertReportArg0
+};
+
+static const iocshFuncDef pevExpertReportDef =
+    { "pevExpertReport", 1, pevExpertReportArgs };
+    
+static void pevExpertReportFunc (const iocshArgBuf *args)
+{
+    pevExpertReport(args[0].ival);
+}
+
 int pevInit()
 {
     int status;
@@ -258,6 +331,9 @@ int pevInit()
     status = pevDmaInit();
     if (status != S_dev_success) return status;
 
+    iocshRegister(&pevVersionShowDef, pevVersionShowFunc);
+    iocshRegister(&pevExpertReportDef, pevExpertReportFunc);
+
     return S_dev_success;
 }
 
@@ -265,4 +341,25 @@ static void pevRegistrar ()
 {
     pevInit();
 }
+   
 epicsExportRegistrar(pevRegistrar);
+
+/* for dbior */
+
+long pev_dbior(int level)
+{
+    if (level == 0) pevVersionShow(0);
+    else pevExpertReport(level);
+    return 0;
+}
+
+struct {
+    long number;
+    long (*report) (int level);
+    long (*init) ();
+} pev = {
+    2,
+    pev_dbior,
+    NULL,
+};
+epicsExportAddress(drvet, pev);
