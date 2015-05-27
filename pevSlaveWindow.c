@@ -209,7 +209,7 @@ void pevVmeSlaveShow(int level)
         printf("turned OFF!\n");
     else
         printf("base=0x%08x size=0x%08x %dMB\n",
-            glbVmeSlaveMap.a32_base, glbVmeSlaveMap.a32_size, glbVmeSlaveMap.a32_size<<20);
+            glbVmeSlaveMap.a32_base, glbVmeSlaveMap.a32_size, glbVmeSlaveMap.a32_size>>20);
 }
 
 static const iocshArg pevVmeSlaveMainConfigArg0 = { "addrSpace", iocshArgString };
