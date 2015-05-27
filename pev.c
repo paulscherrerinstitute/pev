@@ -276,7 +276,7 @@ void pevExpertReport(int level)
     pevVersionShow(level);
     
     printf(" == Maps ==\n");
-    pevMapShow(level);
+    pevMapShow(0);
 
     printf(" == VME Slave Window ==\n");
     pevVmeSlaveShow(level);
