@@ -51,7 +51,7 @@ void pevVersionShow(int level);
     mapping MAP_SLAVE_VME to MAP_SPACE_USR1 or MAP_SPACE_SHM. In this case, localAddress is the address within USR1 or SHM.
 */
 
-volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size, int flags, size_t localAddress);
+volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map_mode, size_t logicalAddress, size_t size, unsigned int flags, size_t localAddress);
 
 #define pevMap(card, sg_id, map_mode, logicalAddress, size) \
     pevMapExt((card), (sg_id), (map_mode), (logicalAddress), (size), 0, 0)
@@ -65,6 +65,8 @@ void pevUnmap(void*);
 const char* pevSgName(unsigned int sg_id);
 
 const char* pevMapName(unsigned int map_mode);
+
+size_t pevMapPageSize(unsigned int card, unsigned int sg_id);
 
 void pevMapShow(int vmeOnly);
 
@@ -158,11 +160,6 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr, u
     pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), 0, NULL, NULL)
 
 void pevDmaReport(int level);
-
-/**** VME Slave Window ****/
-
-void pevVmeSlaveShow(int level);
-
 
 #ifdef __cplusplus
 }
