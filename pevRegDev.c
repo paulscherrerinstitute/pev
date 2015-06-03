@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.15 2015/05/20 08:23:30 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.16 2015/06/03 12:53:28 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -156,7 +156,7 @@ int pevRead(
                 errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x. Do normal transfer.\n",
                     user, device->name, status);
 
-                regDevCopy(bufferDlen, bufferNelem, device->baseAddress, device->localBuffer, NULL, device->swap);
+                regDevCopy(bufferDlen, bufferNelem, device->baseAddress, device->localBuffer, NULL, device->swap != 0);
             }
         }
 
@@ -192,8 +192,8 @@ int pevRead(
     }
     
     if (pevDrvDebug & DBG_IN)
-            printf("pevRead %s %s: 0x%x bytes normal copy\n",
-                user, device->name, nelem * dlen);
+            printf("pevRead %s %s: 0x%x bytes normal copy, swap=%d\n",
+                user, device->name, nelem * dlen, device->swap);
     
     /* emulate swapping as used in DMA */
     switch (device->swap)
@@ -224,7 +224,7 @@ int pevRead(
             break;
     }
     
-    regDevCopy(dlen, nelem, device->baseAddress + offset, pdata, NULL, device->swap);
+    regDevCopy(dlen, nelem, device->baseAddress + offset, pdata, NULL, device->swap != 0);
     
     return S_dev_success;
 
@@ -679,6 +679,12 @@ int pevConfigure(
  	
     regDevRegisterDevice(name, &pevSupport, device, mapSize);
     regDevRegisterDmaAlloc(device, pevDrvDmaAlloc);
+    
+    if (pevDrvDebug & DBG_INIT)
+        printf("pevConfigure name=%s, card=%d, resource=%s, baseOffset=0x%lx, baseAddress=%p, localBuffer=%p, ioscanpvt=%p,"
+                " dmaSpace=0x%x, swap=%d, vmeSwap=%d, vmePktSize=0x%08x, mode=0x%x\n",
+            device->name, device->card, device->resource, device->baseOffset, device->baseAddress, device->localBuffer, device->ioscanpvt,
+            device->dmaSpace, device->swap, device->vmeSwap, device->vmePktSize, device->mode);
 
     return S_dev_success;
 }
@@ -774,7 +780,7 @@ static void pevAsynConfigureFunc (const iocshArgBuf *args)
     if (status != 0 && !interruptAccept) epicsExit(1);
 }
 
-static void pevDrvRegistrar ()
+static void pevDrvRegistrar (void)
 {
     iocshRegister(&pevConfigureDef, pevConfigureFunc);
     iocshRegister(&pevAsynConfigureDef, pevAsynConfigureFunc);
