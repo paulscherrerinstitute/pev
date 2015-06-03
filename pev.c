@@ -278,14 +278,14 @@ void pevExpertReport(int level)
     printf(" == Maps ==\n");
     pevMapShow(0);
 
-    printf(" == VME Slave Window ==\n");
-    pevVmeSlaveShow(level);
- 
     printf(" == DMA ==\n");
     pevDmaReport(level);
 
     printf(" == Interrupts ==\n");
     pevIntrShow(level);
+    
+    printf(" == VME ==\n");
+    pevVmeShow();
 }
 
 static const iocshArg pevExpertReportArg0 = { "level", iocshArgInt };
@@ -302,7 +302,7 @@ static void pevExpertReportFunc (const iocshArgBuf *args)
     pevExpertReport(args[0].ival);
 }
 
-int pevInit()
+int pevInit(void)
 {
     int status;
     struct sigaction sa;
@@ -322,22 +322,22 @@ int pevInit()
     sigaction(SIGFPE,  &sa, NULL);
     sigaction(SIGSEGV, &sa, NULL);
     
-    status = pevMapInit();
-    if (status != S_dev_success) return status;
-    
     status = pevIntrInit();
     if (status != S_dev_success) return status;
     
     status = pevDmaInit();
     if (status != S_dev_success) return status;
 
+    status = pevMapInit();
+    if (status != S_dev_success) return status;
+    
     iocshRegister(&pevVersionShowDef, pevVersionShowFunc);
     iocshRegister(&pevExpertReportDef, pevExpertReportFunc);
 
     return S_dev_success;
 }
 
-static void pevRegistrar ()
+static void pevRegistrar (void)
 {
     pevInit();
 }
