@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.16 2015/06/03 12:53:28 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.17 2015/06/05 14:52:41 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -178,13 +178,17 @@ int pevRead(
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE)  /* large array transfer */
     {
         if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: 0x%x bytes DMA of array data, swap=%d\n",
-                    user, device->name, nelem * dlen, device->swap);
+            printf("pevRead %s %s: 0x%x bytes DMA of array data, swap=%d\n",
+                user, device->name, nelem * dlen, device->swap);
         
         status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset,
             pdata, nelem * dlen | device->vmePktSize, 0, prio, (pevDmaCallback) callback, user);
 
         if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
+        
+        if (pevDrvDebug & DBG_IN && status == S_dev_badArgument)
+            printf("pevRead %s %s: Address %p is not a DMA buffer. Using normal transfer\n",
+                user, device->name, pdata);
         
         if (status != S_dev_badArgument) /* S_dev_badArgument = not a DMA buffer */
             errlogPrintf("pevRead %s %s: sending DMA request failed! status = 0x%x. Do normal & synchronous transfer\n",
