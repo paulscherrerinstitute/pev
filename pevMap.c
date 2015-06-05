@@ -119,14 +119,14 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
         pevx_map_alloc(card, pmap);
         if (pmap->win_size < size)
         {
-            errlogPrintf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): allocating map failed. Got size=0x%zx\n",
-                card, sg_id, pevSgName(sg_id), map_mode, logicalAddress, size, pmap->win_size);
+            errlogPrintf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x=%s, logicalAddress=0x%zx, size=0x%zx): allocating map failed. Got size=0x%zx\n",
+                card, sg_id, pevSgName(sg_id), map_mode, pevMapName(map_mode), logicalAddress, size, pmap->win_size);
             goto fail;
         }
 
         if (pevMapDebug)
-            printf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x, ...): wanted 0x%lx - 0x%lx, got 0x%lx - 0x%lx @0x%lx\n",
-                card, sg_id, pevSgName(sg_id), map_mode,
+            printf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x=%s, ...): wanted 0x%lx - 0x%lx, got 0x%lx - 0x%lx @0x%lx\n",
+                card, sg_id, pevSgName(sg_id), map_mode, pevMapName(map_mode),
                 pmap->rem_addr, pmap->rem_addr + pmap->size,
                 pmap->rem_base, pmap->rem_base + pmap->win_size,
                 pmap->loc_addr);
@@ -143,8 +143,8 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
         {
             if (pevx_mmap(card, pmap) == MAP_FAILED)
             {
-                errlogPrintf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): mapping to user space failed: %s\n",
-                    card, sg_id, pevSgName(sg_id), map_mode, logicalAddress, size, strerror(errno));
+                errlogPrintf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x=%s, logicalAddress=0x%zx, size=0x%zx): mapping to user space failed: %s\n",
+                    card, sg_id, pevSgName(sg_id), map_mode, pevMapName(map_mode), logicalAddress, size, strerror(errno));
                 goto fail;
             }
         }
@@ -158,13 +158,13 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
             
             if (pmap->usr_addr == NULL)
             {
-                errlogPrintf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): pevDmaRealloc() failed: %s\n",
-                    card, sg_id, pevSgName(sg_id), map_mode, logicalAddress, size, strerror(errno));
+                errlogPrintf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x=%s, logicalAddress=0x%zx, size=0x%zx): pevDmaRealloc() failed: %s\n",
+                    card, sg_id, pevSgName(sg_id), map_mode, pevMapName(map_mode), logicalAddress, size, strerror(errno));
                 goto fail;
             }
             if (pevMapDebug)
-                printf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): buffer=%p\n",
-                    card, sg_id, pevSgName(sg_id), map_mode, logicalAddress, size, pmap->usr_addr);  
+                printf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x=%s, logicalAddress=0x%zx, size=0x%zx): buffer=%p\n",
+                    card, sg_id, pevSgName(sg_id), map_mode, pevMapName(map_mode), logicalAddress, size, pmap->usr_addr);  
 
             /* now re-map to RAM buffer */
             pmap->mode = map_mode;
@@ -176,8 +176,8 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
     (*pmapEntry)->refcount++;
     epicsMutexUnlock(pevMapListLock[card]);
     if (pevMapDebug)
-        printf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x, logicalAddress=0x%zx, size=0x%zx): rem_base=0x%lx, usr_addr=%p\n",
-            card, sg_id, pevSgName(sg_id), map_mode, logicalAddress, size, (*pmapEntry)->map.rem_base, (*pmapEntry)->map.usr_addr);
+        printf("pevMap(card=%d, sg_id=0x%02x=%s, map_mode=0x%02x=%s, logicalAddress=0x%zx, size=0x%zx): rem_base=0x%lx, usr_addr=%p\n",
+            card, sg_id, pevSgName(sg_id), map_mode, pevMapName(map_mode), logicalAddress, size, (*pmapEntry)->map.rem_base, (*pmapEntry)->map.usr_addr);
 
     /* usr_addr mapps to rem_base, user logicalAddress needs offset into this block */
     return logicalAddress - (*pmapEntry)->map.rem_base + (char*)(*pmapEntry)->map.usr_addr;
