@@ -229,7 +229,8 @@ size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
     }
     if (!pevDmaList[card].bufListLock)
     {
-        errlogPrintf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): no DMA buffers in use\n", card, useraddr);
+        if (pevDmaDebug)
+            printf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): no DMA buffers in use\n", card, useraddr);
         return 0;
     }
     epicsMutexLock(pevDmaList[card].bufListLock);
@@ -249,7 +250,8 @@ size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
         }
     }
     epicsMutexUnlock(pevDmaList[card].bufListLock);
-    errlogPrintf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): not a DMA buffer\n",
+    if (pevDmaDebug)
+        printf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): not a DMA buffer\n",
             card, useraddr);
     return 0;
 }
@@ -396,7 +398,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if (src_space == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)src_addr);
-        if (!src_addr) return S_dev_badArgument;
+        if (!addr) return S_dev_badArgument;
         if (pevDmaDebug)
             printf("pevDmaTransfer(card=%d, ...): source address 0x%zx maps to PCI address 0x%zx\n",
                 card, src_addr, addr);
@@ -406,7 +408,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if (des_space == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)des_addr);
-        if (!des_addr) return S_dev_badArgument;
+        if (!addr) return S_dev_badArgument;
         if (pevDmaDebug)
             printf("pevDmaTransfer(card=%d, ...): dest address 0x%zx maps to PCI address 0x%zx\n",
                 card, des_addr, addr);
