@@ -12,6 +12,7 @@
 #include <iocsh.h>
 #include <epicsThread.h>
 #include <epicsMutex.h>
+#include <epicsTime.h>
 #include <epicsExit.h>
 #include <epicsMessageQueue.h>
 #include <symbolname.h>
@@ -44,7 +45,9 @@ static struct pevDmaEngine {
     epicsMessageQueueId dmaMsgQ;
     struct pevDmaBufEntry* dmaBufList;
     epicsMutexId bufListLock;
-    unsigned int pevDmaLastTransferStatus;
+    unsigned int lastTransferStatus;
+    size_t lastSize;
+    double lastDuration;
 } pevDmaList[MAX_PEV_CARDS];
 
 static epicsMutexId pevDmaListLock;
@@ -118,6 +121,37 @@ char* pevDmaPrintStatus(int status, char* buffer, size_t bufferlen)
     return buffer;
 }
 
+int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
+{
+    epicsTimeStamp dmaStartTime, dmaCompleteTime;
+    double duration;
+    char buffer[32];
+
+    epicsTimeGetCurrent(&dmaStartTime);
+    if (pevx_dma_move(card, pev_dma) != 0) /* blocks */
+    {
+        errlogPrintf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
+            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), pev_dma->size,
+            pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
+            pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
+            pev_dma->dma_status, pevDmaPrintStatus(pev_dma->dma_status, buffer, sizeof(buffer)));
+        return pev_dma->dma_status;
+    }
+    epicsTimeGetCurrent(&dmaCompleteTime);
+    duration = epicsTimeDiffInSeconds(&dmaCompleteTime, &dmaStartTime);
+    pevDmaList[card].lastSize = pev_dma->size;
+    pevDmaList[card].lastDuration = duration;
+    pevDmaList[card].lastTransferStatus = pev_dma->dma_status;
+    if (pevDmaDebug)
+        printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %.3gms = %.3gMB/s\n",
+            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), pev_dma->size, pev_dma->size >> 10,
+            pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
+            pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
+            duration*1000, pev_dma->size/duration*1e-6);
+    if (pev_dma->dma_status & DMA_STATUS_DONE) return S_dev_success;
+    return pev_dma->dma_status;    
+}
+
 void pevDmaThread(void* usr)
 {
     struct dmaReq dmaRequest;
@@ -143,18 +177,7 @@ void pevDmaThread(void* usr)
                 pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr);
 
         dmaRequest.pev_dma.start_mode |= dmaChannelFlag;
-        if (pevx_dma_move(card, &dmaRequest.pev_dma) != 0) /* blocks */
-        {
-            char buffer[32];
-            errlogPrintf("pevDmaThread(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
-                card, dmaChannel, dmaRequest.pev_dma.size,
-                pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
-                pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr,
-                dmaRequest.pev_dma.dma_status, pevDmaPrintStatus(dmaRequest.pev_dma.dma_status, buffer, sizeof(buffer)));
-        }
-        pevDmaList[card].pevDmaLastTransferStatus = dmaRequest.pev_dma.dma_status;
-        dmaRequest.callback(dmaRequest.usr,
-            dmaRequest.pev_dma.dma_status & DMA_STATUS_DONE ? S_dev_success : dmaRequest.pev_dma.dma_status);
+        dmaRequest.callback(dmaRequest.usr, pevDmaHandleRequest(card, &dmaRequest.pev_dma));
     }
 
     if (pevDmaDebug)
@@ -467,18 +490,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     
     /* synchronous DMA transfer with short timeout */
     dmaRequest.pev_dma.wait_mode |= DMA_WAIT_1MS;
-    if (pevx_dma_move(card, &dmaRequest.pev_dma) != 0) /* blocks */
-    {
-        char buffer[32];
-        errlogPrintf("pevDmaTransfer(card=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
-            card, dmaRequest.pev_dma.size,
-            pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
-            pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr,
-            dmaRequest.pev_dma.dma_status, pevDmaPrintStatus(dmaRequest.pev_dma.dma_status, buffer, sizeof(buffer)));
-    }
-    pevDmaList[card].pevDmaLastTransferStatus = dmaRequest.pev_dma.dma_status;
-    if (dmaRequest.pev_dma.dma_status & DMA_STATUS_DONE) return S_dev_success;
-    return dmaRequest.pev_dma.dma_status;
+    return pevDmaHandleRequest(card, &dmaRequest.pev_dma);
 }
 
 int pevDmaGetMapInfo(const void* address, struct pevMapInfo* info)
@@ -506,11 +518,7 @@ int pevDmaGetMapInfo(const void* address, struct pevMapInfo* info)
 
 void pevDmaShow(int level)
 {
-/*
-    struct pev_ioctl_dma_sts dmaStatus;
-*/
     unsigned int card;
-    unsigned int transferStatus;
     struct pevDmaBufEntry *bufEntry;
     int anything_reported = 0;
   
@@ -519,16 +527,22 @@ void pevDmaShow(int level)
         if (pevDmaList[card].dmaMsgQ)
         {
             char buffer[32];
+            
+            /* Race condition if dma finishes while we get the values. Bad luck. */
+            unsigned int transferStatus = pevDmaList[card].lastTransferStatus;
+            size_t size =  pevDmaList[card].lastSize;
+            double duration = pevDmaList[card].lastDuration;
 
             printf("  card %d dmaMessageQueue", card);
             epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
-/*  No description what pevx_dma_status does
-            printf("\n\t dmaStatus = %d", pevx_dma_status(card, &dmaStatus));
-*/
-            transferStatus = pevDmaList[card].pevDmaLastTransferStatus;
+            transferStatus = pevDmaList[card].lastTransferStatus;
             printf("   Last DMA transfer Status : 0x%x %s\n",
                 transferStatus, transferStatus == 0 ? "Never used" :
                 pevDmaPrintStatus(transferStatus, buffer, sizeof(buffer)));
+            if (transferStatus)
+                printf("     0x%08x=%ukB in %.3gms = %.3gMB/s\n",
+                    size, size >> 10,
+                    duration*1000, size/duration*1e-6);
             anything_reported = 1;
         }
         if (pevDmaList[card].dmaBufList)
