@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.17 2015/06/05 14:52:41 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.18 2015/06/11 15:05:44 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -77,6 +77,42 @@ int pevRead(
     void* pdata,
     int prio,
     regDevTransferComplete callback,
+    char* user);
+
+struct pevBlockReadContext
+{
+    regDevice *device;
+    unsigned int offset;
+    unsigned int dlen;
+    unsigned int nelem;
+    void* pdata;
+    regDevTransferComplete callback;
+    char* user;
+};
+
+void pevBlockReadCallback(struct pevBlockReadContext* ctx, int status)
+{
+    if (pevDrvDebug & DBG_IN)
+        printf("pevBlockReadCallback %s %s: DMA block transfer complete. status = 0x%x%s.\n",
+            ctx->user, ctx->device->name, status,  status & DMA_STATUS_TMO ? " TIMEOUT" : "");
+    if (status == S_dev_success)
+    {
+        pevRead(ctx->device, ctx->offset, ctx->dlen, ctx->nelem, ctx->pdata, 0, NULL, ctx->user);
+        /* notify other records about new data */
+        scanIoRequest(ctx->device->ioscanpvt);
+    }
+    ctx->callback(ctx->user, status);
+    free(ctx);
+}
+
+int pevRead(
+    regDevice *device,
+    unsigned int offset,
+    unsigned int dlen,
+    unsigned int nelem,
+    void* pdata,
+    int prio,
+    regDevTransferComplete callback,
     char* user)
 {
     int status;
@@ -113,19 +149,49 @@ int pevRead(
     {
         if (prio == 2) /* prio == HIGH: this is the trigger */
         {
+            struct pevBlockReadContext* ctx;
+
             /* transfer complete device buffer into local buffer */
             if (pevDrvDebug & DBG_IN)
                 printf("pevRead %s %s: 0x%x bytes DMA to local buffer, swap=%d\n",
                     user, device->name, device->size, device->swap);
+                    
+            if (callback)
+            {
+                ctx = malloc(sizeof(struct pevBlockReadContext));
+                if (ctx)
+                {
+                    ctx->device = device;
+                    ctx->offset = offset;
+                    ctx->dlen = dlen;
+                    ctx->nelem = nelem;
+                    ctx->pdata = pdata;
+                    ctx->callback = callback;
+                    ctx->user = user;
+
+                    status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset,
+                        device->localBuffer, device->size | device->vmePktSize, 0, prio, (pevDmaCallback) pevBlockReadCallback, ctx);
+                    if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
+                }
+                errlogPrintf("pevRead %s %s: out of memory for async DMA transfer! Wait for completition.\n",
+                    user, device->name);
+            }
 
             status = pevDmaToBufferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
                 device->localBuffer, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
+                unsigned int bufferDlen;
+                unsigned int bufferNelem;
+                char buffer [32];
+
+                errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x%s\n",
+                    user, device->name, status, pevDmaPrintStatus(status, buffer, sizeof(buffer)));
+                if (status & DMA_STATUS_TMO) return status;
+
                 /* emulate swapping as used in DMA */
-                unsigned int bufferDlen = dlen;
-                unsigned int bufferNelem = device->size/dlen;
-                
+                bufferDlen = dlen;
+                bufferNelem = device->size/dlen;
                 switch (device->swap)
                 {
                     case DMA_SPACE_WS:
@@ -153,8 +219,6 @@ int pevRead(
                         bufferDlen = 8;
                         break;
                 }
-                errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x. Do normal transfer.\n",
-                    user, device->name, status);
 
                 regDevCopy(bufferDlen, bufferNelem, device->baseAddress, device->localBuffer, NULL, device->swap != 0);
             }
@@ -162,7 +226,7 @@ int pevRead(
 
         /* read from local buffer */
         if (pevDrvDebug & DBG_IN)
-            printf("pevRead %s %s: read from to local buffer (dlen=%d nelem=%"Z"d)\n",
+            printf("pevRead %s %s: read from local buffer (dlen=%d nelem=%"Z"d)\n",
                 user, device->name, dlen, nelem);
 
         regDevCopy(dlen, nelem, device->localBuffer + offset, pdata, NULL, 0);
@@ -178,7 +242,7 @@ int pevRead(
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE)  /* large array transfer */
     {
         if (pevDrvDebug & DBG_IN)
-            printf("pevRead %s %s: 0x%x bytes DMA of array data, swap=%d\n",
+            printf("pevRead %s %s: 0x%x bytes DMA receive of array data, swap=%d\n",
                 user, device->name, nelem * dlen, device->swap);
         
         status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset,
@@ -229,9 +293,7 @@ int pevRead(
     }
     
     regDevCopy(dlen, nelem, device->baseAddress + offset, pdata, NULL, device->swap != 0);
-    
     return S_dev_success;
-
 }
 
 int pevWrite(
@@ -245,6 +307,7 @@ int pevWrite(
     regDevTransferComplete callback,
     char* user)
 {
+    int status;
     int swap = 0;
    	
     if (!device || device->magic != MAGIC)
@@ -308,12 +371,20 @@ int pevWrite(
     if (device->localBuffer) /* block mode */
     {
         /* write into local buffer */
+        if (pevDrvDebug & DBG_OUT)
+            printf("pevRead %s %s: write to local buffer (dlen=%d nelem=%"Z"d)\n",
+                user, device->name, dlen, nelem);
+
         regDevCopy(dlen, nelem, pdata, device->localBuffer + offset, pmask, swap);
 
         if (prio == 2) /* prio == HIGH: this is the trigger */
         {
             /* write complete buffer to device */
-            int status = pevDmaFromBufferWait(device->card, device->localBuffer, device->dmaSpace | device->swap,
+            if (pevDrvDebug & DBG_OUT)
+                printf("pevRead %s %s: 0x%x bytes DMA from local buffer, swap=%d\n",
+                    user, device->name, device->size, device->swap);
+
+            status = pevDmaFromBufferWait(device->card, device->localBuffer, device->dmaSpace | device->swap,
                 device->baseOffset, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
@@ -328,7 +399,10 @@ int pevWrite(
 
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE && !pmask) /* large array transfer */
     {
-        int status = pevDmaFromBuffer(device->card, pdata, device->dmaSpace | device->swap, device->baseOffset + offset,
+        if (pevDrvDebug & DBG_OUT)
+            printf("pevRead %s %s: 0x%x bytes DMA send of array data, swap=%d\n",
+                user, device->name, nelem * dlen, device->swap);
+        status = pevDmaFromBuffer(device->card, pdata, device->dmaSpace | device->swap, device->baseOffset + offset,
             nelem * dlen | device->vmePktSize, 0, prio, (pevDmaCallback) callback, user);
 
         if (status == S_dev_success) return ASYNC_COMPLETION;
