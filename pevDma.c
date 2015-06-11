@@ -103,6 +103,21 @@ const char* pevDmaSpaceName(unsigned int dma_space)
     }
 }
 
+char* pevDmaPrintStatus(int status, char* buffer, size_t bufferlen)
+/* needs propbably max 21 bytes buffer */
+{
+    snprintf (buffer, bufferlen, "%s%s%s%s%s%s%s%s",
+        status & DMA_STATUS_RUN_RD0 ? "Read0 ": "",
+        status & DMA_STATUS_RUN_RD1 ? "Read1 ": "",
+        status & DMA_STATUS_RUN_WR0 ? "Write0 ": "",
+        status & DMA_STATUS_RUN_WR1 ? "Write1 ": "",
+        status & DMA_STATUS_ENDED ? "Ended" : "Waiting",
+        status & DMA_STATUS_DONE ? " Done" : "",
+        status & DMA_STATUS_TMO ? " Timeout" : "",
+        status & DMA_STATUS_ERR ? " Error" : "");
+    return buffer;
+}
+
 void pevDmaThread(void* usr)
 {
     struct dmaReq dmaRequest;
@@ -130,13 +145,12 @@ void pevDmaThread(void* usr)
         dmaRequest.pev_dma.start_mode |= dmaChannelFlag;
         if (pevx_dma_move(card, &dmaRequest.pev_dma) != 0) /* blocks */
         {
+            char buffer[32];
             errlogPrintf("pevDmaThread(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
                 card, dmaChannel, dmaRequest.pev_dma.size,
                 pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
                 pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr,
-                dmaRequest.pev_dma.dma_status,
-                dmaRequest.pev_dma.dma_status & DMA_STATUS_TMO ? "Timeout" : 
-                dmaRequest.pev_dma.dma_status & DMA_STATUS_ERR ? "Error" : "");
+                dmaRequest.pev_dma.dma_status, pevDmaPrintStatus(dmaRequest.pev_dma.dma_status, buffer, sizeof(buffer)));
         }
         pevDmaList[card].pevDmaLastTransferStatus = dmaRequest.pev_dma.dma_status;
         dmaRequest.callback(dmaRequest.usr,
@@ -429,26 +443,41 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     dmaRequest.pev_dma.des_addr  = des_addr;
     dmaRequest.pev_dma.size = size;
     
-    dmaRequest.pev_dma.start_mode = DMA_MODE_PIPE; /* DMA_MODE_PIPE for MAP_SPACE_SHM ? */
+    dmaRequest.pev_dma.start_mode = DMA_MODE_PIPE; /* irrelevant for MAP_SPACE_SHM */
     dmaRequest.pev_dma.end_mode = 0;
     dmaRequest.pev_dma.intr_mode = DMA_INTR_ENA;
-    dmaRequest.pev_dma.wait_mode = DMA_WAIT_INTR | DMA_WAIT_1S | (1<<4);
     dmaRequest.pev_dma.src_mode = DMA_PCIE_RR2;
     dmaRequest.pev_dma.des_mode = DMA_PCIE_RR2 | swap_mode;
+
+/*  Timeout is x * units
+    x = 1 ... 15
+    units = DMA_WAIT_1MS ... DMA_WAIT_100S
+    wait_mode = DMA_WAIT_INTR | x << 4 | units
+*/
+    dmaRequest.pev_dma.wait_mode = DMA_WAIT_INTR | (1 << 4);
     
     if (callback)
     {
+        /* asynchronous DMA transfer with long timeout */
+        dmaRequest.pev_dma.wait_mode |= DMA_WAIT_100S;
         dmaRequest.callback = callback;
         dmaRequest.usr = usr;
         return epicsMessageQueueTrySend(pevDmaList[card].dmaMsgQ, &dmaRequest, sizeof(dmaRequest));
     }    
     
-    if (pevx_dma_move(card, &dmaRequest.pev_dma) == 0 &&  /* blocks */
-            dmaRequest.pev_dma.dma_status & DMA_STATUS_DONE)
+    /* synchronous DMA transfer with short timeout */
+    dmaRequest.pev_dma.wait_mode |= DMA_WAIT_1MS;
+    if (pevx_dma_move(card, &dmaRequest.pev_dma) != 0) /* blocks */
     {
-        return S_dev_success;
+        char buffer[32];
+        errlogPrintf("pevDmaTransfer(card=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
+            card, dmaRequest.pev_dma.size,
+            pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
+            pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr,
+            dmaRequest.pev_dma.dma_status, pevDmaPrintStatus(dmaRequest.pev_dma.dma_status, buffer, sizeof(buffer)));
     }
-    
+    pevDmaList[card].pevDmaLastTransferStatus = dmaRequest.pev_dma.dma_status;
+    if (dmaRequest.pev_dma.dma_status & DMA_STATUS_DONE) return S_dev_success;
     return dmaRequest.pev_dma.dma_status;
 }
 
@@ -475,13 +504,13 @@ int pevDmaGetMapInfo(const void* address, struct pevMapInfo* info)
     return 0;
 }
 
-void pevDmaReport(int level)
+void pevDmaShow(int level)
 {
 /*
     struct pev_ioctl_dma_sts dmaStatus;
 */
     unsigned int card;
-    unsigned int dmaStatus;
+    unsigned int transferStatus;
     struct pevDmaBufEntry *bufEntry;
     int anything_reported = 0;
   
@@ -489,19 +518,17 @@ void pevDmaReport(int level)
     {
         if (pevDmaList[card].dmaMsgQ)
         {
+            char buffer[32];
+
             printf("  card %d dmaMessageQueue", card);
             epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
 /*  No description what pevx_dma_status does
             printf("\n\t dmaStatus = %d", pevx_dma_status(card, &dmaStatus));
 */
-            dmaStatus = pevDmaList[card].pevDmaLastTransferStatus;
-            printf("   Last DMA transfer Status : 0x%x =", dmaStatus);
-            if (dmaStatus & DMA_STATUS_WAITING) printf(" START_WAITING");
-            if (dmaStatus & DMA_STATUS_TMO) printf(" TIMEOUT");
-            if (dmaStatus & DMA_STATUS_ENDED) printf(" ENDED_WAITING");
-            if (dmaStatus & DMA_STATUS_DONE) printf(" DONE");
-            if (dmaStatus == 0) printf(" Never used");
-            printf("\n");
+            transferStatus = pevDmaList[card].pevDmaLastTransferStatus;
+            printf("   Last DMA transfer Status : 0x%x %s\n",
+                transferStatus, transferStatus == 0 ? "Never used" :
+                pevDmaPrintStatus(transferStatus, buffer, sizeof(buffer)));
             anything_reported = 1;
         }
         if (pevDmaList[card].dmaBufList)
@@ -527,18 +554,18 @@ void pevDmaReport(int level)
     }
 }
 
-void pevDmaReportFunc(const iocshArgBuf *args)
+void pevDmaShowFunc(const iocshArgBuf *args)
 {
     int level = args[0].ival;
 
-    pevDmaReport(level);
+    pevDmaShow(level);
 }
-static const iocshArg pevDmaReportArg0 = { "level", iocshArgInt };
-static const iocshArg * const pevDmaReportArgs[] = {
-    &pevDmaReportArg0,
+static const iocshArg pevDmaShowArg0 = { "level", iocshArgInt };
+static const iocshArg * const pevDmaShowArgs[] = {
+    &pevDmaShowArg0,
 };
-static const iocshFuncDef pevDmaReportDef =
-    { "pevDmaReport", 1, pevDmaReportArgs };
+static const iocshFuncDef pevDmaShowDef =
+    { "pevDmaShow", 1, pevDmaShowArgs };
 
 void pevDmaExit()
 {
@@ -615,7 +642,7 @@ int pevDmaInit(void)
     epicsAtExit(pevDmaExit, NULL);
 
     iocshRegister(&pevDmaStartHandlerDef, pevDmaStartHandler);
-    iocshRegister(&pevDmaReportDef, pevDmaReportFunc);
+    iocshRegister(&pevDmaShowDef, pevDmaShowFunc);
     
     return S_dev_success;
 }

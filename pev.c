@@ -279,7 +279,7 @@ void pevExpertReport(int level)
     pevMapShow(0);
 
     printf(" == DMA ==\n");
-    pevDmaReport(level);
+    pevDmaShow(level);
 
     printf(" == Interrupts ==\n");
     pevIntrShow(level);
