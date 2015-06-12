@@ -317,9 +317,9 @@ struct intrHandler* pevIntrGetHandler(unsigned int card, unsigned int src_id)
     engine = pevIntrGetEngine(card);
     if (!engine) return NULL;
     
-    if ((src_id & 0x7f) != src_id)
+    if (src_id >= 0x60)
     {
-        errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#02x): TOSCA II has only 8 interrupt controllers\n",
+        errlogPrintf("pevIntrGetHandler(card=%u, src_id=%#02x): TOSCA II has only 6 interrupt controllers\n",
             card, src_id);        
         return NULL;
     }
@@ -327,13 +327,13 @@ struct intrHandler* pevIntrGetHandler(unsigned int card, unsigned int src_id)
 /* PEV limitation and bug: We can have only 16 event queues.
    After that the driver crashes and we need to reboot the IFC.
    Thus re-use event queues:
-    - ine for each IRQ controller (8)
+    - one for each IRQ controller (8)
     - one for each VME IRQ levels (7)
    The VME IRQs have higher priority, all others share one priority.
 */
     priority = pevIntrPrio;
     p = threadName + sprintf(threadName, "pev%u.%s-IRQ", card, pevIntrSrcName(src_id));
-    if ((src_id & 0x70) == EVT_SRC_VME)
+    if ((src_id & 0xf0) == EVT_SRC_VME)
     {
         int lvl = src_id & 0x0f;
         if (lvl >= 1 && lvl <= 7)
