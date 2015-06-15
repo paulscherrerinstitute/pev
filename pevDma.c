@@ -489,7 +489,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     }    
     
     /* synchronous DMA transfer with short timeout */
-    dmaRequest.pev_dma.wait_mode |= DMA_WAIT_1MS;
+    dmaRequest.pev_dma.wait_mode |= DMA_WAIT_10MS;
     return pevDmaHandleRequest(card, &dmaRequest.pev_dma);
 }
 
