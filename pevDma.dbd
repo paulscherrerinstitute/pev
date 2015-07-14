@@ -1,0 +1,3 @@
+variable(pevDmaDebug, int)
+variable(pevDmaControllerMask, int)
+variable(pevDmaPrio, int)

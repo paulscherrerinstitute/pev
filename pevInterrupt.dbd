@@ -1,0 +1,2 @@
+variable(pevIntrDebug, int)
+variable(pevIntrPrio, int)

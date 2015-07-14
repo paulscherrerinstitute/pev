@@ -1,0 +1,3 @@
+registrar(pevRegistrar)
+variable(pevSigDebug, int)
+driver(pev)
