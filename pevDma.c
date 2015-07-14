@@ -60,7 +60,7 @@ struct dmaReq {
     
 const char* pevDmaSpaceName(unsigned int dma_space)
 {
-    switch (dma_space & DMA_SPACE_MASK)
+    switch (dma_space)
     {
         case DMA_SPACE_PCIE: return "PCIe";
         case DMA_SPACE_VME:  return "VME";
@@ -71,7 +71,6 @@ const char* pevDmaSpaceName(unsigned int dma_space)
         case DMA_SPACE_BUF:  return "Buffer";
         
         case DMA_SPACE_PCIE | DMA_SPACE_WS: return "PCIe word swap";
-        case DMA_SPACE_VME  | DMA_SPACE_WS: return "VME word swap";
         case DMA_SPACE_SHM  | DMA_SPACE_WS: return "SHM word swap";
         case DMA_SPACE_USR  | DMA_SPACE_WS: return "USR word swap";
         case DMA_SPACE_USR1 | DMA_SPACE_WS: return "USR1 word swap";
@@ -79,7 +78,6 @@ const char* pevDmaSpaceName(unsigned int dma_space)
         case DMA_SPACE_BUF  | DMA_SPACE_WS: return "Buffer word swap";
         
         case DMA_SPACE_PCIE | DMA_SPACE_DS: return "PCIe dword swap";
-        case DMA_SPACE_VME  | DMA_SPACE_DS: return "VME dword swap";
         case DMA_SPACE_SHM  | DMA_SPACE_DS: return "SHM dword swap";
         case DMA_SPACE_USR  | DMA_SPACE_DS: return "USR dword swap";
         case DMA_SPACE_USR1 | DMA_SPACE_DS: return "USR1 dword swap";
@@ -87,22 +85,24 @@ const char* pevDmaSpaceName(unsigned int dma_space)
         case DMA_SPACE_BUF  | DMA_SPACE_DS: return "Buffer dword swap";
         
         case DMA_SPACE_PCIE | DMA_SPACE_QS: return "PCIe qword swap";
-        case DMA_SPACE_VME  | DMA_SPACE_QS: return "VME qword swap";
         case DMA_SPACE_SHM  | DMA_SPACE_QS: return "SHM qword swap";
         case DMA_SPACE_USR  | DMA_SPACE_QS: return "USR qword swap";
         case DMA_SPACE_USR1 | DMA_SPACE_QS: return "USR1 qword swap";
         case DMA_SPACE_USR2 | DMA_SPACE_QS: return "USR2 qword swap";
         case DMA_SPACE_BUF  | DMA_SPACE_QS: return "Buffer qword swap";
         
-        case DMA_SPACE_PCIE | DMA_SWAP: return "PCIe swap";
-        case DMA_SPACE_VME  | DMA_SWAP: return "VME swap";
-        case DMA_SPACE_SHM  | DMA_SWAP: return "SHM swap";
-        case DMA_SPACE_USR  | DMA_SWAP: return "USR swap";
-        case DMA_SPACE_USR1 | DMA_SWAP: return "USR1 swap";
-        case DMA_SPACE_USR2 | DMA_SWAP: return "USR2 swap";
-        case DMA_SPACE_BUF  | DMA_SWAP: return "Buffer swap";
-        
-        default:             return "unknown";
+        case DMA_SPACE_VME  | DMA_VME_A16:    return "VME A16";
+        case DMA_SPACE_VME  | DMA_VME_A24:    return "VME A24";
+        case DMA_SPACE_VME  | DMA_VME_A32:    return "VME A42";
+        case DMA_SPACE_VME  | DMA_VME_BLT:    return "VME BLT";
+        case DMA_SPACE_VME  | DMA_VME_MBLT:   return "VME MBLT";
+        case DMA_SPACE_VME  | DMA_VME_2eVME:  return "VME 2eVME";
+        case DMA_SPACE_VME  | DMA_VME_2eFAST: return "VME 2eFAST";
+        case DMA_SPACE_VME  | DMA_VME_2e160:  return "VME 2eSST160";
+        case DMA_SPACE_VME  | DMA_VME_2e233:  return "VME 2eSST233";
+        case DMA_SPACE_VME  | DMA_VME_2e320:  return "VME 2eSST320";
+
+        default: return "unknown";
     }
 }
 
@@ -125,6 +125,7 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
 {
     epicsTimeStamp dmaStartTime, dmaCompleteTime;
     double duration;
+    int size;
     char buffer[32];
 
     epicsTimeGetCurrent(&dmaStartTime);
@@ -139,15 +140,16 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
     }
     epicsTimeGetCurrent(&dmaCompleteTime);
     duration = epicsTimeDiffInSeconds(&dmaCompleteTime, &dmaStartTime);
-    pevDmaList[card].lastSize = pev_dma->size;
+    size = pev_dma->size & 0x3fffffff;
+    pevDmaList[card].lastSize = size;
     pevDmaList[card].lastDuration = duration;
     pevDmaList[card].lastTransferStatus = pev_dma->dma_status;
     if (pevDmaDebug)
         printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %.3gms = %.3gMB/s\n",
-            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), pev_dma->size, pev_dma->size >> 10,
+            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), size, size >> 10,
             pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
             pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
-            duration*1000, pev_dma->size/duration*1e-6);
+            duration*1000, size/duration*1e-6);
     if (pev_dma->dma_status & DMA_STATUS_DONE) return S_dev_success;
     return pev_dma->dma_status;    
 }
@@ -172,7 +174,7 @@ void pevDmaThread(void* usr)
             
         if (pevDmaDebug)
             printf("pevDmaThread(card=%d, dmaChannel=%d) request 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
-                card, dmaChannel, dmaRequest.pev_dma.size,
+                card, dmaChannel, dmaRequest.pev_dma.size & 0x3fffffff,
                 pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
                 pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr);
 
@@ -432,7 +434,13 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
         free(usrName);
         free(cbName);
     }
-    if (src_space == DMA_SPACE_BUF)
+    if ((size & 0x3fffffff) > 0xff800)
+    {
+        errlogPrintf("pevDmaTransfer(card=%d, ...): size=0x%zx too big\n",
+            card, size & 0x3fffffff);
+        return S_dev_badArgument;
+    }
+    if ((src_space & DMA_SPACE_MASK) == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)src_addr);
         if (!addr) return S_dev_badArgument;
@@ -440,9 +448,9 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
             printf("pevDmaTransfer(card=%d, ...): source address 0x%zx maps to PCI address 0x%zx\n",
                 card, src_addr, addr);
         src_addr = addr;
-        src_space = 0;
+        src_space = (src_space & ~DMA_SPACE_MASK) | DMA_SPACE_PCIE;
     }
-    if (des_space == DMA_SPACE_BUF)
+    if ((des_space & DMA_SPACE_MASK) == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)des_addr);
         if (!addr) return S_dev_badArgument;
@@ -450,7 +458,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
             printf("pevDmaTransfer(card=%d, ...): dest address 0x%zx maps to PCI address 0x%zx\n",
                 card, des_addr, addr);
         des_addr = addr;
-        des_space = 0;
+        des_space &= (src_space & ~DMA_SPACE_MASK) | DMA_SPACE_PCIE;
     }
     
     if (!pevDmaGetEngine(card))
@@ -482,7 +490,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if (callback)
     {
         /* asynchronous DMA transfer with long timeout */
-        dmaRequest.pev_dma.wait_mode |= DMA_WAIT_100S;
+        dmaRequest.pev_dma.wait_mode |= DMA_WAIT_1S;
         dmaRequest.callback = callback;
         dmaRequest.usr = usr;
         return epicsMessageQueueTrySend(pevDmaList[card].dmaMsgQ, &dmaRequest, sizeof(dmaRequest));

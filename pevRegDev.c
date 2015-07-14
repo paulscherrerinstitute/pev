@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.18 2015/06/11 15:05:44 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.19 2015/07/14 12:24:33 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -168,17 +168,17 @@ int pevRead(
                     ctx->pdata = pdata;
                     ctx->callback = callback;
                     ctx->user = user;
-
-                    status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset,
-                        device->localBuffer, device->size | device->vmePktSize, 0, prio, (pevDmaCallback) pevBlockReadCallback, ctx);
+                    status = pevDmaTransfer(device->card, device->dmaSpace | device->swap, device->baseOffset,
+                        DMA_SPACE_BUF, (size_t)device->localBuffer, device->size | device->vmePktSize, 0,
+                        prio, (pevDmaCallback)pevBlockReadCallback, ctx);
                     if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
                 }
                 errlogPrintf("pevRead %s %s: out of memory for async DMA transfer! Wait for completition.\n",
                     user, device->name);
             }
 
-            status = pevDmaToBufferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
-                device->localBuffer, device->size | device->vmePktSize, 0);
+            status = pevDmaTransferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
+                DMA_SPACE_BUF, (size_t)device->localBuffer, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
                 unsigned int bufferDlen;
@@ -239,14 +239,16 @@ int pevRead(
         return S_dev_success;
     }
     
+    /* 50 us overhead = circa 10kB on VME bus */
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE)  /* large array transfer */
     {
         if (pevDrvDebug & DBG_IN)
             printf("pevRead %s %s: 0x%x bytes DMA receive of array data, swap=%d\n",
                 user, device->name, nelem * dlen, device->swap);
         
-        status = pevDmaToBuffer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset,
-            pdata, nelem * dlen | device->vmePktSize, 0, prio, (pevDmaCallback) callback, user);
+        status = pevDmaTransfer(device->card, device->dmaSpace | device->swap, device->baseOffset + offset,
+            DMA_SPACE_BUF, (size_t)pdata, nelem * dlen | device->vmePktSize, 0,
+            prio, (pevDmaCallback) callback, user);
 
         if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
         
@@ -370,9 +372,9 @@ int pevWrite(
 
     if (device->localBuffer) /* block mode */
     {
-        /* write into local buffer */
+        /* write through local buffer */
         if (pevDrvDebug & DBG_OUT)
-            printf("pevRead %s %s: write to local buffer (dlen=%d nelem=%"Z"d)\n",
+            printf("pevRead %s %s: write through local buffer (dlen=%d nelem=%"Z"d)\n",
                 user, device->name, dlen, nelem);
 
         regDevCopy(dlen, nelem, pdata, device->localBuffer + offset, pmask, swap);
@@ -384,35 +386,45 @@ int pevWrite(
                 printf("pevRead %s %s: 0x%x bytes DMA from local buffer, swap=%d\n",
                     user, device->name, device->size, device->swap);
 
-            status = pevDmaFromBufferWait(device->card, device->localBuffer, device->dmaSpace | device->swap,
-                device->baseOffset, device->size | device->vmePktSize, 0);
+            status = pevDmaTransferWait(device->card, DMA_SPACE_BUF, (size_t)device->localBuffer,
+                device->dmaSpace | device->swap, device->baseOffset, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
-                errlogPrintf("pevWrite %s %s: DMA block transfer failed! status = 0x%x. Do normal & synchronous transfer\n",
+                errlogPrintf("pevWrite %s %s: DMA block transfer failed! status = 0x%x.\n",
                     user, device->name, status);
                 regDevCopy(dlen, device->size/dlen, device->localBuffer,
                     device->baseAddress, NULL, swap);
             }
+            /* update block read records */
+//            scanIoRequest(device->ioscanpvt);
+            return S_dev_success;
         }
-        return S_dev_success;
+        
+        /* fall through to normal write */
     }
 
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE && !pmask) /* large array transfer */
     {
         if (pevDrvDebug & DBG_OUT)
-            printf("pevRead %s %s: 0x%x bytes DMA send of array data, swap=%d\n",
+            printf("pevWrite %s %s: 0x%x bytes DMA send of array data, swap=%d\n",
                 user, device->name, nelem * dlen, device->swap);
-        status = pevDmaFromBuffer(device->card, pdata, device->dmaSpace | device->swap, device->baseOffset + offset,
-            nelem * dlen | device->vmePktSize, 0, prio, (pevDmaCallback) callback, user);
+        status = pevDmaTransfer(device->card, DMA_SPACE_BUF, (size_t)device->localBuffer,
+            device->dmaSpace | device->swap, device->baseOffset, device->size | device->vmePktSize, 0,
+            prio, (pevDmaCallback) callback, user);
 
         if (status == S_dev_success) return ASYNC_COMPLETION;
         if (status != S_dev_badArgument) /* S_dev_badArgument = not a DMA buffer */
-            errlogPrintf("pevRead %s %s: sending DMA request failed! status = 0x%x. Do normal & synchronous transfer\n",
+            errlogPrintf("pevWrite %s %s: sending DMA request failed! status = 0x%x. Do normal & synchronous transfer\n",
                 user, device->name, status);
     }
 
+    if (pevDrvDebug & DBG_OUT)
+            printf("pevWrite %s %s: 0x%x bytes normal copy, swap=%d\n",
+                user, device->name, nelem * dlen, device->swap);
+    
     regDevCopy(dlen, nelem, pdata, device->baseAddress + offset, pmask, swap);
-
+    /* update block read records */
+//    scanIoRequest(device->ioscanpvt);
     return S_dev_success;
 }
 
@@ -523,7 +535,7 @@ int pevConfigure(
         }
 
         /* "SH_MEM", "PCIE", "VME_A16/24/32/BLT/MBLT/2eSST" */
-        if (strcmp(resource, "SH_MEM") == 0)
+        if (strcmp(resource, "SH_MEM") == 0 || strcmp(resource, "SHM") == 0)
         {
             device->dmaSpace = DMA_SPACE_SHM;
             /* device->flags = FLAG_BLKMD; */
@@ -571,7 +583,7 @@ int pevConfigure(
                 offset, mapSize);
         }
         else
-        if (strcmp(resource, "VME_A16") == 0)
+        if (strcmp(resource, "VME_A16") == 0 || strcmp(resource, "A16") == 0)
         {
             device->mode = MAP_SPACE_VME;
             device->baseAddress = pevMap(card, MAP_MASTER_32,
@@ -579,7 +591,7 @@ int pevConfigure(
                 offset, mapSize);
         }
         else
-        if (strcmp(resource, "VME_A24") == 0) 
+        if (strcmp(resource, "VME_A24") == 0 || strcmp(resource, "A24") == 0) 
         {
             device->mode = MAP_SPACE_VME;
             device->baseAddress = pevMap(card, MAP_MASTER_32,
@@ -587,7 +599,7 @@ int pevConfigure(
                 offset, mapSize);
         }
         else
-        if (strcmp(resource, "VME_A32") == 0) 
+        if (strcmp(resource, "VME_A32") == 0 || strcmp(resource, "A32") == 0) 
         {
             device->mode = MAP_SPACE_VME;
             device->baseAddress = pevMap(card, MAP_MASTER_64,
@@ -595,7 +607,7 @@ int pevConfigure(
                 offset, mapSize);
         }
         else
-        if (strcmp(resource, "VME_CSR") == 0) 
+        if (strcmp(resource, "VME_CSR") == 0 || strcmp(resource, "CSR") == 0) 
         {
             device->mode = MAP_SPACE_VME;
             device->baseAddress = pevMap(card, MAP_MASTER_32,
@@ -653,7 +665,7 @@ int pevConfigure(
             {
                 errlogSevPrintf(errlogFatal,
                     "pevConfigure %s: Unknown vme protocol %s\n  valid options: BLT, MBLT, 2eVME, 2eSST160, 2eSST233, 2eSST320\n",
-                    name, resource);
+                    name, protocol);
                 return S_dev_badFunction;
             }
         }
