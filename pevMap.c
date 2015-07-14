@@ -436,7 +436,7 @@ void pevMapDisplay(unsigned int card, unsigned int map, size_t start, unsigned i
     }
     for (i = 0; i < bytes; i += 16)
     {
-        printf ("%08x: ", offset + i);
+        printf ("%08x: ", offset);
         switch (dlen)
         {
             case 1:
