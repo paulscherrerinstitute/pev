@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.19 2015/07/14 12:24:33 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.20 2015/07/14 16:05:57 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -630,11 +630,11 @@ int pevConfigure(
             return S_dev_addrMapFail;
         }
 
-        if (strcmp(protocol, "NODMA") == 0)
+        if (protocol && strcmp(protocol, "NODMA") == 0)
         {   
             device->dmaSpace = NO_DMA_SPACE;
         }
-
+        else
         if (device->mode == MAP_SPACE_VME && protocol && *protocol)
         {
             if (strcmp(protocol, "BLT") == 0) 
