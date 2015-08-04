@@ -529,7 +529,7 @@ void pevMapPut(unsigned int card, unsigned int map, size_t offset, unsigned int 
         printf("invalid card number %d\n", card);
         return;
     }
-    index = 0;
+    index = 1;
     for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
     {
         if (index++ == map) break;
