@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <ucontext.h>
 #include <execinfo.h>
+#include <endian.h>
 
 #include <pevxulib.h>
 
@@ -240,7 +241,10 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
 void pevVersionShow(int level)
 {
     unsigned int card;
-    const char *b;
+    const char *board_name;
+    volatile unsigned int* usr1_data;
+    unsigned int appdata[16];
+    int i;
 
     pevx_init(0);
     printf("  pev library version  : %s\n", pevx_get_lib_version());
@@ -249,8 +253,19 @@ void pevVersionShow(int level)
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         pevx_init(card);
-        b = pevx_board_name(card);
-        if (b != NULL) printf("  card %-2d              : %s\n", card, b);
+        board_name = pevx_board_name(card);
+        if (board_name == NULL) continue;
+        printf("  card %-2d              : %s\n", card, board_name);
+        if (level < 2) continue;
+        usr1_data = pevMap(card, MAP_PCIE_MEM, MAP_SPACE_USR1 | MAP_ENABLE, 0, 0x100);
+        if (usr1_data == NULL)  continue;
+        /* convert application data from little endian */
+        for (i=0; i < 20; i++) appdata[i] = le32toh(usr1_data[i]);
+        printf("    firmware version %#x %x.%x.%x\n    %.32s\n    %.16s\n    %.16s\n",
+            appdata[0],
+            appdata[1]&0xff, (appdata[1]>>8)&0xff, (appdata[1]>>16)&0xffff,
+            (char*)(appdata+2), (char*)(appdata+10), (char*)(appdata+14));
+        pevUnmap(usr1_data);
     }
 }
 
