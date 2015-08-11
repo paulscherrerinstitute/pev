@@ -60,7 +60,7 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
     pevMapExt((card), (sg_id), (map_mode), (logicalAddress), (size), MAP_FLAG_FORCE, (localAddress))
 
 
-void pevUnmap(void*);
+void pevUnmap(volatile void*);
 
 const char* pevSgName(unsigned int sg_id);
 

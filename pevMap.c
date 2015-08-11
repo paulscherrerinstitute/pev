@@ -189,7 +189,7 @@ fail:
     return NULL;
 }
 
-void pevUnmap(void* ptr)
+void pevUnmap(volatile void* ptr)
 {
     struct pevMapEntry* mapEntry;
     unsigned int card;
