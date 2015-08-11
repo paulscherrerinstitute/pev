@@ -261,10 +261,10 @@ void pevVersionShow(int level)
         if (usr1_data == NULL)  continue;
         /* convert application data from little endian */
         for (i=0; i < 20; i++) appdata[i] = le32toh(usr1_data[i]);
-        printf("    firmware version %#x %x.%x.%x\n    %.32s\n    %.16s\n    %.16s\n",
-            appdata[0],
+        printf("    firmware: program ID: %#x (%.32s) version %#x built %x.%x.%x\n    expected FMC1: %.16s\n    expected FMC2: %.16s\n",
+            appdata[0]&0xffff, (char*)(appdata+2), (appdata[0]>>16)&0xffff, 
             appdata[1]&0xff, (appdata[1]>>8)&0xff, (appdata[1]>>16)&0xffff,
-            (char*)(appdata+2), (char*)(appdata+10), (char*)(appdata+14));
+            (char*)(appdata+10), (char*)(appdata+14));
         pevUnmap(usr1_data);
     }
 }
