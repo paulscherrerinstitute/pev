@@ -106,7 +106,6 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
         pmap->loc_addr = localAddress;
         pmap->flag = flag;
 
-        
         if (sg_id == MAP_SLAVE_VME && (map_mode & 0xf000) == MAP_SPACE_PCIE && logicalAddress == 0)  /* vme slave window to RAM */
         {
             if (pevMapDebug)
@@ -185,22 +184,24 @@ fail:
     if ((*pmapEntry)->map.win_size != 0)
         pevx_map_free(card, &(*pmapEntry)->map);
     free(*pmapEntry);
+    *pmapEntry = NULL;
     epicsMutexUnlock(pevMapListLock[card]);
     return NULL;
 }
 
 void pevUnmap(volatile void* ptr)
 {
+    struct pevMapEntry** pmapEntry;
     struct pevMapEntry* mapEntry;
     unsigned int card;
 
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         epicsMutexLock(pevMapListLock[card]);
-        for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
+        for (pmapEntry = &pevMapList[card]; *pmapEntry; pmapEntry = &(*pmapEntry)->next)
         {
-            if (mapEntry->refcount == 0 || mapEntry->map.usr_addr == MAP_FAILED || mapEntry->map.usr_addr == NULL) continue;
-            if (ptr >= mapEntry->map.usr_addr && ptr < mapEntry->map.usr_addr + mapEntry->map.win_size)
+            mapEntry = *pmapEntry;
+            if (mapEntry->map.usr_addr && ptr >= mapEntry->map.usr_addr && ptr < mapEntry->map.usr_addr + mapEntry->map.win_size)
             {
                 if (--mapEntry->refcount == 0)
                 {
@@ -208,9 +209,13 @@ void pevUnmap(volatile void* ptr)
                         printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x=%uMB\n",
                             card, pevMapName(mapEntry->map.mode),
                             mapEntry->map.rem_base, mapEntry->map.win_size, mapEntry->map.win_size>>20);
-                    if (mapEntry->map.usr_addr != MAP_FAILED && mapEntry->map.usr_addr != NULL)
+                    if (mapEntry->map.sg_id == MAP_SLAVE_VME)
+                        pevDmaRealloc(card, mapEntry->map.usr_addr, 0);
+                    else
                         pevx_munmap(card, &mapEntry->map);
                     pevx_map_free(card, &mapEntry->map);
+                    *pmapEntry = mapEntry->next;
+                    free (mapEntry);
                     epicsMutexUnlock(pevMapListLock[card]);
                     return;
                 }
@@ -218,6 +223,7 @@ void pevUnmap(volatile void* ptr)
         }
         epicsMutexUnlock(pevMapListLock[card]);
     }
+    errlogPrintf("pevUnmap(%p): pointer does not belong to any map\n", ptr);
 }
 
 const char* pevSgName(unsigned int sg_id)
@@ -603,10 +609,14 @@ LOCAL void pevMapExit(void* dummy)
                     card,
                     pevMapName(mapEntry->map.mode),
                     mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);
-            if (mapEntry->map.usr_addr != MAP_FAILED && mapEntry->map.usr_addr != NULL)
-                pevx_munmap(card, &mapEntry->map);
-            if (mapEntry->map.win_size != 0)
-                pevx_map_free(card, &mapEntry->map);
+            if (mapEntry->map.usr_addr)
+            {
+                if (mapEntry->map.sg_id == MAP_SLAVE_VME)
+                    pevDmaRealloc(card, mapEntry->map.usr_addr, 0);
+                else
+                    pevx_munmap(card, &mapEntry->map);
+            }
+            pevx_map_free(card, &mapEntry->map);
         }
     }
     if (pevMapDebug)
