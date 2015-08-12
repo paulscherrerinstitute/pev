@@ -243,7 +243,7 @@ void pevVersionShow(int level)
     unsigned int card;
     const char *board_name;
     volatile unsigned int* usr1_data;
-    unsigned int appdata[16];
+    unsigned int appdata[18];
     int i;
 
     pevx_init(0);
@@ -260,7 +260,7 @@ void pevVersionShow(int level)
         usr1_data = pevMap(card, MAP_PCIE_MEM, MAP_SPACE_USR1 | MAP_ENABLE, 0, 0x100);
         if (usr1_data == NULL)  continue;
         /* convert application data from little endian */
-        for (i=0; i < 20; i++) appdata[i] = le32toh(usr1_data[i]);
+        for (i=0; i < 18; i++) appdata[i] = le32toh(usr1_data[i]);
         printf("    firmware ID: %#x (%.32s) version %#x built %x.%x.%x\n    expected FMC1: %.16s\n    expected FMC2: %.16s\n",
             appdata[0]&0xffff, (char*)(appdata+2), (appdata[0]>>16)&0xffff, 
             appdata[1]&0xff, (appdata[1]>>8)&0xff, (appdata[1]>>16)&0xffff,
