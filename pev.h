@@ -160,7 +160,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr, u
     pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), 0, NULL, NULL)
 
 char* pevDmaPrintStatus(int status, char* buffer, size_t bufferlen);
-/* needs propbably max 21 bytes buffer */
+/* needs propbably max 30 bytes buffer */
 
 void pevDmaShow(int level);
 

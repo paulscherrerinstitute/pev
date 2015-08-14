@@ -107,7 +107,7 @@ const char* pevDmaSpaceName(unsigned int dma_space)
 }
 
 char* pevDmaPrintStatus(int status, char* buffer, size_t bufferlen)
-/* needs propbably max 21 bytes buffer */
+/* needs propbably max 30 bytes buffer */
 {
     snprintf (buffer, bufferlen, "%s%s%s%s%s%s%s%s",
         status & DMA_STATUS_RUN_RD0 ? "RUN_RD0 ": "",
