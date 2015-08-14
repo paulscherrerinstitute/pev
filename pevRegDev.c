@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.21 2015/08/14 13:00:14 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.22 2015/08/14 13:07:30 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -96,7 +96,7 @@ void pevBlockReadCallback(struct pevBlockReadContext* ctx, int status)
     char buffer[32];
 
     if (pevDrvDebug & DBG_IN)
-        printf("pevBlockReadCallback %s %s: DMA block transfer complete. status = 0x%x%s.\n",
+        printf("pevBlockReadCallback %s %s: DMA block transfer complete. status = 0x%x %s.\n",
             ctx->user, ctx->device->name, status, pevDmaPrintStatus(status, buffer, sizeof(buffer))); 
     if (status == S_dev_success)
     {
