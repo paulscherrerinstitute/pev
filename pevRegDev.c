@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.20 2015/07/14 16:05:57 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.21 2015/08/14 13:00:14 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -92,16 +92,36 @@ struct pevBlockReadContext
 
 void pevBlockReadCallback(struct pevBlockReadContext* ctx, int status)
 {
+    char* fname = NULL;
+    char buffer[32];
+
     if (pevDrvDebug & DBG_IN)
         printf("pevBlockReadCallback %s %s: DMA block transfer complete. status = 0x%x%s.\n",
-            ctx->user, ctx->device->name, status,  status & DMA_STATUS_TMO ? " TIMEOUT" : "");
+            ctx->user, ctx->device->name, status, pevDmaPrintStatus(status, buffer, sizeof(buffer))); 
     if (status == S_dev_success)
     {
+        if (pevDrvDebug & DBG_IN)
+            printf("pevBlockReadCallback %s %s: Reading offset=%d, dlen=%d, nelem=%d user=%s.\n",
+                ctx->user, ctx->device->name, ctx->offset, ctx->dlen, ctx->nelem, ctx->user);
         pevRead(ctx->device, ctx->offset, ctx->dlen, ctx->nelem, ctx->pdata, 0, NULL, ctx->user);
         /* notify other records about new data */
         scanIoRequest(ctx->device->ioscanpvt);
     }
+    if (status & DMA_STATUS_TMO) status = S_dev_deviceTMO;
+    else if (status & DMA_STATUS_ERR) status = S_dev_noDevice;
+    if (pevDrvDebug & DBG_IN)
+    {
+        fname = symbolName(ctx->callback, 0);
+        printf("pevBlockReadCallback %s %s: calling %s(%s, 0x%x)\n",
+            ctx->user, ctx->device->name, fname, ctx->user, status);
+    }
     ctx->callback(ctx->user, status);
+    if (pevDrvDebug & DBG_IN)
+    {
+        printf("pevBlockReadCallback %s %s: callback %s(%s, 0x%x) complete\n",
+            ctx->user, ctx->device->name, fname, ctx->user, status);
+        free (fname);
+    }
     free(ctx);
 }
 
@@ -172,6 +192,7 @@ int pevRead(
                         DMA_SPACE_BUF, (size_t)device->localBuffer, device->size | device->vmePktSize, 0,
                         prio, (pevDmaCallback)pevBlockReadCallback, ctx);
                     if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
+                    return status;
                 }
                 errlogPrintf("pevRead %s %s: out of memory for async DMA transfer! Wait for completition.\n",
                     user, device->name);
@@ -187,7 +208,8 @@ int pevRead(
 
                 errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x%s\n",
                     user, device->name, status, pevDmaPrintStatus(status, buffer, sizeof(buffer)));
-                if (status & DMA_STATUS_TMO) return status;
+                if (status & DMA_STATUS_TMO) return S_dev_deviceTMO;
+                if (status & DMA_STATUS_ERR) return S_dev_noDevice;
 
                 /* emulate swapping as used in DMA */
                 bufferDlen = dlen;
