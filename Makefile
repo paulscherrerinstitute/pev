@@ -14,6 +14,7 @@ SOURCES += pevRegDev.c
 SOURCES += pevSlaveWindow.c
 SOURCES += i2cDrv.c
 SOURCES += symbolname.cc
+SOURCES += keypress.c
 
 HEADERS += pev.h
 

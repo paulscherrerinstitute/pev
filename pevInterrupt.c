@@ -1,8 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <termios.h>
-#include <unistd.h> 
 #include <errno.h> 
 
 #include <pevxulib.h>
@@ -15,6 +13,7 @@ struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
 #include <epicsExit.h>
 #include <epicsMutex.h>
 #include <symbolname.h>
+#include <keypress.h> 
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -439,27 +438,6 @@ int pevIntrDisable(unsigned int card, unsigned int src_id)
     }
 
     return pevx_evt_mask(card, handler->intrQueue, src_id) == 0 ? S_dev_success : S_dev_intEnFail;
-}
-
-static int waitForKeypress(int timeout_sec)
-{
-    static struct termios oldt, newt;
-    fd_set fdset;
-    struct timeval timeout;
-    int status;
-
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
-    newt.c_lflag &= ~(ICANON | ECHO );
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
-    FD_ZERO(&fdset);
-    FD_SET(STDIN_FILENO, &fdset);
-    timeout.tv_sec = timeout_sec;
-    timeout.tv_usec = 0;
-    status = select (STDIN_FILENO+1, &fdset, NULL, NULL, &timeout);
-    if (status == 1) getchar();
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    return status;
 }
 
 void pevIntrShow(int level)
