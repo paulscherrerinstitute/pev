@@ -29,6 +29,8 @@
 #include <symbolname.h>
 #include <stdlib.h>
 #include <epicsMutex.h>
+#include <epicsTimer.h>
+#include "pevPrivate.h"
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -50,13 +52,13 @@ epicsExportAddress(int, pevDevLibDebug);
  * Interrupt handling
  */
 
-int pevDevLibInterruptInUseVME(unsigned vectorNumber)
+int pevDevLibInterruptInUseVME(unsigned int vectorNumber)
 {
     return 0;
 }
 
 long pevDevLibConnectInterruptVME(
-    unsigned vectorNumber,
+    unsigned int vectorNumber,
     void (*pFunction)(),
     void  *parameter)
 {
@@ -79,7 +81,7 @@ long pevDevLibConnectInterruptVME(
 }
 
 long pevDevLibDisconnectInterruptVME(
-    unsigned vectorNumber,
+    unsigned int vectorNumber,
     void (*pFunction)()
 )
 {
@@ -94,7 +96,7 @@ long pevDevLibDisconnectInterruptVME(
     return pevIntrDisconnect(0, EVT_SRC_VME_ANY_LEVEL, vectorNumber, pFunction, NULL);
 }
 
-long pevDevLibEnableInterruptLevelVME(unsigned level)
+long pevDevLibEnableInterruptLevelVME(unsigned int level)
 {
     if (pevDevLibDebug)
 	printf("enabling VME Interrupt level 0x%02x\n", level);
@@ -107,7 +109,7 @@ long pevDevLibEnableInterruptLevelVME(unsigned level)
     return pevIntrEnable(0, EVT_SRC_VME+level);
 }
 
-long pevDevLibDisableInterruptLevelVME(unsigned level)
+long pevDevLibDisableInterruptLevelVME(unsigned int level)
 {
     if (pevDevLibDebug)
 	printf("disabling VME Interrupt level 0x%02x\n", level);
@@ -125,7 +127,7 @@ long pevDevLibDisableInterruptLevelVME(unsigned level)
  * two device drivers that are using the same address range
  */
 
-long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
+long pevDevLibMapAddr(epicsAddressType addrType, unsigned int options,
             size_t logicalAddress, size_t size, volatile void **ppPhysicalAddress)
 {
     if (ppPhysicalAddress==NULL) {
@@ -213,72 +215,120 @@ long pevDevLibMapAddr(epicsAddressType addrType, unsigned options,
 static epicsMutexId pevDevLibProbeLock;
 static jmp_buf pevDevLibProbeFail;
 
-void pevDevLibProbeSigHandler(int sig)
+void pevDevLibProbeSigHandler(int sig, siginfo_t* info , void* ctx)
 {
+    struct pevMapInfo mapInfo;
+
+    pevGetMapInfo(info->si_addr, &mapInfo);
+    errlogPrintf("pevDevLibProbeSigHandler: access to unmapped address %p=%s+%#x\n",
+        info->si_addr, mapInfo.name, mapInfo.addr);
     longjmp(pevDevLibProbeFail, 1);
 }
 
-long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void *pValue)
+void pevDevLibProbeTimeout(void* ptr)
 {
-    struct sigaction sa, oldsa;
-    int status = S_dev_success;
+    struct pevMapInfo mapInfo;
 
+    pevGetMapInfo(ptr, &mapInfo);
+    errlogPrintf("pevDevLibProbeTimeout: access to address %p=%s+%#x is hanging\n",
+        ptr, mapInfo.name, mapInfo.addr);
+}
+
+long pevDevLibProbe(int write, unsigned int wordSize, volatile const void *ptr, void *pValue)
+{
+    struct sigaction sa = {{0}}, oldsa;
+    int status = S_dev_success;
+    struct pevMapInfo mapInfo = {0};
+    static epicsTimerQueueId pevDevLibProbeTimerQueue;
+    static epicsTimerId pevDevLibProbeTimer;
+            
     /* serialize concurrent probes because we use global resources (jmp_buf, signals, PVME_ADDERR register) */
     epicsMutexMustLock(pevDevLibProbeLock);
-
-    /* clear BERR */
+    
+    /* clear VME bus error */
     pevx_csr_rd(0, PVME_ADDERR);
 
-    /* check address */
-    sa.sa_handler = pevDevLibProbeSigHandler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
-    sa.sa_restorer = NULL;
+    /* setup handler for unmapped addresses */
+    sa.sa_sigaction = pevDevLibProbeSigHandler;
+    sa.sa_flags = SA_SIGINFO;
     sigaction(SIGSEGV, &sa, &oldsa);
+    
+    /* get info about mapped  pev resources */
+    if (pevDevLibDebug)
+        pevGetMapInfo(ptr, &mapInfo);
+
+    /* setup 1 second timout for hanging access (due to TOSCA bug) */
+    if (!pevDevLibProbeTimerQueue)
+    {
+        pevDevLibProbeTimerQueue = epicsTimerQueueAllocate(1, epicsThreadPriorityLow);
+        pevDevLibProbeTimer = epicsTimerQueueCreateTimer(pevDevLibProbeTimerQueue, pevDevLibProbeTimeout, (void*)ptr);
+        epicsTimerStartDelay(pevDevLibProbeTimer, 1.0);
+    }
+    
     if (setjmp(pevDevLibProbeFail) == 0)
     {
         if (write)
         {
-            switch(wordSize)
+            switch (wordSize)
             {
-              case 1: *(epicsUInt8 *)(ptr) = *(epicsUInt8 *)pValue;
-                break;
-              case 2: *(epicsUInt16 *)(ptr) = *(epicsUInt16 *)pValue;
-                break;
-              case 4: *(epicsUInt32 *)(ptr) = *(epicsUInt32 *)pValue;
-                break;
-              default:
-                status = S_dev_badArgument;
+                case 1:
+                    *(epicsUInt8 *)(ptr) = *(epicsUInt8 *)pValue;
+                    break;
+                case 2:
+                    *(epicsUInt16 *)(ptr) = *(epicsUInt16 *)pValue;
+                    break;
+                case 4:
+                    *(epicsUInt32 *)(ptr) = *(epicsUInt32 *)pValue;
+                    break;
+                default:
+                    if (pevDevLibDebug)
+                        printf("pevDevLibWriteProbe: illegal word size %u", wordSize);
+                    status = S_dev_badArgument;
             }
             /* wait for writes to get posted */
             usleep(10);
         }
         else
         {
-            switch(wordSize)
+            switch (wordSize)
             {
-              case 1: *(epicsUInt8 *)pValue = *(epicsUInt8 *)(ptr);
-                break;
-              case 2: *(epicsUInt16 *)pValue = *(epicsUInt16 *)(ptr);
-                break;
-              case 4: *(epicsUInt32 *)pValue = *(epicsUInt32 *)(ptr);
-                break;
-              default:
-                status = S_dev_badArgument;
+                case 1:
+                    *(epicsUInt8 *)pValue = *(epicsUInt8 *)(ptr);
+                    break;
+                case 2:
+                    *(epicsUInt16 *)pValue = *(epicsUInt16 *)(ptr);
+                    break;
+                case 4:
+                    *(epicsUInt32 *)pValue = *(epicsUInt32 *)(ptr);
+                    break;
+                default:
+                    if (pevDevLibDebug)
+                        printf("pevDevLibReadProbe: illegal word size %u", wordSize);
+                    status = S_dev_badArgument;
             }
         }
-        /* check BERR */
-        if (pevx_csr_rd(0, PVME_ADDERR) & VME_BERR)
-            status = S_dev_noDevice;
+        /* check VME bus error */
+        status = pevx_csr_rd(0, PVME_ADDERR) & VME_BERR;
 
+        if (pevDevLibDebug)
+            printf("pevDevLib%sProbe(wordSize=%d, ptr=%p=%s+%#x): %#0*x%s\n",
+                write ? "Write" : "Read",
+                wordSize, ptr,
+                mapInfo.name, mapInfo.addr,
+                wordSize * 2,
+                wordSize == 1 ? *(epicsUInt8*)pValue : wordSize == 2 ? *(epicsUInt16*)pValue : *(epicsUInt32*)pValue,
+                status ? " bus error" : "");
+        
+        if (status) status = S_dev_noDevice;
     }
     else
     {
-        errlogPrintf("pevDev%sProbe: address %p not mapped\n", 
-            write ? "Write" : "Read", pValue);
+        errlogPrintf("pevDev%sProbe(wordSize=%d, ptr=%p): address not mapped\n", 
+            write ? "Write" : "Read", wordSize, ptr);
         status = S_dev_noDevice;
     }
 
+    epicsTimerCancel(pevDevLibProbeTimer);
     sigaction(SIGSEGV, &oldsa, NULL);
     epicsMutexUnlock(pevDevLibProbeLock);
     return status;
@@ -289,7 +339,7 @@ long pevDevLibProbe(int write, unsigned wordSize, volatile const void *ptr, void
  * unsuccessful status if the device isnt present
  */
  
-long pevDevLibReadProbe (unsigned wordSize, volatile const void *ptr, void *pValue)
+long pevDevLibReadProbe (unsigned int wordSize, volatile const void *ptr, void *pValue)
 {
     return pevDevLibProbe(0, wordSize, ptr, pValue);
 }
@@ -301,7 +351,7 @@ long pevDevLibReadProbe (unsigned wordSize, volatile const void *ptr, void *pVal
  *
  */
 
-long pevDevLibWriteProbe (unsigned wordSize, volatile void *ptr, const void *pValue)
+long pevDevLibWriteProbe (unsigned int wordSize, volatile void *ptr, const void *pValue)
 {
     return pevDevLibProbe(1, wordSize, ptr, (void *)pValue);
 }
