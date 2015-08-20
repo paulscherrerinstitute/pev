@@ -5,12 +5,13 @@ extern int pevDebug;
 struct pevMapInfo {
     const char* name;
     unsigned int card;
-    size_t start;
+    const volatile void* base;
+    size_t addr;
     size_t size;
 };
 
-int pevGetMapInfo(const void* address, struct pevMapInfo* info);
-int pevInstallMapInfo(int (*)(const void* address, struct pevMapInfo* info));
+int pevGetMapInfo(const volatile void* address, struct pevMapInfo* info);
+int pevInstallMapInfo(int (*)(const volatile void* address, struct pevMapInfo* info));
 
 int pevMapInit(void);
 int pevIntrInit(void);

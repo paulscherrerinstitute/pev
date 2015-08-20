@@ -26,11 +26,11 @@ epicsExportAddress(int, pevSigDebug);
 
 LOCAL struct pevMapInfoEntry {
     struct pevMapInfoEntry* next;
-    int (*getInfo) (const void* address, struct pevMapInfo* info);
+    int (*getInfo) (const volatile void* address, struct pevMapInfo* info);
 } *pevMapInfoList = NULL;
 
 
-int pevInstallMapInfo(int (*getInfo)(const void* address, struct pevMapInfo* info))
+int pevInstallMapInfo(int (*getInfo)(const volatile void* address, struct pevMapInfo* info))
 {
     struct pevMapInfoEntry* infoEntry;
     
@@ -42,14 +42,21 @@ int pevInstallMapInfo(int (*getInfo)(const void* address, struct pevMapInfo* inf
     return 0;
 }
     
-int pevGetMapInfo(const void* address, struct pevMapInfo* info)
+int pevGetMapInfo(const volatile void* address, struct pevMapInfo* info)
 {
     struct pevMapInfoEntry* infoEntry;
 
     for (infoEntry = pevMapInfoList; infoEntry; infoEntry = infoEntry->next)
     {
-        if (infoEntry->getInfo(address, info)) return 1;
+        if (infoEntry->getInfo(address, info))
+        {
+            info->addr = address - info->base;
+            return 1;
+        }
     }
+    info->name = "no pev resource";
+    info->addr = address - NULL;
+    info->base = NULL;
     return 0;
 }
     
@@ -216,8 +223,8 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
             {
                 if (pevSigDebug)
                 {
-                    errlogPrintf("Access to already unmapped %s on card %d base=%#x size=%#x\n",
-                        mapInfo.name, mapInfo.card, mapInfo.start, mapInfo.size);
+                    errlogPrintf("Access to already unmapped %#x on %s on card %d\n",
+                        mapInfo.addr, mapInfo.name, mapInfo.card);
                     errlogPrintf("Thread %s stopped\n", epicsThreadGetNameSelf());
                 }
                 epicsThreadSuspendSelf();
@@ -326,7 +333,7 @@ static void pevExpertReportFunc (const iocshArgBuf *args)
 int pevInit(void)
 {
     int status;
-    struct sigaction sa;
+    struct sigaction sa = {{0}};
 
     /* make sure that even at abnormal termination the clean up is called */
     sa.sa_sigaction = pevSigHandler;

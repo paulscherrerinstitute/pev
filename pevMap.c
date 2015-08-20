@@ -276,7 +276,7 @@ size_t pevMapPageSize(unsigned int card, unsigned int sg_id)
     return map_ctl.pg_size;
 }
 
-int pevMapGetMapInfo(const void* address, struct pevMapInfo* info)
+int pevMapGetMapInfo(const volatile void* address, struct pevMapInfo* info)
 {
     struct pevMapEntry* mapEntry;
     unsigned int card;
@@ -290,7 +290,7 @@ int pevMapGetMapInfo(const void* address, struct pevMapInfo* info)
             {
                 info->name  = pevMapName(mapEntry->map.mode);
                 info->card  = card;
-                info->start = mapEntry->map.rem_base;
+                info->base  = mapEntry->map.usr_addr - mapEntry->map.rem_base;
                 info->size  = mapEntry->map.win_size;
                 return 1;
             }
