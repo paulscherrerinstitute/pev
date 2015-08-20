@@ -16,6 +16,7 @@
 #include <epicsExit.h>
 #include <epicsMessageQueue.h>
 #include <symbolname.h>
+#include <keypress.h>
 #include <epicsExport.h>
 
 #include "pev.h"
@@ -25,6 +26,7 @@
 #ifndef DMA_START_CTRL_1
 #define DMA_START_CTRL_1 DMA_START_CTLR_1
 #endif
+#define DMA_NUM_CHANNELS 2
 
 int pevDmaDebug = 0;
 epicsExportAddress(int, pevDmaDebug);
@@ -45,9 +47,15 @@ static struct pevDmaEngine {
     epicsMessageQueueId dmaMsgQ;
     struct pevDmaBufEntry* dmaBufList;
     epicsMutexId bufListLock;
-    unsigned int lastTransferStatus;
-    size_t lastSize;
-    double lastDuration;
+    long requestCount;
+    long handleCount;
+    long timeoutCount;
+    long lastCount;
+    unsigned int activeChannels;
+    long useCount[DMA_NUM_CHANNELS];
+    size_t lastSize[DMA_NUM_CHANNELS];
+    double lastDuration[DMA_NUM_CHANNELS];
+    unsigned int lastTransferStatus[DMA_NUM_CHANNELS];
 } pevDmaList[MAX_PEV_CARDS];
 
 static epicsMutexId pevDmaListLock;
@@ -126,39 +134,41 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
     epicsTimeStamp dmaStartTime, dmaCompleteTime;
     double duration;
     int size;
+    int channel;
     char buffer[32];
 
+    channel = !!(pev_dma->start_mode & DMA_START_CTRL_1);
     if (pevDmaDebug)
         printf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
-            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), pev_dma->size,
+            card, channel, pev_dma->size,
             pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
             pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr);
+    pevDmaList[card].activeChannels |= (1<<channel);
+    pevDmaList[card].useCount[channel]++;
     epicsTimeGetCurrent(&dmaStartTime);
     pevx_dma_move(card, pev_dma); /* blocks */
     epicsTimeGetCurrent(&dmaCompleteTime);
+    pevDmaList[card].handleCount++;
+    pevDmaList[card].activeChannels &= ~(1<<channel);
     duration = epicsTimeDiffInSeconds(&dmaCompleteTime, &dmaStartTime);
     size = pev_dma->size & 0x3fffffff;
-    pevDmaList[card].lastSize = size;
-    pevDmaList[card].lastDuration = duration;
-    pevDmaList[card].lastTransferStatus = pev_dma->dma_status;
+    pevDmaList[card].lastSize[channel] = size;
+    pevDmaList[card].lastDuration[channel] = duration;
+    pevDmaList[card].lastTransferStatus[channel] = pev_dma->dma_status;
     if (pevDmaDebug)
-        printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %.3gms = %.3gMB/s status:%s\n",
-            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), size, size >> 10,
+        printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %#.3gms = %.3gMB/s status:%s\n",
+            card, channel, size, size >> 10,
             pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
             pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
             duration*1000, size/duration*1e-6,
             pevDmaPrintStatus(pev_dma->dma_status, buffer, sizeof(buffer)));
-    if (pev_dma->dma_status != 0)
-    {
-        errlogPrintf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
-            card, !!(pev_dma->start_mode & DMA_START_CTRL_1), pev_dma->size,
-            pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
-            pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
-            pev_dma->dma_status, pevDmaPrintStatus(pev_dma->dma_status, buffer, sizeof(buffer)));
-        return pev_dma->dma_status;
-    }
     if (pev_dma->dma_status & DMA_STATUS_DONE) return S_dev_success;
-    return pev_dma->dma_status;    
+    errlogPrintf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
+        card, channel, pev_dma->size,
+        pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
+        pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
+        pev_dma->dma_status, pevDmaPrintStatus(pev_dma->dma_status, buffer, sizeof(buffer)));
+    return pev_dma->dma_status;
 }
 
 void pevDmaThread(void* usr)
@@ -216,7 +226,7 @@ void pevDmaThread(void* usr)
 struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
 {
     unsigned int dmaChannel = 0;
-    unsigned int dmaChannelMask = pevDmaControllerMask & 3; /* only 2 dma channels at the moment */
+    unsigned int dmaChannelMask = pevDmaControllerMask & ~(-1<<DMA_NUM_CHANNELS);
 #define THREAD_NAME_LEN 16
     char threadName [THREAD_NAME_LEN];
     
@@ -495,6 +505,8 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
             card);
         return S_dev_noMemory;
     }
+    
+    pevDmaList[card].requestCount++;
 
     dmaRequest.pev_dma.src_space = src_space;
     dmaRequest.pev_dma.src_addr  = src_addr;
@@ -543,7 +555,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     return status;
 }
 
-int pevDmaGetMapInfo(const void* address, struct pevMapInfo* info)
+int pevDmaGetMapInfo(const volatile void* address, struct pevMapInfo* info)
 {
     struct pevDmaBufEntry *bufEntry;
     unsigned int card;
@@ -557,7 +569,7 @@ int pevDmaGetMapInfo(const void* address, struct pevMapInfo* info)
             {
                 info->name  = "DMA buffer";
                 info->card  = card;
-                info->start = (size_t)bufEntry->buf.u_addr, 
+                info->base  = bufEntry->buf.u_addr, 
                 info->size  = bufEntry->buf.size;
                 return 1;
             }
@@ -570,47 +582,71 @@ void pevDmaShow(int level)
 {
     unsigned int card;
     struct pevDmaBufEntry *bufEntry;
+    int period = 0;
     int anything_reported = 0;
   
-    for (card = 0; card < MAX_PEV_CARDS; card++)
+    if (level < 0) printf("redrawing every %d seconds (press any key to stop)\n", -level);
+    while (1)
     {
-        if (pevDmaList[card].dmaMsgQ)
+        for (card = 0; card < MAX_PEV_CARDS; card++)
         {
-            char buffer[32];
-            
-            /* Race condition if dma finishes while we get the values. Bad luck. */
-            unsigned int transferStatus = pevDmaList[card].lastTransferStatus;
-            size_t size =  pevDmaList[card].lastSize;
-            double duration = pevDmaList[card].lastDuration;
-
-            printf("  card %d dmaMessageQueue", card);
-            epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
-            transferStatus = pevDmaList[card].lastTransferStatus;
-            printf("   Last DMA transfer Status : 0x%x %s\n",
-                transferStatus, transferStatus == 0 ? "Never used" :
-                pevDmaPrintStatus(transferStatus, buffer, sizeof(buffer)));
-            if (transferStatus)
-                printf("     0x%08x=%ukB in %.3gms = %.3gMB/s\n",
-                    size, size >> 10,
-                    duration*1000, size/duration*1e-6);
-            anything_reported = 1;
-        }
-        if (pevDmaList[card].dmaBufList)
-        {
-            printf ("  card %d DMA buffers:\n", card);
-            for (bufEntry = pevDmaList[card].dmaBufList; bufEntry; bufEntry = bufEntry->next)
+            if (pevDmaList[card].dmaMsgQ)
             {
-                int s;
-                char u;
-                if (bufEntry->buf.size & 0xfffff)
-                { s = bufEntry->buf.size>>10; u = 'k'; }
-                else
-                { s = bufEntry->buf.size>>20; u = 'M'; }
-                printf("   usr_addr=%p bus_addr=%p size=size=0x%zx=%u%cB\n",
-                    bufEntry->buf.u_addr, bufEntry->buf.b_addr, bufEntry->buf.size, s, u);
+                char buffer[32];
+
+                printf("  card %d dmaMessageQueue", card);
+                epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
+                printf("   Requests: %lu, handled: %lu",
+                    pevDmaList[card].requestCount, pevDmaList[card].handleCount);
+                if (period)
+                {
+                    printf(", %.2f Hz", ((double)(pevDmaList[card].requestCount - pevDmaList[card].lastCount))/period);
+                }
+                pevDmaList[card].lastCount = pevDmaList[card].requestCount;
+                printf ("\n");
+                if (level != 0)
+                {
+                    struct pevDmaEngine copy;
+                    int channel;
+
+                    /* Race condition if dma finishes while we get the values. Bad luck. This is just info. */
+                    copy=pevDmaList[card];
+
+                    for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
+                    {  
+                        printf("   Channel %d %s status=0x%x (%s) 0x%08x=%ukB in %#.3gms = %.3gMB/s count=%ld\n",
+                            channel, copy.activeChannels & (1<<channel) ? "busy" : "idle",
+                            copy.lastTransferStatus[channel],
+                            copy.lastTransferStatus[channel] == 0 ? "Never used" :
+                                pevDmaPrintStatus(copy.lastTransferStatus[channel], buffer, sizeof(buffer)),
+                            copy.lastSize[channel], copy.lastSize[channel] >> 10,
+                            copy.lastDuration[channel]*1000, copy.lastSize[channel]/copy.lastDuration[channel]*1e-6,
+                            copy.useCount[channel]);
+                    }
+                }
+                anything_reported = 1;
             }
-            anything_reported = 1;
+            if (pevDmaList[card].dmaBufList && level > 1)
+            {
+                printf ("  card %d DMA buffers:\n", card);
+                for (bufEntry = pevDmaList[card].dmaBufList; bufEntry; bufEntry = bufEntry->next)
+                {
+                    int s;
+                    char u;
+                    if (bufEntry->buf.size & 0xfffff)
+                    { s = bufEntry->buf.size>>10; u = 'k'; }
+                    else
+                    { s = bufEntry->buf.size>>20; u = 'M'; }
+                    printf("   usr_addr=%p bus_addr=%p size=size=0x%zx=%u%cB\n",
+                        bufEntry->buf.u_addr, bufEntry->buf.b_addr, bufEntry->buf.size, s, u);
+                }
+                anything_reported = 1;
+            }
         }
+        if (level >= 0) break;
+        period = -level;
+        if (waitForKeypress(period)) break;
+        printf ("\n");
     }
     if (!anything_reported)
     {
