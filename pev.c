@@ -350,13 +350,13 @@ int pevInit(void)
     sigaction(SIGFPE,  &sa, NULL);
     sigaction(SIGSEGV, &sa, NULL);
     
-    status = pevIntrInit();
+    status = pevMapInit();
     if (status != S_dev_success) return status;
     
     status = pevDmaInit();
     if (status != S_dev_success) return status;
 
-    status = pevMapInit();
+    status = pevIntrInit();
     if (status != S_dev_success) return status;
     
     iocshRegister(&pevVersionShowDef, pevVersionShowFunc);
