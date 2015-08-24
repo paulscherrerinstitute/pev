@@ -206,8 +206,8 @@ void pevUnmap(volatile void* ptr)
                 if (--mapEntry->refcount == 0)
                 {
                     if (pevMapDebug)
-                        printf("pevUnmap(): releasing memory map card %d %s base=0x%08lx size=0x%x=%uMB\n",
-                            card, pevMapName(mapEntry->map.mode),
+                        printf("pevUnmap(): releasing memory map card %d usr_addr=%p %s base=0x%08lx size=0x%x=%uMB\n",
+                            card, mapEntry->map.usr_addr, pevMapName(mapEntry->map.mode),
                             mapEntry->map.rem_base, mapEntry->map.win_size, mapEntry->map.win_size>>20);
                     if (mapEntry->map.sg_id == MAP_SLAVE_VME)
                         pevDmaRealloc(card, mapEntry->map.usr_addr, 0);
@@ -232,9 +232,9 @@ const char* pevSgName(unsigned int sg_id)
     {
         case MAP_PCIE_MEM:  return "MEM";
         case MAP_PCIE_PMEM: return "PMEM";
-        case MAP_PCIE_CSR:  return "PCIe CSR";
-        case MAP_VME_SLAVE: return "VME A32";
-        case MAP_VME_ELB:   return "VME ELB";
+        case MAP_PCIE_CSR:  return "PCIe_CSR";
+        case MAP_VME_SLAVE: return "VME_A32";
+        case MAP_VME_ELB:   return "VME_ELB";
         default:            return "????????";
     }
 }
@@ -247,13 +247,13 @@ const char* pevMapName(unsigned int map_mode)
         {
             switch (map_mode & MAP_VME_SPACE_MASK)
             {
-                case MAP_VME_CR:   return "VME CSR";
-                case MAP_VME_A16:  return "VME A16";
-                case MAP_VME_A24:  return "VME A24";
-                case MAP_VME_A32:  return "VME A32";
-                case MAP_VME_BLT:  return "VME BLT";
-                case MAP_VME_MBLT: return "VME MBLT";
-                default:           return "VME ???";
+                case MAP_VME_CR:   return "VME_CSR";
+                case MAP_VME_A16:  return "VME_A16";
+                case MAP_VME_A24:  return "VME_A24";
+                case MAP_VME_A32:  return "VME_A32";
+                case MAP_VME_BLT:  return "VME_BLT";
+                case MAP_VME_MBLT: return "VME_MBLT";
+                default:           return "VME_???";
             }
         }
         case MAP_SPACE_PCIE:       return "PCIe";
@@ -286,7 +286,7 @@ int pevMapGetMapInfo(const volatile void* address, struct pevMapInfo* info)
         for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
         {
             if (address >= mapEntry->map.usr_addr &&
-                address <= mapEntry->map.usr_addr + mapEntry->map.win_size)
+                address < mapEntry->map.usr_addr + mapEntry->map.win_size)
             {
                 info->name  = pevMapName(mapEntry->map.mode);
                 info->card  = card;
@@ -605,8 +605,8 @@ LOCAL void pevMapExit(void* dummy)
         for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
         {
             if (pevMapDebug)
-                printf("pevMapExit(): releasing memory map card %d %s base=0x%08lx size=0x%x=%uMB\n",
-                    card,
+                printf("pevMapExit(): releasing memory map card %d usr_addr=%p %s base=0x%08lx size=0x%x=%uMB\n",
+                    card, mapEntry->map.usr_addr,
                     pevMapName(mapEntry->map.mode),
                     mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);
             if (mapEntry->map.usr_addr)
