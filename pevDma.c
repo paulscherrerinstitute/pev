@@ -703,8 +703,16 @@ void pevDmaExit()
         for (bufEntry = pevDmaList[card].dmaBufList; bufEntry; bufEntry = bufEntry->next)
         {
             if (pevDmaDebug)
-                printf("pevDmaExit(): releasing DMA buffer card %d usr_addr=%p bus_addr=%p size=0x%zx=%uMB\n",
-                    card, bufEntry->buf.u_addr, bufEntry->buf.b_addr, bufEntry->buf.size, bufEntry->buf.size>>20);
+            {
+                int s;
+                char u;
+                if (bufEntry->buf.size & 0xfffff)
+                { s = bufEntry->buf.size>>10; u = 'k'; }
+                else
+                { s = bufEntry->buf.size>>20; u = 'M'; }
+                printf("pevDmaExit(): releasing DMA buffer card %d usr_addr=%p bus_addr=%p size=0x%zx=%u%cB\n",
+                    card, bufEntry->buf.u_addr, bufEntry->buf.b_addr, bufEntry->buf.size, s, u);
+            }
             pevx_buf_free(card, &bufEntry->buf);
         }
     }
