@@ -16,10 +16,10 @@
 #include <epicsThread.h>
 #include <epicsExit.h>
 #include <iocsh.h>
+#include "pevPrivate.h"
+#include "pev.h"
 #include <epicsExport.h>
 
-#include "pev.h"
-#include "pevPrivate.h"
 
 int pevSigDebug = 0;
 epicsExportAddress(int, pevSigDebug);
@@ -36,7 +36,7 @@ int pevInstallMapInfo(int (*getInfo)(const volatile void* address, struct pevMap
     
     infoEntry = malloc(sizeof (struct pevMapInfoEntry));
     if (!infoEntry) return S_dev_noMemory;
-    infoEntry->next = NULL;
+    infoEntry->next = pevMapInfoList;
     infoEntry->getInfo = getInfo;
     pevMapInfoList = infoEntry;
     return 0;
@@ -45,7 +45,7 @@ int pevInstallMapInfo(int (*getInfo)(const volatile void* address, struct pevMap
 int pevGetMapInfo(const volatile void* address, struct pevMapInfo* info)
 {
     struct pevMapInfoEntry* infoEntry;
-
+    
     for (infoEntry = pevMapInfoList; infoEntry; infoEntry = infoEntry->next)
     {
         if (infoEntry->getInfo(address, info))
