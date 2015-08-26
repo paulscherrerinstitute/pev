@@ -112,7 +112,7 @@ void pevIntrHandlerThread(void* arg)
 
         if (intrQueue->evt_cnt > 0)
         {
-            self->queuedIntrCount += intrQueue->evt_cnt;
+            self->queuedIntrCount++;
             if (pevIntrDebug >= 2)
                 printf("pevIntrHandlerThread %s: %d interrupts left in queue\n",
                     threadName, intrQueue->evt_cnt);
