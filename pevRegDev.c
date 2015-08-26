@@ -23,7 +23,7 @@
 
 
 static char cvsid_pev1100[] __attribute__((unused)) =
-    "$Id: pevRegDev.c,v 1.22 2015/08/14 13:07:30 zimoch Exp $";
+    "$Id: pevRegDev.c,v 1.23 2015/08/26 11:37:17 zimoch Exp $";
 
 static int pevDrvDebug = 0;
 epicsExportAddress(int, pevDrvDebug);
@@ -93,7 +93,7 @@ struct pevBlockReadContext
 void pevBlockReadCallback(struct pevBlockReadContext* ctx, int status)
 {
     char* fname = NULL;
-    char buffer[32];
+    char buffer[40];
 
     if (pevDrvDebug & DBG_IN)
         printf("pevBlockReadCallback %s %s: DMA block transfer complete. status = 0x%x %s.\n",
@@ -188,6 +188,8 @@ int pevRead(
                     ctx->pdata = pdata;
                     ctx->callback = callback;
                     ctx->user = user;
+                    if (pevDrvDebug & DBG_IN)
+                        printf("pevRead %s %s: pevDmaTransfer()\n", user, device->name);
                     status = pevDmaTransfer(device->card, device->dmaSpace | device->swap, device->baseOffset,
                         DMA_SPACE_BUF, (size_t)device->localBuffer, device->size | device->vmePktSize, 0,
                         prio, (pevDmaCallback)pevBlockReadCallback, ctx);
@@ -198,13 +200,15 @@ int pevRead(
                     user, device->name);
             }
 
+            if (pevDrvDebug & DBG_IN)
+                printf("pevRead %s %s: pevDmaTransferWait()\n", user, device->name);
             status = pevDmaTransferWait(device->card, device->dmaSpace | device->swap, device->baseOffset,
                 DMA_SPACE_BUF, (size_t)device->localBuffer, device->size | device->vmePktSize, 0);
             if (status != S_dev_success)
             {
                 unsigned int bufferDlen;
                 unsigned int bufferNelem;
-                char buffer [32];
+                char buffer [40];
 
                 errlogPrintf("pevRead %s %s: DMA block transfer failed! status = 0x%x%s\n",
                     user, device->name, status, pevDmaPrintStatus(status, buffer, sizeof(buffer)));
@@ -694,8 +698,16 @@ int pevConfigure(
 
         if (swap && *swap)
         {
+            if ((device->dmaSpace & 0x0f) == DMA_SPACE_VME)
+            {
+                if (strcmp(swap, "NS") != 0)
+                    errlogSevPrintf(errlogInfo,
+                        "pevConfigure %s: Swap mode not supported for DMA to VME. Ignoring %s option.\n",
+                        name, swap);
+            }
+            else              
             if (strcmp(swap, "WS") == 0)
-                device->swap = DMA_SPACE_WS;
+                device->swap |= DMA_SPACE_WS;
             else
             if (strcmp(swap, "DS") == 0)
                 device->swap |= DMA_SPACE_DS;
