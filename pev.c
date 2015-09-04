@@ -7,6 +7,7 @@
 #include <ucontext.h>
 #include <execinfo.h>
 #include <endian.h>
+#include <sys/utsname.h>
 
 #include <pevxulib.h>
 
@@ -247,39 +248,50 @@ LOCAL void pevSigHandler(int sig, siginfo_t* info , void* ctx)
 
 void pevVersionShow(int level)
 {
+    struct utsname utsname;
     unsigned int card;
     const char *board_name;
     volatile unsigned int* usr1_data;
     unsigned int appdata[32];
     int i;
+    extern char _pevLibRelease[];
     
     const char* FMC_state[] = {"not available","reset","init","ready"};
+    const char month[16][4] = {"","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+
 
     pevx_init(0);
-    printf("  pev library version  : %s\n", pevx_get_lib_version());
-    printf("  kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
+    printf("  pev EPICS driver version : %s\n", _pevLibRelease);
+    printf("  pev API library version  : %s\n", pevx_get_lib_version());
+    printf("  pev kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
+    uname(&utsname);
+    printf("  Linux kernel release     : %s\n", utsname.release);
+    printf("  Linux kernel version     : %s\n", utsname.version);
+    
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         pevx_init(card);
         board_name = pevx_board_name(card);
         if (board_name == NULL) continue;
+        printf("  card %-2d                  : %s\n", card, board_name);
         i = pevx_csr_rd(card, 0x80000000 | PEV_CSR_ILOC_SIGN);
-        printf("  card %-2d              : %s\n", card, board_name);
-        printf("    TOSCA revision     : %x built %x.%x.20%x\n",
-             i & 0xff, (i >> 24) & 0xff, (i >> 16) & 0xff, (i >> 8) & 0xff);
+        printf("    FPGA signature   (0x18): %08x = %x %s 20%x rev %x\n",
+             i, (i >> 24) & 0xff, month[(i >> 16) & 0xff], (i >> 8) & 0xff, i & 0xff);
+        i = pevx_csr_rd(card, 0x80000034 /* ILOC_TOSCA2_SIGN */ );
+        printf("    TOSCA revision   (0x34): %08x = TOSCA-%d rev %d.%d\n", i, i>>28, (i >> 8) & 0xffff, i & 0xff);
         if (level < 1) break;
         if (level < 2) continue;
         usr1_data = pevMap(card, MAP_PCIE_MEM, MAP_SPACE_USR1 | MAP_ENABLE, 0, 0x100);
         if (usr1_data == NULL)  continue;
         /* convert application data from little endian */
         for (i=0; i < 32; i++) appdata[i] = le32toh(usr1_data[i]);
-        printf("    firmware ID        : %#x \"%.32s\"\n"
-               "    firmware revision  : %x.%x built %x.%x.%x\n"
-               "    expected FMC1      : \"%.16s\" status: %s\n"
-               "    expected FMC2      : \"%.16s\" status: %s\n",
-            appdata[0]&0xffff, (char*)(appdata+2), (appdata[0]>>24)&0xff, (appdata[0]>>16)&0xff, 
-            appdata[1]&0xff, (appdata[1]>>8)&0xff, (appdata[1]>>16)&0xffff,
-            (char*)(appdata+10), FMC_state[(appdata[20]>>2)&3], 
+        printf("    USR firmware ID        : %08x = \"%.32s\" rev %d.%d\n",
+            appdata[0], (char*)(appdata+2), (appdata[0]>>24)&0xff, (appdata[0]>>16)&0xff);
+        printf("    USR firmware date      : %08x = %x %s %x\n",
+            appdata[1], appdata[1]&0xff, month[(appdata[1]>>8)&0xff], (appdata[1]>>16)&0xffff);
+        printf("    expected FMC1          : \"%.16s\" status: %s\n",
+            (char*)(appdata+10), FMC_state[(appdata[20]>>2)&3]);
+        printf("    expected FMC2          : \"%.16s\" status: %s\n",
             (char*)(appdata+14), FMC_state[(appdata[20]>>18)&3]);
         pevUnmap(usr1_data);
     }
