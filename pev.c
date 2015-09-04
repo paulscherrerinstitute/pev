@@ -258,22 +258,25 @@ void pevVersionShow(int level)
     pevx_init(0);
     printf("  pev library version  : %s\n", pevx_get_lib_version());
     printf("  kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
-    if (level < 1) return;
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         pevx_init(card);
         board_name = pevx_board_name(card);
         if (board_name == NULL) continue;
+        i = pevx_csr_rd(card, 0x80000000 | PEV_CSR_ILOC_SIGN);
         printf("  card %-2d              : %s\n", card, board_name);
+        printf("    TOSCA revision     : %x built %x.%x.20%x\n",
+             i & 0xff, (i >> 24) & 0xff, (i >> 16) & 0xff, (i >> 8) & 0xff);
+        if (level < 1) break;
         if (level < 2) continue;
         usr1_data = pevMap(card, MAP_PCIE_MEM, MAP_SPACE_USR1 | MAP_ENABLE, 0, 0x100);
         if (usr1_data == NULL)  continue;
         /* convert application data from little endian */
         for (i=0; i < 32; i++) appdata[i] = le32toh(usr1_data[i]);
-        printf("    firmware ID: %#x \"%.32s\"\n"
-               "    version %x.%x built %x.%x.%x\n"
-               "    expected FMC1: \"%.16s\" status: %s\n"
-               "    expected FMC2: \"%.16s\" status: %s\n",
+        printf("    firmware ID        : %#x \"%.32s\"\n"
+               "    firmware revision  : %x.%x built %x.%x.%x\n"
+               "    expected FMC1      : \"%.16s\" status: %s\n"
+               "    expected FMC2      : \"%.16s\" status: %s\n",
             appdata[0]&0xffff, (char*)(appdata+2), (appdata[0]>>24)&0xff, (appdata[0]>>16)&0xff, 
             appdata[1]&0xff, (appdata[1]>>8)&0xff, (appdata[1]>>16)&0xffff,
             (char*)(appdata+10), FMC_state[(appdata[20]>>2)&3], 
