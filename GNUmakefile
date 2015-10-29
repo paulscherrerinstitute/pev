@@ -5,23 +5,34 @@ EXCLUDE_VERSIONS = 3.13 3.14.8
 ARCH_FILTER = %-e500v2
 
 SOURCES += pev.c
+DBDS    += pev.dbd
 SOURCES += pevMap.c
+DBDS    += pevMap.dbd
 SOURCES += pevInterrupt.c
+DBDS    += pevInterrupt.dbd
 SOURCES += pevDma.c  
+DBDS    += pevDma.dbd
 SOURCES += pevDevLib.c
+DBDS    += pevDevLib.dbd
 SOURCES += ifcDev.c
-SOURCES += pevRegDev.c
+DBDS    += ifc.dbd
 SOURCES += pevSlaveWindow.c
-SOURCES += i2cDrv.c
+DBDS    += pevSlaveWindow.dbd
 SOURCES += symbolname.cc
 SOURCES += keypress.c
+
+#requires regDev
+SOURCES += pevRegDev.c
+DBDS    += pevRegDev.dbd
+SOURCES += i2cDrv.c
+DBDS    += i2c.dbd
+SOURCES += pevCsrRegDev.c
+DBDS    += pevCsrRegDev.dbd
 
 HEADERS += pev.h
 
 # find the pev library from IOxOS
-PEVDIR_eldk52-e500v2 = /opt/eldk-5.2/ifc
-#PEVDIR_SL5-x86 = ....
-PEVDIR=$(PEVDIR_$(T_A))
+PEVDIR = /opt/eldk-5.2/ifc
 USR_INCLUDES += -I$(PEVDIR)/include
-USR_LDFLAGS  += -L$(PEVDIR)/lib
-USR_LIBS     += pev
+USR_LDFLAGS += -L$(PEVDIR)/lib
+LIB_LIBS += :libpev.a
