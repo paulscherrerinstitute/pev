@@ -4,8 +4,8 @@ BUILDCLASSES = Linux
 EXCLUDE_VERSIONS = 3.13 3.14.8
 ARCH_FILTER = %-e500v2
 
-SOURCES += pev.c
-DBDS    += pev.dbd
+SOURCES += pevDrv.c
+DBDS    += pevDrv.dbd
 SOURCES += pevMap.c
 DBDS    += pevMap.dbd
 SOURCES += pevInterrupt.c
