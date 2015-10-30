@@ -35,7 +35,7 @@ HEADERS += pev.h
 PEVDIR = /opt/eldk-5.2/ifc
 USR_INCLUDES += -I$(PEVDIR)/include
 USR_LDFLAGS += -L$(PEVDIR)/lib
-LIB_LIBS += :libpev.a
+LIB_SYS_LIBS += pev
 
 HEADERS += $(PEVDIR)/include/pevioctl.h
 HEADERS += $(PEVDIR)/include/pevulib.h
