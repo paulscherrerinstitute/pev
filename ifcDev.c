@@ -13,6 +13,7 @@
 
 #include <epicsTypes.h>
 #include <dbCommon.h>
+#include <drvSup.h>
 #include <devSup.h>
 #include <recSup.h>
 #include <recGbl.h>
@@ -20,6 +21,7 @@
 #include <alarm.h>
 #include <dbScan.h>
 #include <dbAccess.h>
+#include <epicsExport.h>
 
 #define I2CEXEC_OK	0x0200000
 #define I2CEXEC_MASK	0x0300000
@@ -35,7 +37,7 @@ struct {
     NULL,
     ifc1210Init
 };
-
+epicsExportAddress(drvet, drvIfc1210);
 
 typedef enum { IFC_ELB, IFC_SMON, IFC_SMON_10S, PCI_IO, BMR, BMR_11U, BMR_11S, BMR_16U } IfcDevType;
 
@@ -202,7 +204,7 @@ struct {
     devIfc1210AiRead,
     NULL
 };
-
+epicsExportAddress(dset, devIfc1210Ai);
 
 /*************** ao record  ****************/
 
@@ -264,6 +266,7 @@ struct {
     devIfc1210AoWrite,
     NULL
 };
+epicsExportAddress(dset, devIfc1210Ao);
 
 /*************** longin record  ****************/
 
@@ -346,6 +349,7 @@ struct {
     NULL,
     devIfc1210LonginRead
 };
+epicsExportAddress(dset, devIfc1210Longin);
 
 /* stringin *********************************************************/
 
@@ -369,6 +373,7 @@ struct {
     NULL,
     devIfc1210ReadStringin
 };
+epicsExportAddress(dset, devIfc1210Stringin);
 
 long devIfc1210InitRecordStringin(stringinRecord* record)
 {
