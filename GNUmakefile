@@ -1,4 +1,5 @@
-include /ioc/tools/driver.makefile
+# If you are not using driver.makefile, you can savely delete this file.
+include $(firstword $(wildcard /ioc/tools/driver.makefile) Makefile)
 
 BUILDCLASSES = Linux
 EXCLUDE_VERSIONS = 3.13 3.14.8
