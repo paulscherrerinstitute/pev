@@ -30,9 +30,12 @@ SOURCES += pevCsrRegDev.c
 DBDS    += pevCsrRegDev.dbd
 
 HEADERS += pev.h
-
 # find the pev library from IOxOS
 PEVDIR = /opt/eldk-5.2/ifc
 USR_INCLUDES += -I$(PEVDIR)/include
 USR_LDFLAGS += -L$(PEVDIR)/lib
 LIB_LIBS += :libpev.a
+
+HEADERS += $(PEVDIR)/include/pevioctl.h
+HEADERS += $(PEVDIR)/include/pevulib.h
+HEADERS += $(PEVDIR)/include/pevxulib.h

@@ -1,10 +1,10 @@
-#include <pevxulib.h>
-
 #include <errlog.h>
 #include <devLib.h>
 #include <regDev.h>
 #include <epicsTypes.h>
 #include <epicsExport.h>
+
+#include "pev.h"
 
 static int pevCsrRegDevDebug = 0;
 epicsExportAddress(int, pevCsrRegDevDebug);

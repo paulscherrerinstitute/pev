@@ -4,7 +4,6 @@
 #include <errno.h>
 
 #include <sys/mman.h>
-#include <pevulib.h>
 
 #include <devLib.h>
 #include <epicsExit.h>

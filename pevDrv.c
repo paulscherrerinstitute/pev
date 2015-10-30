@@ -9,8 +9,6 @@
 #include <endian.h>
 #include <sys/utsname.h>
 
-#include <pevxulib.h>
-
 #include <errlog.h>
 #include <devLib.h>
 #include <drvSup.h>

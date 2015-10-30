@@ -9,7 +9,6 @@
 #include <string.h>
 #include <errno.h>
 #include <unistd.h>
-#include <pevulib.h>
 
 #include <epicsTypes.h>
 #include <dbCommon.h>
@@ -22,6 +21,8 @@
 #include <dbScan.h>
 #include <dbAccess.h>
 #include <epicsExport.h>
+
+#include "pev.h"
 
 #define I2CEXEC_OK	0x0200000
 #define I2CEXEC_MASK	0x0300000

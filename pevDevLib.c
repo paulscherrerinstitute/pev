@@ -21,8 +21,6 @@
 #include <unistd.h>
 #include <sys/types.h>
 
-#include <pevxulib.h>
-
 #include <devLib.h>
 #include <errlog.h>
 #include <epicsTypes.h>

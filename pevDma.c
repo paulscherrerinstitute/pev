@@ -5,8 +5,6 @@
 #include <unistd.h>
 #include <sys/mman.h>
 
-#include <pevxulib.h>
-
 #include <errlog.h>
 #include <devLib.h>
 #include <iocsh.h>

@@ -16,18 +16,15 @@
 #include <errlog.h>
 #include <dbAccess.h>
 
-
 #include <stdlib.h>
 #include <stdio.h>
 #include <sys/types.h>
 #include <sys/mman.h>
 #include <sys/time.h>
-#include <pevioctl.h>
-#include <pevulib.h>
 #include <symbolname.h>
 #include <epicsExport.h>
 
-
+#include "pev.h"
 
 #define MAGIC                 1100                 /*  pev1100 */
 #define DMA_Q_SIZE        2000

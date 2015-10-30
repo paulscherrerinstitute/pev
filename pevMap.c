@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <sys/mman.h>
 
-#include <pevxulib.h>
 #define MAP_SPACE_MASK     0xf000
 #define MAP_VME_SPACE_MASK 0x0f00
 

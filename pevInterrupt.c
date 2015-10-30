@@ -3,9 +3,6 @@
 #include <string.h>
 #include <errno.h> 
 
-#include <pevxulib.h>
-struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in header */
-
 #include <errlog.h>
 #include <devLib.h>
 #include <iocsh.h>
