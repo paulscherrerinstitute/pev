@@ -154,12 +154,12 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
     if ((pev_dma->dma_status & (DMA_STATUS_ERR|DMA_STATUS_TMO|DMA_STATUS_DONE)) == DMA_STATUS_DONE)
     {
         if (pevDmaDebug >= 2)
-            printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %#.3gms = %.3gMB/s status:%s\n",
+            printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %#.3gms = %.3gMB/s status = 0x%x %s\n",
                 card, channel, size, size >> 10,
                 pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
                 pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
                 duration*1000, size/duration*1e-6,
-                pevDmaPrintStatus(pev_dma->dma_status, buffer, sizeof(buffer)));
+                pev_dma->dma_status, pevDmaPrintStatus(pev_dma->dma_status, buffer, sizeof(buffer)));
         return S_dev_success;
     }
     errlogPrintf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: status = 0x%x %s\n",
@@ -463,14 +463,12 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if (pevDmaDebug >= 3)
     {
         char* cbName = symbolName(callback, 0);
-        char* usrName = symbolName(usr, 0);
         printf("pevDmaTransfer(card=%d, src_space=0x%x=%s, src_addr=0x%zx, "
             "des_space=0x%x=%s, des_addr=0x%zx, size=0x%zx, swap_mode=0x%x, "
-            "priority=%d, callback=%s, usr=%s)\n",
+            "priority=%d, callback=%s, usr=%p)\n",
             card, src_space, pevDmaSpaceName(src_space), src_addr,
             des_space, pevDmaSpaceName(des_space), des_addr,
-            size, swap_mode, priority, cbName, usrName);
-        free(usrName);
+            size, swap_mode, priority, cbName, usr);
         free(cbName);
     }
     if ((size & 0x3fffffff) > 0xff800)
@@ -482,7 +480,13 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if ((src_space & DMA_SPACE_MASK) == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)src_addr);
-        if (!addr) return S_dev_badArgument;
+        if (!addr)
+        {
+            if (pevDmaDebug >= 3)
+                printf("pevDmaTransfer(card=%d, ...): Error: source address 0x%zx is no DMA buffer!\n",
+                    card, src_addr);
+            return S_dev_badArgument;
+        }
         if (pevDmaDebug >= 3)
             printf("pevDmaTransfer(card=%d, ...): source address 0x%zx maps to PCI address 0x%zx\n",
                 card, src_addr, addr);
@@ -492,7 +496,13 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if ((des_space & DMA_SPACE_MASK) == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)des_addr);
-        if (!addr) return S_dev_badArgument;
+        if (!addr)
+        {
+            if (pevDmaDebug >= 3)
+                printf("pevDmaTransfer(card=%d, ...): Error: dest address 0x%zx is no DMA buffer!\n",
+                    card, src_addr);
+            return S_dev_badArgument;
+        }
         if (pevDmaDebug >= 3)
             printf("pevDmaTransfer(card=%d, ...): dest address 0x%zx maps to PCI address 0x%zx\n",
                 card, des_addr, addr);
