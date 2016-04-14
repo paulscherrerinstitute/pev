@@ -671,11 +671,43 @@ void pevDmaShow(int level)
                             copy.lastSize[channel], copy.lastSize[channel] >> 10,
                             copy.lastDuration[channel]*1000, copy.lastSize[channel]/copy.lastDuration[channel]*1e-6,
                             copy.useCount[channel]);
+                        
+                        if (level > 2)
+                        {
+                            struct pev_ioctl_dma_sts dmaStatus;
+                            pevx_dma_status(card, channel, &dmaStatus);
+                            printf("    DMA status: rd_csr    = 0x%x\n",        dmaStatus.rd_csr);                                     
+                            printf("                rd_ndes   = %u\n",          dmaStatus.rd_ndes);                                    
+                            printf("                rd_cdes   = %u\n",          dmaStatus.rd_cdes);                                    
+                            printf("                rd_cnt    = %u\n",          dmaStatus.rd_cnt);                                     
+                            printf("                wr_csr    = 0x%x\n",        dmaStatus.wr_csr);                                     
+                            printf("                wr_ndes   = %u\n",          dmaStatus.wr_ndes);                                    
+                            printf("                wr_cdes   = %u\n",          dmaStatus.wr_cdes);                                    
+                            printf("                wr_cnt    = %u\n",          dmaStatus.wr_cnt);                                     
+                            printf("          start.csr       = 0x%x\n",        dmaStatus.start.csr);                                    
+                            printf("          start.cnt       = %u\n",          dmaStatus.start.cnt);                                    
+                            printf("          start.shm_p     = 0x%x\n",        dmaStatus.start.shm_p);                                  
+                            printf("          start.desc_p    = 0x%x\n",        dmaStatus.start.desc_p);                                 
+                            printf("          start.addr      = 0x%08x:%08x\n", dmaStatus.start.addr_hp, dmaStatus.start.addr_lp);       
+                            printf("          start.msec:usec = %u:%u\n",       dmaStatus.start.msec,dmaStatus.start.usec);                                   
+                            printf("             wr.csr       = 0x%x\n",        dmaStatus.wr.csr);                                       
+                            printf("             wr.cnt       = %u\n",          dmaStatus.wr.cnt);                                       
+                            printf("             wr.shm_p     = 0x%x\n",        dmaStatus.wr.shm_p);                                     
+                            printf("             wr.desc_p    = 0x%x\n",        dmaStatus.wr.desc_p);                                    
+                            printf("             wr.addr      = 0x%08x:%08x\n", dmaStatus.wr.addr_hp, dmaStatus.wr.addr_lp);             
+                            printf("             wr.msec:usec = %u:%u\n",       dmaStatus.wr.msec,dmaStatus.wr.usec);                                   
+                            printf("             rd.csr       = 0x%x\n",        dmaStatus.rd.csr);                                       
+                            printf("             rd.cnt       = %u\n",          dmaStatus.rd.cnt);                                       
+                            printf("             rd.shm_p     = 0x%x\n",        dmaStatus.rd.shm_p);                                     
+                            printf("             rd.desc_p    = 0x%x\n",        dmaStatus.rd.desc_p);                                    
+                            printf("             rd.addr      = 0x%08x:%08x\n", dmaStatus.rd.addr_hp, dmaStatus.rd.addr_lp);             
+                            printf("             rd.msec:usec = %u:%u\n",       dmaStatus.rd.msec,dmaStatus.rd.usec);                                   
+                        }
                     }
                 }
                 anything_reported = 1;
             }
-            if (pevDmaList[card].dmaBufList && level > 1)
+            if (level > 1 && pevDmaList[card].dmaBufList)
             {
                 printf ("  card %d DMA buffers:\n", card);
                 for (bufEntry = pevDmaList[card].dmaBufList; bufEntry; bufEntry = bufEntry->next)
