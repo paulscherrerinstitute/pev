@@ -21,8 +21,8 @@
 #include "pevPrivate.h"
 
 /* typo in old macro names */
-#ifndef DMA_START_CTRL_1
-#define DMA_START_CTRL_1 DMA_START_CTLR_1
+#ifndef DMA_START_CHAN
+#define DMA_START_CHAN(chan) (chan << 4)
 #endif
 #define DMA_NUM_CHANNELS 2
 
@@ -135,7 +135,7 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
     int channel;
     char buffer[40];
 
-    channel = !!(pev_dma->start_mode & DMA_START_CTRL_1);
+    channel = (pev_dma->start_mode & 0xf0) >> 4; /* at the moment only 0 or 1 */
     size = pev_dma->size & 0x3fffffff; /* other bits are flags */
     if (pevDmaDebug >= 3)
         printf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
@@ -154,7 +154,7 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
     if ((pev_dma->dma_status & (DMA_STATUS_ERR|DMA_STATUS_TMO|DMA_STATUS_DONE)) == DMA_STATUS_DONE)
     {
         if (pevDmaDebug >= 2)
-            printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %ukB %s:0x%lx -> %s:0x%lx in %#.3gms = %.3gMB/s status = 0x%x %s\n",
+            printf("pevDmaHandleRequest(card=%d, dmaChannel=%d) 0x%x bytes = %uKiB %s:0x%lx -> %s:0x%lx in %#.3gms = %.3gMiB/s status = 0x%x %s\n",
                 card, channel, size, size >> 10,
                 pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
                 pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
@@ -180,7 +180,7 @@ void pevDmaThread(void* usr)
     unsigned int card = ((int)usr) >> 8;
     unsigned int dmaChannel = ((int)usr) & 0xff;
     unsigned int dmaChannelMask = 1 << dmaChannel;
-    unsigned int dmaChannelFlag = dmaChannel * DMA_START_CTRL_1;
+    unsigned int dmaChannelFlag = DMA_START_CHAN(dmaChannel);
     if (pevDmaDebug)
         printf("pevDmaThread(card=%d, dmaChannel=%d) starting\n", card, dmaChannel);
 
@@ -459,6 +459,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
 {
     struct dmaReq dmaRequest;
     int status;
+    int channel;
     
     if (pevDmaDebug >= 3)
     {
@@ -471,6 +472,14 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
             size, swap_mode, priority, cbName, usr);
         free(cbName);
     }
+    
+    if (pevDmaControllerMask == 0)
+    {
+        errlogPrintf("pevDmaTransfer(card=%d, ...): no available DMA channel\n",
+            card);
+        return S_dev_noDevice;
+    }
+    
     if ((size & 0x3fffffff) > 0xff800)
     {
         errlogPrintf("pevDmaTransfer(card=%d, ...): size=0x%zx too big\n",
@@ -556,8 +565,26 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
         return epicsMessageQueueTrySend(pevDmaList[card].dmaMsgQ, &dmaRequest, sizeof(dmaRequest));
     }    
     
+    /* find free channel */
+    for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
+    {
+        if (!(pevDmaControllerMask & (1 << channel))) continue;
+        if (pevDmaList[card].busyChannels & (0x10001 << channel)) break;
+    }
+    if (channel > DMA_NUM_CHANNELS) /* no free channel, use first allowed one and wait */
+    {
+        dmaRequest.pev_dma.wait_mode = DMA_WAIT_INTR | (5 << 4); /* allow longer timeout */
+        for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
+        {
+            if ((pevDmaControllerMask & (1 << channel))) break;
+        }
+    }
+    
     /* synchronous DMA transfer with short timeout */
     dmaRequest.pev_dma.wait_mode |= DMA_WAIT_10MS;
+    
+    pevDmaList[card].busyChannels |= (0x10000 << channel);
+    dmaRequest.pev_dma.start_mode |= DMA_START_CHAN(channel);
     if (pevDmaDebug >= 3)
     {
         char* cbName = symbolName(callback, 0);
@@ -571,6 +598,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     if (pevDmaDebug >= 2)
         printf("pevDmaTransfer(card=%d) status = 0x%x\n",
             card, status);
+    pevDmaList[card].busyChannels &= ~(0x10000 << channel);
     return status;
 }
 
@@ -633,8 +661,10 @@ void pevDmaShow(int level)
 
                     for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
                     {  
-                        printf("   Channel %d %s status=0x%x (%s) 0x%08x=%ukB in %#.3gms = %.3gMB/s count=%ld\n",
-                            channel, copy.busyChannels & (1<<channel) ? "busy" : "idle",
+                        printf("   Channel %d %s status=0x%x (%s) 0x%08x=%uKiB in %#.3gms = %.3gMiB/s count=%ld\n",
+                            channel,
+                            copy.busyChannels & (0x10000<<channel) ? "in use sync" :
+                            copy.busyChannels & (0x1<<channel) ? "in use async" : "idle",
                             copy.lastTransferStatus[channel],
                             copy.lastTransferStatus[channel] == 0 ? "Never used" :
                                 pevDmaPrintStatus(copy.lastTransferStatus[channel], buffer, sizeof(buffer)),
@@ -653,10 +683,10 @@ void pevDmaShow(int level)
                     int s;
                     char u;
                     if (bufEntry->buf.size & 0xfffff)
-                    { s = bufEntry->buf.size>>10; u = 'k'; }
+                    { s = bufEntry->buf.size>>10; u = 'K'; }
                     else
                     { s = bufEntry->buf.size>>20; u = 'M'; }
-                    printf("   usr_addr=%p bus_addr=%p size=size=0x%zx=%u%cB\n",
+                    printf("   usr_addr=%p bus_addr=%p size=size=0x%zx=%u%ciB\n",
                         bufEntry->buf.u_addr, bufEntry->buf.b_addr, bufEntry->buf.size, s, u);
                 }
                 anything_reported = 1;
@@ -726,10 +756,10 @@ void pevDmaExit()
                 int s;
                 char u;
                 if (bufEntry->buf.size & 0xfffff)
-                { s = bufEntry->buf.size>>10; u = 'k'; }
+                { s = bufEntry->buf.size>>10; u = 'K'; }
                 else
                 { s = bufEntry->buf.size>>20; u = 'M'; }
-                printf("pevDmaExit(): releasing DMA buffer card %d usr_addr=%p bus_addr=%p size=0x%zx=%u%cB\n",
+                printf("pevDmaExit(): releasing DMA buffer card %d usr_addr=%p bus_addr=%p size=0x%zx=%u%ciB\n",
                     card, bufEntry->buf.u_addr, bufEntry->buf.b_addr, bufEntry->buf.size, s, u);
             }
             pevx_buf_free(card, &bufEntry->buf);
