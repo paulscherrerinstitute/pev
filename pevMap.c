@@ -205,7 +205,7 @@ void pevUnmap(volatile void* ptr)
                 if (--mapEntry->refcount == 0)
                 {
                     if (pevMapDebug)
-                        printf("pevUnmap(): releasing memory map card %d usr_addr=%p %s base=0x%08lx size=0x%x=%uMB\n",
+                        printf("pevUnmap(): releasing memory map card %d usr_addr=%p %s base=0x%08lx size=0x%x=%uMiB\n",
                             card, mapEntry->map.usr_addr, pevMapName(mapEntry->map.mode),
                             mapEntry->map.rem_base, mapEntry->map.win_size, mapEntry->map.win_size>>20);
                     if (mapEntry->map.sg_id == MAP_SLAVE_VME)
@@ -315,7 +315,7 @@ void pevMapShow(int vmeOnly)
             int supervisory = pevx_csr_rd(card, 0x80000404) & (1<<5);
             if (vme_conf.slv_ena & VME_SLV_ENA)
             {
-                printf("      %-8s 0x%08x -> %-8s               size=0x%08x=%uMB\n",
+                printf("      %-8s 0x%08x -> %-8s               size=0x%08x=%uMiB\n",
                     "VME A32", vme_conf.a32_base, "VME SLAVE",
                     vme_conf.a32_size, vme_conf.a32_size>>20);
             }
@@ -332,7 +332,7 @@ void pevMapShow(int vmeOnly)
                 map_ctl.pg_size = 0;
                 pevx_map_read(card, &map_ctl);
 
-                printf("   %d: %-8s 0x%08lx -> %-8s%3s 0x%08lx  size=0x%08x=%uMB %s %s\n",
+                printf("   %d: %-8s 0x%08lx -> %-8s%3s 0x%08lx  size=0x%08x=%uMiB %s %s\n",
                     index,
                     pevSgName(pmap->sg_id),
                     pmap->sg_id == MAP_PCIE_MEM || pmap->sg_id == MAP_PCIE_PMEM ? (size_t)pmap->usr_addr :
@@ -604,7 +604,7 @@ LOCAL void pevMapExit(void* dummy)
         for (mapEntry = pevMapList[card]; mapEntry; mapEntry = mapEntry->next)
         {
             if (pevMapDebug)
-                printf("pevMapExit(): releasing memory map card %d usr_addr=%p %s base=0x%08lx size=0x%x=%uMB\n",
+                printf("pevMapExit(): releasing memory map card %d usr_addr=%p %s base=0x%08lx size=0x%x=%uMiB\n",
                     card, mapEntry->map.usr_addr,
                     pevMapName(mapEntry->map.mode),
                     mapEntry->map.rem_base,mapEntry->map.win_size, mapEntry->map.win_size>>20);

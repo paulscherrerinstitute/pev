@@ -57,13 +57,13 @@ int pevVmeSlaveMainConfig(const char* addrSpace, unsigned int mainBase, unsigned
 
     if (vme_conf.a32_size < mainSize)
     {
-        printf("pevVmeSlaveMainConfig(): ERROR, slave map too large, got only %uMB instead of %uMB\n",
+        printf("pevVmeSlaveMainConfig(): ERROR, slave map too large, got only %uMiB instead of %uMiB\n",
             vme_conf.a32_size>>20, mainSize>>20);
         return -1;
     }
     if (vme_conf.a32_size > mainSize)
     {
-        printf("pevVmeSlaveMainConfig(): Info: slave map size increased to 0x%x=%uMB\n",
+        printf("pevVmeSlaveMainConfig(): Info: slave map size increased to 0x%x=%uMiB\n",
             vme_conf.a32_size, vme_conf.a32_size>>20);
     }
     if (vme_conf.a32_base != mainBase)
@@ -168,9 +168,9 @@ void pevVmeShow(void)
          "  Bus Timeout %d usec\n"
          "  VME request mode %d\n"
          "  VME request level %d\n"
-         " VME slave %s granularity=%uMB\n"
-         "  A32 slave base=0x%08x size=0x%x=%uMB\n"
-         "  A24 slave base=  0x%06x size=0x%x=%ukB\n"
+         " VME slave %s granularity=%uMiB\n"
+         "  A32 slave base=0x%08x size=0x%x=%uMiB\n"
+         "  A24 slave base=  0x%06x size=0x%x=%uKiB\n"
          "  Slave retry %s\n"
          "  Slave burst %d\n",
          vme_conf.x64 ? "enabled" : "disabled",

@@ -33,9 +33,9 @@
 
 #include "pev.h"
 
-#define VME24_MAP_SIZE 	0x1000000      	/* 16 MB A24 - fixed */
-#define VMECR_MAP_SIZE 	0x1000000	/* 16 MB CR/CSR - fixed */
-#define VME16_MAP_SIZE 	0x10000		/* 64 KB A16 - fixed */
+#define VME24_MAP_SIZE 	0x1000000      	/* 16 MiB A24 - fixed */
+#define VMECR_MAP_SIZE 	0x1000000	/* 16 MiB CR/CSR - fixed */
+#define VME16_MAP_SIZE 	0x10000		/* 64 KiB A16 - fixed */
 
 #define PVME_ADDERR  0x8000041c
 #define VME_BERR     0x80000000
