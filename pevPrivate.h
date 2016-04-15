@@ -12,10 +12,10 @@ struct pevMapInfo {
 
 int pevGetMapInfo(const volatile void* address, struct pevMapInfo* info);
 int pevInstallMapInfo(int (*)(const volatile void* address, struct pevMapInfo* info));
-
 int pevMapInit(void);
 int pevIntrInit(void);
 int pevDmaInit(void);
+int pevInitCard(int card);
 
 size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr);
 

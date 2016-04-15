@@ -169,7 +169,7 @@ struct intrEngine* pevIntrGetEngine(unsigned int card)
     if (pevIntrDebug)
         printf("pevIntrGetEngine(card=%u)\n", card);
 
-    if (card > MAX_PEV_CARDS)
+    if (card >= MAX_PEV_CARDS)
     {
         errlogPrintf("pevIntrGetEngine(card=%d): pev supports only %d cards\n", card, MAX_PEV_CARDS);
         return NULL;
@@ -193,10 +193,8 @@ struct intrEngine* pevIntrGetEngine(unsigned int card)
         return &pevIntrList[card];
     }
 
-    if (!pevx_init(card))
+    if (pevInitCard(card) != S_dev_success)
     {
-        errlogPrintf("pevIntrGetEngine(card=%u): pev kernel driver not loaded\n",
-            card);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
     }

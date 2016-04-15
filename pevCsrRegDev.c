@@ -112,7 +112,8 @@ static regDevSupport pevCsrRegDevSupport = {
 
 static void pevCsrRegDevRegistrar ()
 {
-    if (pevx_init(0) == 0)
+    pevx_init(0);
+    if (pevx_board_name(0)[0])
         regDevRegisterDevice("pev_csr", &pevCsrRegDevSupport,
             NULL,  /* no need to pass any driver private data: card number is always 0 */
             8*1024 /* is there any way to ask the PEV API for the size? 8k is the size of PCI bar 3 */

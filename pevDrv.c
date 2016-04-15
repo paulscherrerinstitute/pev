@@ -256,27 +256,30 @@ void pevVersionShow(int level)
     struct utsname utsname;
     unsigned int card;
     const char *board_name;
+    const char *driver_version;
     volatile unsigned int* usr1_data;
     unsigned int appdata[32];
     int i;
     const char* FMC_state[] = {"not available","reset","init","ready"};
 
+    pevx_init(0);
     printf("  pev API library version  : %s\n", pevx_get_lib_version());
     uname(&utsname);
     printf("  Linux kernel release     : %s\n", utsname.release);
-    if (pevx_init(0) != 0)
+    driver_version = pevx_get_driver_version();
+    if (!driver_version[0])
     {
         printf ("  pev kernel driver not loaded\n");
         return;
     }
-    printf("  pev kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
+    printf("  pev kernel driver version: %s %s\n",pevx_id(), driver_version);
     
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
         if (pevx_init(card) != 0) continue;
         board_name = pevx_board_name(card);
-        if (board_name == NULL) continue;
-        printf("  card %-2d                  : %s\n", card, board_name);
+        if (!board_name) continue;
+        printf("  card %-2d       0x%08x : %s\n", card, pevx_board(card), board_name);
         i = pevx_csr_rd(card, 0x80000000 | PEV_CSR_ILOC_SIGN);
         printf("    FPGA signature   (0x18): %08x = %x %s 20%x rev %x\n",
              i, (i >> 24) & 0xff, month((i >> 16) & 0xff), (i >> 8) & 0xff, i & 0xff);
@@ -380,6 +383,27 @@ int pevInit(void)
     iocshRegister(&pevVersionShowDef, pevVersionShowFunc);
     iocshRegister(&pevExpertReportDef, pevExpertReportFunc);
 
+    return S_dev_success;
+}
+
+int pevInitCard(int card)
+{
+    if (card >= MAX_PEV_CARDS)
+    {
+        errlogPrintf("pevInitCard(%d): pev supports only %d cards\n", card, MAX_PEV_CARDS);
+        return S_dev_badSignalNumber;
+    }
+    pevx_init(card);
+    if (!pevx_get_driver_version()[0])
+    {
+        errlogPrintf("pevInitCard(%d): pev kernel driver is not loaded\n", card);
+        return S_dev_badInit;
+    }
+    if (!pevx_board_name(card))
+    {
+        errlogPrintf("pevInitCard(%d): no pev compatible card found\n", card);
+        return S_dev_noDevice;
+    }
     return S_dev_success;
 }
 

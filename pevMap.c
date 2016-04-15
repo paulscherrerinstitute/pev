@@ -42,6 +42,11 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
             map_mode, pevMapName(map_mode), map_mode & MAP_ENABLE ? "+ENABLE" :"", map_mode & MAP_ENABLE_WR? "+WRITABLE" : "", map_mode & MAP_SWAP_AUTO ? "+SWAP" : "",
             logicalAddress, size, flag, localAddress);
 
+    if (card >= MAX_PEV_CARDS)
+    {
+        errlogPrintf("pevMap(card=%d, ...): pev supports only %d cards\n", card, MAX_PEV_CARDS);
+        return NULL;
+    }
     if (!pevMapListLock[card])
     {
         errlogPrintf("pevMap(card=%d, ...): pevMapListLock is not initialized\n",
@@ -49,20 +54,16 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
         return NULL;
     }
     epicsMutexLock(pevMapListLock[card]);
-
-    if (!pevMapList[card] && !pevx_init(card))
-    {
-        errlogPrintf("pevMap(card=%d, ...): pev kernel driver not loaded\n",
-            card);
-        epicsMutexUnlock(pevMapListLock[card]);
-        return NULL;
-    }
     
     if (!pevMapList[card])
     {
-        int mode = pevx_csr_rd(card, 0x80000404);
-        mode |= 1<<5; /* set supervisory mode */
-        pevx_csr_wr(card, 0x80000404, mode);
+        if (pevInitCard(card) != S_dev_success)
+        {
+            epicsMutexUnlock(pevMapListLock[card]);
+            return NULL;
+        }
+        /* set VME supervisory mode */
+        pevx_csr_wr(card, 0x80000404, pevx_csr_rd(card, 0x80000404) | (1<<5));
     }
 
     /* re-use existing maps as far as possible */
@@ -383,7 +384,7 @@ void pevMapDisplay(unsigned int card, unsigned int map, size_t start, unsigned i
 
     unsigned int i, j;
     
-    if (card > MAX_PEV_CARDS || !pevMapList[card])
+    if (card >= MAX_PEV_CARDS || !pevMapList[card])
     {
         printf("invalid card number %d\n", card);
         return;
@@ -529,7 +530,7 @@ void pevMapPut(unsigned int card, unsigned int map, size_t offset, unsigned int 
     struct pevMapEntry* mapEntry;
     unsigned int index;
 
-    if (card > MAX_PEV_CARDS || !pevMapList[card])
+    if (card >= MAX_PEV_CARDS || !pevMapList[card])
     {
         printf("invalid card number %d\n", card);
         return;

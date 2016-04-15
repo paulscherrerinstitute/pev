@@ -367,11 +367,11 @@ long pevDevLibInit(void)
     if (pevDevLibDebug)
 	printf("pevDevLibInit\n");
 
-    if (!pevx_init(0))
+    if (pevInitCard(0) != S_dev_success)
     {
-        printf("pevDevLibInit: pev kernel driver not loaded\n");
         return -1;
     }
+    
     pevDevLibProbeLock = epicsMutexMustCreate();
     pevx_vme_conf_read(0, &vme_conf);
     if (vme_conf.mas_ena == 0 )
@@ -380,9 +380,6 @@ long pevDevLibInit(void)
         return -1;
     }
     
-    /* Set VME master to supervisory mode */
-    /* pev_csr_set(PVME_MASCSR, VME_SUP_MODE);*/
-
     return S_dev_success;
 }
 

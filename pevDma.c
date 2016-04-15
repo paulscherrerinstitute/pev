@@ -238,7 +238,7 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
 #define THREAD_NAME_LEN 16
     char threadName [THREAD_NAME_LEN];
 
-    if (card > MAX_PEV_CARDS)
+    if (card >= MAX_PEV_CARDS)
     {
         errlogPrintf("pevDmaGetEngine(card=%d): pev supports only %d cards\n", card, MAX_PEV_CARDS);
         return NULL;
@@ -259,11 +259,8 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
         epicsMutexUnlock(pevDmaListLock);
         return &pevDmaList[card];
     }
-
-    if (!pevx_init(card))
+    if (pevInitCard(card) != S_dev_success)
     {
-        errlogPrintf("pevDmaGetEngine(card=%d): pev kernel driver not loaded\n",
-            card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
     }
@@ -289,7 +286,7 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
             epicsThreadGetStackSize(epicsThreadStackSmall),
             pevDmaThread, (void*)(card<<8|dmaChannel)))
         {
-            errlogPrintf("pevDmaInit(card=%d): epicsThreadCreate(%s) failed\n",
+            errlogPrintf("pevDmaGetEngine(card=%d): epicsThreadCreate(%s) failed\n",
                 card, threadName);
             epicsMutexUnlock(pevDmaListLock);
             return NULL;
@@ -306,7 +303,7 @@ size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
     struct pevDmaBufEntry *bufEntry;
     size_t busaddr;
 
-    if (card > MAX_PEV_CARDS)
+    if (card >= MAX_PEV_CARDS)
     {
         errlogPrintf("pevDmaUsrToBusAddr(card=%d, useraddr=%p): pev supports only %d cards\n", card, useraddr, MAX_PEV_CARDS);
         return 0;
@@ -348,7 +345,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
     if (pevDmaDebug)
         printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx)\n", card, old, size);
 
-    if (card > MAX_PEV_CARDS)
+    if (card >= MAX_PEV_CARDS)
     {
         errlogPrintf("pevDmaRealloc(card=%d, old=%p, size=0x%zx): pev supports only %d cards\n", card, old, size, MAX_PEV_CARDS);
         return NULL;
@@ -370,15 +367,13 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
             pevDmaList[card].bufListLock = epicsMutexCreate();
             if (!pevDmaList[card].bufListLock)
             {
-                errlogPrintf("pevDmaGetEngine(card=%d): Cannot create mutex\n",
+                errlogPrintf("pevDmaRealloc(card=%d): Cannot create mutex\n",
                     card);
                 epicsMutexUnlock(pevDmaListLock);
                 return NULL;
             }
-            if (!pevx_init(card))
+            if (pevInitCard(card) != S_dev_success)
             {
-                errlogPrintf("pevDmaRealloc(card=%d, old=%p, size=0x%zx): pevx_init() failed\n",
-                    card, old, size);
                 epicsMutexUnlock(pevDmaListLock);
                 return NULL;
             }
