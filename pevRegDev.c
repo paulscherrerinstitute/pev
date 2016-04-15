@@ -151,10 +151,8 @@ int pevRead(
     if (pevDrvDebug & DBG_IN)
     {
         char* cbName = symbolName(callback, 0);
-        char* dataName = symbolName(pdata, 0);
         printf("pevRead(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, prio=%d, callback=%s, user=%s)\n",
-            device->name, offset, dlen, nelem, dataName, prio, cbName, user);
-        free(dataName);
+            device->name, offset, dlen, nelem, pdata, prio, cbName, user);
         free(cbName);
     }
     
@@ -275,7 +273,7 @@ int pevRead(
             DMA_SPACE_BUF, (size_t)pdata, nelem * dlen | device->vmePktSize, 0,
             prio, (pevDmaCallback) callback, user);
 
-        if (status == S_dev_success) return ASYNC_COMPLETION; /* continue asyncronously with callback */
+        if (status == S_dev_success) return callback ? ASYNC_COMPLETION : S_dev_success; /* continue asyncronously with callback */
         
         if (pevDrvDebug & DBG_IN && status == S_dev_badArgument)
             printf("pevRead %s %s: Address %p is not a DMA buffer. Using normal transfer\n",
@@ -346,16 +344,14 @@ int pevWrite(
     if (!device->size) 
     {
         errlogSevPrintf(errlogMajor,
-            "pevRead %s: cannot write zero size map\n", user);
+            "pevWrite: %s: cannot write zero size map\n", user);
         return S_dev_badRequest;
     }
     if (pevDrvDebug & DBG_OUT)
     {
         char* cbName = symbolName(callback, 0);
-        char* dataName = symbolName(pdata, 0);
         printf("pevWrite(device=%s, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p, prio=%d, callback=%s, user=%s)\n",
-            device->name, offset, dlen, nelem, dataName, pmask, prio, cbName, user);
-        free(dataName);
+            device->name, offset, dlen, nelem, pdata, pmask, prio, cbName, user);
         free(cbName);
     }
 
@@ -366,7 +362,7 @@ int pevWrite(
             swap = 1;
             if (dlen == 2) break;
             if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: manual swap fix for WS\n", user, device->name);
+                printf("pevWrite %s %s: manual swap fix for WS\n", user, device->name);
             nelem = (nelem * dlen) >> 1;
             dlen = 2;
             break;
@@ -374,7 +370,7 @@ int pevWrite(
             swap = 1;
             if (dlen == 4) break;
             if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: manual swap fix for DS\n", user, device->name);
+                printf("pevWrite %s %s: manual swap fix for DS\n", user, device->name);
             nelem = (nelem * dlen) >> 2;
             dlen = 4;
             break;
@@ -382,7 +378,7 @@ int pevWrite(
             swap = 1;
             if (dlen == 8) break;
             if (pevDrvDebug & DBG_IN)
-                printf("pevRead %s %s: manual swap fix for QS\n", user, device->name);
+                printf("pevWrite %s %s: manual swap fix for QS\n", user, device->name);
             nelem = (nelem * dlen) >> 3;
             dlen = 8;
             break;
@@ -399,7 +395,7 @@ int pevWrite(
     {
         /* write through local buffer */
         if (pevDrvDebug & DBG_OUT)
-            printf("pevRead %s %s: write through local buffer (dlen=%d nelem=%"Z"d)\n",
+            printf("pevWrite %s %s: write through local buffer (dlen=%d nelem=%"Z"d)\n",
                 user, device->name, dlen, nelem);
 
         regDevCopy(dlen, nelem, pdata, device->localBuffer + offset, pmask, swap);
@@ -408,7 +404,7 @@ int pevWrite(
         {
             /* write complete buffer to device */
             if (pevDrvDebug & DBG_OUT)
-                printf("pevRead %s %s: 0x%x bytes DMA from local buffer, swap=%d\n",
+                printf("pevWrite %s %s: 0x%x bytes DMA from local buffer, swap=%d\n",
                     user, device->name, device->size, device->swap);
 
             status = pevDmaTransferWait(device->card, DMA_SPACE_BUF, (size_t)device->localBuffer,
@@ -437,7 +433,7 @@ int pevWrite(
             device->dmaSpace | device->swap, device->baseOffset, device->size | device->vmePktSize, 0,
             prio, (pevDmaCallback) callback, user);
 
-        if (status == S_dev_success) return ASYNC_COMPLETION;
+        if (status == S_dev_success) return callback ? ASYNC_COMPLETION : S_dev_success;
         if (status != S_dev_badArgument) /* S_dev_badArgument = not a DMA buffer */
             errlogPrintf("pevWrite %s %s: sending DMA request failed! status = 0x%x. Do normal & synchronous transfer\n",
                 user, device->name, status);
