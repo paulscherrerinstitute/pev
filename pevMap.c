@@ -370,7 +370,7 @@ static void vmeMapShowFunc (const iocshArgBuf *args)
     pevMapShow(1);
 }
 
-void pevMapDisplay(unsigned int card, unsigned int map, size_t start, unsigned int dlen, size_t bytes)
+void pevMapDisplay(unsigned int card, unsigned int map, int start, unsigned int dlen, size_t bytes)
 {
     struct pevMapEntry* mapEntry;
     static size_t offset = 0;
@@ -405,7 +405,7 @@ void pevMapDisplay(unsigned int card, unsigned int map, size_t start, unsigned i
         save_map = map;
         offset = 0;
     }
-    if (start > 0 || dlen || bytes) offset = start;
+    if (start >= 0 || dlen || bytes) offset = start;
     if (bytes) save_bytes = bytes; else bytes = save_bytes;
     switch (dlen)
     {
@@ -505,7 +505,7 @@ void pevMapDisplay(unsigned int card, unsigned int map, size_t start, unsigned i
 
 static const iocshArg pevMapDisplayArg0 = { "card", iocshArgInt };
 static const iocshArg pevMapDisplayArg1 = { "map", iocshArgInt };
-static const iocshArg pevMapDisplayArg2 = { "start", iocshArgInt };
+static const iocshArg pevMapDisplayArg2 = { "start", iocshArgString };
 static const iocshArg pevMapDisplayArg3 = { "dlen", iocshArgInt };
 static const iocshArg pevMapDisplayArg4 = { "bytes", iocshArgInt };
 static const iocshArg * const pevMapDisplayArgs[] = {
@@ -522,7 +522,7 @@ static const iocshFuncDef pevMapDisplayDef =
 static void pevMapDisplayFunc (const iocshArgBuf *args)
 {
     pevMapDisplay(
-        args[0].ival, args[1].ival, args[2].ival, args[3].ival, args[4].ival);
+        args[0].ival, args[1].ival, args[2].sval ? atoi(args[2].sval) : -1, args[3].ival, args[4].ival);
 }
 
 void pevMapPut(unsigned int card, unsigned int map, size_t offset, unsigned int dlen, int value)
