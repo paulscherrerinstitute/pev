@@ -637,6 +637,17 @@ int pevDmaGetMapInfo(const volatile void* address, struct pevMapInfo* info)
     return 0;
 }
 
+void pevDmaPrintDesc(const char *name, struct pev_ioctl_dma_desc* d)
+{
+    printf("%s.ctl       = 0x%08x\n",               name, d->csr);
+    printf("%s.cnt       = 0x%08x=%s:%u\n",         name, d->cnt, pevDmaSpaceName(d->cnt>>24), d->cnt & 0xffffff);
+    printf("%s.shm_addr  = 0x%08x\n",               name, d->shm_p);
+    printf("%s.next      = 0x%08x | trig=0x%02x\n", name, d->desc_p & 0xffffffe0, d->desc_p & 0x1f);
+    printf("%s.rem_addr  = 0x%08x:%08x\n",          name, d->addr_hp, d->addr_lp);
+    printf("%s.status    = 0x%08x\n",               name, d->usec);
+    printf("%s.msec      = %u\n",                   name, d->msec);
+}
+
 void pevDmaShow(int level)
 {
     unsigned int card;
@@ -691,35 +702,17 @@ void pevDmaShow(int level)
                         {
                             struct pev_ioctl_dma_sts dmaStatus;
                             pevx_dma_status(card, channel, &dmaStatus);
-                            printf("    DMA status: rd_csr    = 0x%08x\n",       dmaStatus.rd_csr);
-                            printf("                rd_ndes   = %u\n",           dmaStatus.rd_ndes);
-                            printf("                rd_cdes   = 0x%08x\n",       dmaStatus.rd_cdes);
-                            printf("                rd_cnt    = 0x%08x\n",       dmaStatus.rd_cnt);
-                            printf("                wr_csr    = 0x%08x\n",       dmaStatus.wr_csr);
-                            printf("                wr_ndes   = %u\n",           dmaStatus.wr_ndes);
-                            printf("                wr_cdes   = 0x%08x\n",       dmaStatus.wr_cdes);
-                            printf("                wr_cnt    = 0x%08x\n",       dmaStatus.wr_cnt);
-                            printf("          start.ctl       = 0x%08x\n",       dmaStatus.start.csr);
-                            printf("          start.cnt       = 0x%08x=%s:%u\n", dmaStatus.start.cnt, pevDmaSpaceName(dmaStatus.start.cnt>>24), dmaStatus.start.cnt & 0xffffff);
-                            printf("          start.shm_addr  = 0x%08x\n",       dmaStatus.start.shm_p);
-                            printf("          start.next      = 0x%08x\n",       dmaStatus.start.desc_p);
-                            printf("          start.rem_addr  = 0x%08x:%08x\n",  dmaStatus.start.addr_hp, dmaStatus.start.addr_lp);
-                            printf("          start.status    = 0x%08x\n",       dmaStatus.start.usec);
-                            printf("          start.msec      = %u\n",           dmaStatus.start.msec);
-                            printf("             wr.ctl       = 0x%08x\n",       dmaStatus.wr.csr);
-                            printf("             wr.cnt       = 0x%08x=%s:%u\n", dmaStatus.wr.cnt, pevDmaSpaceName(dmaStatus.wr.cnt>>24), dmaStatus.wr.cnt & 0xffffff);
-                            printf("             wr.shm_addr  = 0x%08x\n",       dmaStatus.wr.shm_p);
-                            printf("             wr.next      = 0x%08x\n",       dmaStatus.wr.desc_p);
-                            printf("             wr.rem_addr  = 0x%08x:%08x\n",  dmaStatus.wr.addr_hp, dmaStatus.wr.addr_lp);
-                            printf("             wr.status    = 0x%08x\n",       dmaStatus.wr.usec);
-                            printf("             wr.msec      = %u\n",           dmaStatus.wr.msec);
-                            printf("             rd.ctl       = 0x%08x\n",       dmaStatus.rd.csr);
-                            printf("             rd.cnt       = 0x%08x=%s:%u\n", dmaStatus.rd.cnt, pevDmaSpaceName(dmaStatus.rd.cnt>>24), dmaStatus.rd.cnt & 0xffffff);
-                            printf("             rd.shm_addr  = 0x%08x\n",       dmaStatus.rd.shm_p);
-                            printf("             rd.next      = 0x%08x\n",       dmaStatus.rd.desc_p);
-                            printf("             rd.rem_addr  = 0x%08x:%08x\n",  dmaStatus.rd.addr_hp, dmaStatus.rd.addr_lp);
-                            printf("             rd.status    = 0x%08x\n",       dmaStatus.wr.usec);
-                            printf("             rd.msec      = %u\n",           dmaStatus.wr.msec);
+                            printf("    DMA status: rd_csr    = 0x%08x\n", dmaStatus.rd_csr);
+                            printf("                rd_ndes   = %u\n",     dmaStatus.rd_ndes);
+                            printf("                rd_cdes   = 0x%08x\n", dmaStatus.rd_cdes);
+                            printf("                rd_cnt    = 0x%08x\n", dmaStatus.rd_cnt);
+                            printf("                wr_csr    = 0x%08x\n", dmaStatus.wr_csr);
+                            printf("                wr_ndes   = %u\n",     dmaStatus.wr_ndes);
+                            printf("                wr_cdes   = 0x%08x\n", dmaStatus.wr_cdes);
+                            printf("                wr_cnt    = 0x%08x\n", dmaStatus.wr_cnt);
+                            pevDmaPrintDesc( "          start", &dmaStatus.start);
+                            pevDmaPrintDesc( "             wr", &dmaStatus.wr);
+                            pevDmaPrintDesc( "             rd", &dmaStatus.rd);
                         }
                     }
                 }
