@@ -52,7 +52,7 @@ volatile void* pevMapExt(unsigned int card, unsigned int sg_id, unsigned int map
 
     if (!pevMapList[card] && !pevx_init(card))
     {
-        errlogPrintf("pevMap(card=%d, ...): pevx_init() failed\n",
+        errlogPrintf("pevMap(card=%d, ...): pev kernel driver not loaded\n",
             card);
         epicsMutexUnlock(pevMapListLock[card]);
         return NULL;

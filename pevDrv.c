@@ -261,15 +261,19 @@ void pevVersionShow(int level)
     int i;
     const char* FMC_state[] = {"not available","reset","init","ready"};
 
-    pevx_init(0);
     printf("  pev API library version  : %s\n", pevx_get_lib_version());
-    printf("  pev kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
     uname(&utsname);
     printf("  Linux kernel release     : %s\n", utsname.release);
+    if (pevx_init(0) != 0)
+    {
+        printf ("  pev kernel driver not loaded\n");
+        return;
+    }
+    printf("  pev kernel driver version: %s %s\n", pevx_get_driver_version(),  pevx_id());
     
     for (card = 0; card < MAX_PEV_CARDS; card++)
     {
-        pevx_init(card);
+        if (pevx_init(card) != 0) continue;
         board_name = pevx_board_name(card);
         if (board_name == NULL) continue;
         printf("  card %-2d                  : %s\n", card, board_name);

@@ -369,7 +369,7 @@ long pevDevLibInit(void)
 
     if (!pevx_init(0))
     {
-        printf("pevDevLibInit: pev_init(0) failed\n");
+        printf("pevDevLibInit: pev kernel driver not loaded\n");
         return -1;
     }
     pevDevLibProbeLock = epicsMutexMustCreate();

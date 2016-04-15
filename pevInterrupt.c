@@ -195,7 +195,7 @@ struct intrEngine* pevIntrGetEngine(unsigned int card)
 
     if (!pevx_init(card))
     {
-        errlogPrintf("pevIntrGetEngine(card=%u): pevx_init() failed\n",
+        errlogPrintf("pevIntrGetEngine(card=%u): pev kernel driver not loaded\n",
             card);
         epicsMutexUnlock(pevIntrListLock);
         return NULL;
