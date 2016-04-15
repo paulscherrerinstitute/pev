@@ -486,12 +486,18 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
         errlogPrintf("pevDmaTransfer(card=%d, ...): don't use argument 7\n",
             card);
     }
-    if ((size & 0x3fffffff) > 0xff800)
+    
+    /* for DMA_BLOCK_MODE max 0xff800 bytes, but we use DMA_PIPE_MODE  see PEV API p. 20
+       for DMA_PIPE_MODE we have max 63 blocks of 4Kib = 258048 =  0x3f000 = 252KiB  is this correct?
+       but the driver skips at                         16777215 = 0xffffff = 16Mib-1
+    */
+    if ((size & 0x3fffffff) > 0xffffff) /* 16MiB-1 */
     {
         errlogPrintf("pevDmaTransfer(card=%d, ...): size=0x%zx too big\n",
             card, size & 0x3fffffff);
         return S_dev_badArgument;
     }
+
     if ((src_space & DMA_SPACE_MASK) == DMA_SPACE_BUF)
     {
         size_t addr = pevDmaUsrToBusAddr(card, (void*)src_addr);
