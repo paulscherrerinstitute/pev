@@ -147,23 +147,23 @@ const char* pevDmaSpaceName(unsigned int dma_space);
 
 typedef void (*pevDmaCallback)(void* usr, int status);
 
-int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr, unsigned int des_space, size_t des_addr, size_t size, unsigned int swap_mode,
+int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr, unsigned int des_space, size_t des_addr, size_t size, unsigned int dont_use,
     unsigned int priority, pevDmaCallback callback, void *usr);
 
-#define pevDmaTransferWait(card, src_space, src_addr, des_space, des_addr, size, swap_mode) \
-    pevDmaTransfer((card), (src_space), (src_addr), (des_space), (des_addr), (size), (swap_mode), 0, NULL, NULL)
+#define pevDmaTransferWait(card, src_space, src_addr, des_space, des_addr, size, dont_use) \
+    pevDmaTransfer((card), (src_space), (src_addr), (des_space), (des_addr), (size), 0, 0, NULL, NULL)
 
-#define pevDmaFromBuffer(card, buffer, des_space, des_addr, size, swap_mode, priority, callback, usr) \
-    pevDmaTransfer((card), DMA_SPACE_BUF, (size_t)(void*)(buffer), (des_space), (des_addr), (size), (swap_mode), (priority), (callback), (usr))
+#define pevDmaFromBuffer(card, buffer, des_space, des_addr, size, dont_use, priority, callback, usr) \
+    pevDmaTransfer((card), DMA_SPACE_BUF, (size_t)(void*)(buffer), (des_space), (des_addr), (size), (dont_use), (priority), (callback), (usr))
 
-#define pevDmaToBuffer(card, src_space, src_addr, buffer, size, swap_mode, priority, callback, usr) \
-    pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), (priority), (callback), (usr))
+#define pevDmaToBuffer(card, src_space, src_addr, buffer, size, dont_use, priority, callback, usr) \
+    pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (dont_use), (priority), (callback), (usr))
 
-#define pevDmaFromBufferWait(card, buffer, des_space, des_addr, size, swap_mode) \
-    pevDmaTransfer((card), DMA_SPACE_BUF, (size_t)(void*)(buffer), (des_space), (des_addr), (size), (swap_mode), 0, NULL, NULL)
+#define pevDmaFromBufferWait(card, buffer, des_space, des_addr, size, dont_use) \
+    pevDmaTransfer((card), DMA_SPACE_BUF, (size_t)(void*)(buffer), (des_space), (des_addr), (size), (dont_use), 0, NULL, NULL)
 
-#define pevDmaToBufferWait(card, src_space, src_addr, buffer, size, swap_mode) \
-    pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (swap_mode), 0, NULL, NULL)
+#define pevDmaToBufferWait(card, src_space, src_addr, buffer, size, dont_use) \
+    pevDmaTransfer((card), (src_space), (src_addr), DMA_SPACE_BUF, (size_t)(void*)(buffer), (size), (dont_use), 0, NULL, NULL)
 
 char* pevDmaPrintStatus(int status, char* buffer, size_t bufferlen);
 /* needs propbably max 30 bytes buffer */
