@@ -63,7 +63,7 @@ struct dmaReq {
     void (*callback)(void* usr, int status);
     void *usr;
 };
-    
+
 const char* pevDmaSpaceName(unsigned int dma_space)
 {
     switch (dma_space)
@@ -75,28 +75,28 @@ const char* pevDmaSpaceName(unsigned int dma_space)
         case DMA_SPACE_USR1: return "USR1";
         case DMA_SPACE_USR2: return "USR2";
         case DMA_SPACE_BUF:  return "Buffer";
-        
-        case DMA_SPACE_PCIE | DMA_SPACE_WS: return "PCIe word swap";
-        case DMA_SPACE_SHM  | DMA_SPACE_WS: return "SHM word swap";
-        case DMA_SPACE_USR  | DMA_SPACE_WS: return "USR word swap";
-        case DMA_SPACE_USR1 | DMA_SPACE_WS: return "USR1 word swap";
-        case DMA_SPACE_USR2 | DMA_SPACE_WS: return "USR2 word swap";
-        case DMA_SPACE_BUF  | DMA_SPACE_WS: return "Buffer word swap";
-        
-        case DMA_SPACE_PCIE | DMA_SPACE_DS: return "PCIe dword swap";
-        case DMA_SPACE_SHM  | DMA_SPACE_DS: return "SHM dword swap";
-        case DMA_SPACE_USR  | DMA_SPACE_DS: return "USR dword swap";
-        case DMA_SPACE_USR1 | DMA_SPACE_DS: return "USR1 dword swap";
-        case DMA_SPACE_USR2 | DMA_SPACE_DS: return "USR2 dword swap";
-        case DMA_SPACE_BUF  | DMA_SPACE_DS: return "Buffer dword swap";
-        
-        case DMA_SPACE_PCIE | DMA_SPACE_QS: return "PCIe qword swap";
-        case DMA_SPACE_SHM  | DMA_SPACE_QS: return "SHM qword swap";
-        case DMA_SPACE_USR  | DMA_SPACE_QS: return "USR qword swap";
-        case DMA_SPACE_USR1 | DMA_SPACE_QS: return "USR1 qword swap";
-        case DMA_SPACE_USR2 | DMA_SPACE_QS: return "USR2 qword swap";
-        case DMA_SPACE_BUF  | DMA_SPACE_QS: return "Buffer qword swap";
-        
+
+        case DMA_SPACE_PCIE | DMA_SPACE_WS: return "PCIe[word swap]";
+        case DMA_SPACE_SHM  | DMA_SPACE_WS: return "SHM[word swap]";
+        case DMA_SPACE_USR  | DMA_SPACE_WS: return "USR[word swap]";
+        case DMA_SPACE_USR1 | DMA_SPACE_WS: return "USR1[word swap]";
+        case DMA_SPACE_USR2 | DMA_SPACE_WS: return "USR2[word swap]";
+        case DMA_SPACE_BUF  | DMA_SPACE_WS: return "Buffer[word swap]";
+
+        case DMA_SPACE_PCIE | DMA_SPACE_DS: return "PCIe[dword swap]";
+        case DMA_SPACE_SHM  | DMA_SPACE_DS: return "SHM[dword swap]";
+        case DMA_SPACE_USR  | DMA_SPACE_DS: return "USR[dword swap]";
+        case DMA_SPACE_USR1 | DMA_SPACE_DS: return "USR1[dword swap]";
+        case DMA_SPACE_USR2 | DMA_SPACE_DS: return "USR2[dword swap]";
+        case DMA_SPACE_BUF  | DMA_SPACE_DS: return "Buffer[dword swap]";
+
+        case DMA_SPACE_PCIE | DMA_SPACE_QS: return "PCIe[qword swap]";
+        case DMA_SPACE_SHM  | DMA_SPACE_QS: return "SHM[qword swap]";
+        case DMA_SPACE_USR  | DMA_SPACE_QS: return "USR[qword swap]";
+        case DMA_SPACE_USR1 | DMA_SPACE_QS: return "USR1[qword swap]";
+        case DMA_SPACE_USR2 | DMA_SPACE_QS: return "USR2[qword swap]";
+        case DMA_SPACE_BUF  | DMA_SPACE_QS: return "Buffer[qword swap]";
+
         case DMA_SPACE_VME  | DMA_VME_A16:    return "VME_A16";
         case DMA_SPACE_VME  | DMA_VME_A24:    return "VME_A24";
         case DMA_SPACE_VME  | DMA_VME_A32:    return "VME_A42";
@@ -134,6 +134,7 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
     int size;
     int channel;
     char buffer[40];
+    int status;
 
     channel = (pev_dma->start_mode & 0xf0) >> 4; /* at the moment only 0 or 1 */
     size = pev_dma->size & 0x3fffffff; /* other bits are flags */
@@ -144,7 +145,13 @@ int pevDmaHandleRequest(unsigned int card, struct pev_ioctl_dma_req* pev_dma)
             pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr);
     pevDmaList[card].useCount[channel]++;
     epicsTimeGetCurrent(&dmaStartTime);
-    pevx_dma_move(card, pev_dma); /* blocks */
+    status = pevx_dma_move(card, pev_dma); /* blocks ? */
+    if (status != 0)
+        errlogPrintf("pevDmaHandleRequest(card=%d, dmaChannel=%d): pevx_dma_move() 0x%x bytes %s:0x%lx -> %s:0x%lx failed: return = 0x%x errno=%s\n",
+        card, channel, size,
+        pevDmaSpaceName(pev_dma->src_space), pev_dma->src_addr,
+        pevDmaSpaceName(pev_dma->des_space), pev_dma->des_addr,
+        status, strerror(errno));
     epicsTimeGetCurrent(&dmaCompleteTime);
     pevDmaList[card].handleCount++;
     duration = epicsTimeDiffInSeconds(&dmaCompleteTime, &dmaStartTime);
@@ -175,7 +182,7 @@ void pevDmaThread(void* usr)
     struct dmaReq dmaRequest;
     int status;
     char* fname = NULL;
-    char* uname = NULL;   
+    char* uname = NULL;
 
     unsigned int card = ((int)usr) >> 8;
     unsigned int dmaChannel = ((int)usr) & 0xff;
@@ -191,9 +198,9 @@ void pevDmaThread(void* usr)
         pevDmaList[card].busyChannels &= ~dmaChannelMask;
         epicsMessageQueueReceive(
             pevDmaList[card].dmaMsgQ, &dmaRequest, sizeof(dmaRequest)); /* blocks */
-        if (!(pevDmaControllerMask & dmaChannelMask)) break; /* see pevDmaExit */  
+        if (!(pevDmaControllerMask & dmaChannelMask)) break; /* see pevDmaExit */
         pevDmaList[card].busyChannels |= dmaChannelMask;
-            
+
         if (pevDmaDebug >= 3)
             printf("pevDmaThread(card=%d, dmaChannel=%d) request 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
                 card, dmaChannel, dmaRequest.pev_dma.size & 0x3fffffff,
@@ -230,14 +237,14 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
     unsigned int dmaChannelMask = pevDmaControllerMask & ~(-1<<DMA_NUM_CHANNELS);
 #define THREAD_NAME_LEN 16
     char threadName [THREAD_NAME_LEN];
-    
+
     if (card > MAX_PEV_CARDS)
     {
         errlogPrintf("pevDmaGetEngine(card=%d): pev supports only %d cards\n", card, MAX_PEV_CARDS);
         return NULL;
     }
     if (pevDmaList[card].dmaMsgQ) return &pevDmaList[card];
- 
+
     if (!pevDmaListLock)
     {
         errlogPrintf("pevDmaGetEngine(card=%d): pevDmaListLock is not initialized\n",
@@ -252,10 +259,10 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
         epicsMutexUnlock(pevDmaListLock);
         return &pevDmaList[card];
     }
-    
+
     if (!pevx_init(card))
     {
-        errlogPrintf("pevDmaGetEngine(card=%d): pevx_init() failed\n",
+        errlogPrintf("pevDmaGetEngine(card=%d): pev kernel driver not loaded\n",
             card);
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
@@ -270,7 +277,7 @@ struct pevDmaEngine* pevDmaGetEngine(unsigned int card)
         epicsMutexUnlock(pevDmaListLock);
         return NULL;
     }
-    
+
     /* distribute DMA request between DMA channels */
     while (dmaChannelMask)
     {
@@ -322,7 +329,7 @@ size_t pevDmaUsrToBusAddr(unsigned int card, void* useraddr)
             epicsMutexUnlock(pevDmaList[card].bufListLock);
             if (pevDmaDebug >= 3)
                 printf("pevDmaUsrToBusAddr(card=%d, useraddr=%p) busaddr=0x%zx\n",
-                    card, useraddr, busaddr);            
+                    card, useraddr, busaddr);
             return busaddr;
         }
     }
@@ -337,7 +344,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
 {
     struct pevDmaBufEntry** pbufEntry = NULL;
     void* addr;
-    
+
     if (pevDmaDebug)
         printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx)\n", card, old, size);
 
@@ -378,7 +385,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
         }
         epicsMutexUnlock(pevDmaListLock);
     }
-    
+
     epicsMutexLock(pevDmaList[card].bufListLock);
     for (pbufEntry = &pevDmaList[card].dmaBufList; *pbufEntry; pbufEntry = &(*pbufEntry)->next)
     {
@@ -388,7 +395,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
             {
                 if (pevDmaDebug)
                     printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) new size fits in old block\n",
-                        card, old, size);            
+                        card, old, size);
                 epicsMutexUnlock(pevDmaList[card].bufListLock);
                 return old;
             }
@@ -401,7 +408,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
                 pbufEntry = &(*pbufEntry)->next;
                 free(*pbufEntry);
                 epicsMutexUnlock(pevDmaList[card].bufListLock);
-                return NULL;     
+                return NULL;
             }
             old = NULL;
         }
@@ -409,13 +416,13 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
     if (old)
     {
         errlogPrintf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) old block not found\n",
-            card, old, size);            
+            card, old, size);
     }
     if (!size)
     {
         if (pevDmaDebug)
             printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) no size, return NULL\n",
-                card, old, size);            
+                card, old, size);
         epicsMutexUnlock(pevDmaList[card].bufListLock);
         return NULL;
     }
@@ -423,11 +430,11 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
     {
         if (pevDmaDebug)
             printf("pevDmaRealloc(card=%d, old=%p, size=0x%zx) creating new block\n",
-                card, old, size);            
+                card, old, size);
         *pbufEntry = calloc(1,sizeof (struct pevDmaBufEntry));
         if (!*pbufEntry)
         {
-            errlogPrintf("pevDmaBufEntry(): out of memory\n");        
+            errlogPrintf("pevDmaBufEntry(): out of memory\n");
             epicsMutexUnlock(pevDmaList[card].bufListLock);
             return NULL;
         }
@@ -435,7 +442,7 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
     /* pevx_buf_alloc ultimately calls __get_free_pages which works on 2^n pages */
     size_t allocsize = getpagesize();
     while (size > allocsize && allocsize != 0) allocsize<<=1;
-    
+
     (*pbufEntry)->buf.size = allocsize;
     addr = pevx_buf_alloc(card, &(*pbufEntry)->buf);
     if (addr == NULL || addr == MAP_FAILED)
@@ -454,32 +461,36 @@ void* pevDmaRealloc(unsigned int card, void* old, size_t size)
 }
 
 int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
-    unsigned int des_space, size_t des_addr, size_t size, unsigned int swap_mode,
+    unsigned int des_space, size_t des_addr, size_t size, unsigned int dont_use,
     unsigned int priority, void (*callback)(void* usr, int status), void *usr)
 {
     struct dmaReq dmaRequest;
     int status;
     int channel;
-    
+
     if (pevDmaDebug >= 3)
     {
         char* cbName = symbolName(callback, 0);
         printf("pevDmaTransfer(card=%d, src_space=0x%x=%s, src_addr=0x%zx, "
-            "des_space=0x%x=%s, des_addr=0x%zx, size=0x%zx, swap_mode=0x%x, "
+            "des_space=0x%x=%s, des_addr=0x%zx, size=0x%zx, dont_use=0x%x, "
             "priority=%d, callback=%s, usr=%p)\n",
             card, src_space, pevDmaSpaceName(src_space), src_addr,
             des_space, pevDmaSpaceName(des_space), des_addr,
-            size, swap_mode, priority, cbName, usr);
+            size, dont_use, priority, cbName, usr);
         free(cbName);
     }
-    
+
     if (pevDmaControllerMask == 0)
     {
         errlogPrintf("pevDmaTransfer(card=%d, ...): no available DMA channel\n",
             card);
         return S_dev_noDevice;
     }
-    
+    if (dont_use != 0)
+    {
+        errlogPrintf("pevDmaTransfer(card=%d, ...): don't use argument 7\n",
+            card);
+    }
     if ((size & 0x3fffffff) > 0xff800)
     {
         errlogPrintf("pevDmaTransfer(card=%d, ...): size=0x%zx too big\n",
@@ -518,14 +529,7 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
         des_addr = addr;
         des_space &= (src_space & ~DMA_SPACE_MASK) | DMA_SPACE_PCIE;
     }
-    
-    if (!pevDmaGetEngine(card))
-    {
-        errlogPrintf("pevDmaTransfer(card=%d, ...): pevDmaGetEngine() failed\n",
-            card);
-        return S_dev_noMemory;
-    }
-    
+
     pevDmaList[card].requestCount++;
 
     dmaRequest.pev_dma.src_space = src_space;
@@ -533,12 +537,12 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     dmaRequest.pev_dma.des_space = des_space;
     dmaRequest.pev_dma.des_addr  = des_addr;
     dmaRequest.pev_dma.size = size;
-    
+
     dmaRequest.pev_dma.start_mode = DMA_MODE_PIPE; /* irrelevant for MAP_SPACE_SHM */
     dmaRequest.pev_dma.end_mode = 0;
     dmaRequest.pev_dma.intr_mode = DMA_INTR_ENA;
     dmaRequest.pev_dma.src_mode = DMA_PCIE_RR2;
-    dmaRequest.pev_dma.des_mode = DMA_PCIE_RR2 | swap_mode;
+    dmaRequest.pev_dma.des_mode = DMA_PCIE_RR2;
 
 /*  Timeout is x * units
     x = 1 ... 15
@@ -546,9 +550,16 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     wait_mode = DMA_WAIT_INTR | x << 4 | units
 */
     dmaRequest.pev_dma.wait_mode = DMA_WAIT_INTR | (1 << 4);
-    
+
     if (callback)
     {
+        if (!pevDmaGetEngine(card))
+        {
+            errlogPrintf("pevDmaTransfer(card=%d, ...): pevDmaGetEngine() failed\n",
+                card);
+            return S_dev_noMemory;
+        }
+
         /* asynchronous DMA transfer with long timeout */
         dmaRequest.pev_dma.wait_mode |= DMA_WAIT_1S;
         dmaRequest.callback = callback;
@@ -563,36 +574,36 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
             free(cbName);
         }
         return epicsMessageQueueTrySend(pevDmaList[card].dmaMsgQ, &dmaRequest, sizeof(dmaRequest));
-    }    
-    
+    }
+
     /* find free channel */
+    printf("looking for idle DMA channel\n");
     for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
     {
-        if (!(pevDmaControllerMask & (1 << channel))) continue;
-        if (pevDmaList[card].busyChannels & (0x10001 << channel)) break;
+        if (!(pevDmaControllerMask & (1 << channel))) { printf("channel %d not allowed\n", channel); continue; }
+        if (!(pevDmaList[card].busyChannels & (0x10001 << channel))) { printf ("channel %d idle\n", channel); break; }
     }
-    if (channel > DMA_NUM_CHANNELS) /* no free channel, use first allowed one and wait */
+    if (channel >= DMA_NUM_CHANNELS) /* no free channel, use first allowed one and wait */
     {
+        printf ("no idle channels found, use first allowed\n");
         dmaRequest.pev_dma.wait_mode = DMA_WAIT_INTR | (5 << 4); /* allow longer timeout */
         for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
         {
-            if ((pevDmaControllerMask & (1 << channel))) break;
+            if ((pevDmaControllerMask & (1 << channel))) { printf("channel %d allowed\n", channel); break; }
         }
     }
-    
+
     /* synchronous DMA transfer with short timeout */
     dmaRequest.pev_dma.wait_mode |= DMA_WAIT_10MS;
-    
+
     pevDmaList[card].busyChannels |= (0x10000 << channel);
     dmaRequest.pev_dma.start_mode |= DMA_START_CHAN(channel);
     if (pevDmaDebug >= 3)
     {
-        char* cbName = symbolName(callback, 0);
-        printf("pevDmaTransfer(card=%d) callback=%p: synchronous 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
-            card, cbName, dmaRequest.pev_dma.size & 0x3fffffff,
+        printf("pevDmaTransfer(card=%d) channel=%d: synchronous 0x%x bytes %s:0x%lx -> %s:0x%lx\n",
+            card, channel, dmaRequest.pev_dma.size & 0x3fffffff,
             pevDmaSpaceName(dmaRequest.pev_dma.src_space), dmaRequest.pev_dma.src_addr,
             pevDmaSpaceName(dmaRequest.pev_dma.des_space), dmaRequest.pev_dma.des_addr);
-            free(cbName);
     }
     status = pevDmaHandleRequest(card, &dmaRequest.pev_dma);
     if (pevDmaDebug >= 2)
@@ -616,7 +627,7 @@ int pevDmaGetMapInfo(const volatile void* address, struct pevMapInfo* info)
             {
                 info->name  = "DMA buffer";
                 info->card  = card;
-                info->base  = bufEntry->buf.u_addr, 
+                info->base  = bufEntry->buf.u_addr,
                 info->size  = bufEntry->buf.size;
                 return 1;
             }
@@ -631,18 +642,21 @@ void pevDmaShow(int level)
     struct pevDmaBufEntry *bufEntry;
     int period = 0;
     int anything_reported = 0;
-  
+
     if (level < 0) printf("redrawing every %d seconds (press any key to stop)\n", -level);
     while (1)
     {
         for (card = 0; card < MAX_PEV_CARDS; card++)
         {
-            if (pevDmaList[card].dmaMsgQ)
+            if (pevDmaList[card].dmaMsgQ || pevDmaList[card].requestCount)
             {
                 char buffer[40];
 
                 printf("  card %d dmaMessageQueue", card);
-                epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
+                if (pevDmaList[card].dmaMsgQ)
+                    epicsMessageQueueShow(pevDmaList[card].dmaMsgQ, level);
+                else
+                    printf(" not used yet\n");
                 printf("   Requests: %lu, handled: %lu",
                     pevDmaList[card].requestCount, pevDmaList[card].handleCount);
                 if (period)
@@ -660,7 +674,7 @@ void pevDmaShow(int level)
                     copy=pevDmaList[card];
 
                     for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
-                    {  
+                    {
                         printf("   Channel %d %s status=0x%x (%s) 0x%08x=%uKiB in %#.3gms = %.3gMiB/s count=%ld\n",
                             channel,
                             copy.busyChannels & (0x10000<<channel) ? "in use sync" :
@@ -671,37 +685,40 @@ void pevDmaShow(int level)
                             copy.lastSize[channel], copy.lastSize[channel] >> 10,
                             copy.lastDuration[channel]*1000, copy.lastSize[channel]/copy.lastDuration[channel]*1e-6,
                             copy.useCount[channel]);
-                        
+
                         if (level > 2)
                         {
                             struct pev_ioctl_dma_sts dmaStatus;
                             pevx_dma_status(card, channel, &dmaStatus);
-                            printf("    DMA status: rd_csr    = 0x%x\n",        dmaStatus.rd_csr);                                     
-                            printf("                rd_ndes   = %u\n",          dmaStatus.rd_ndes);                                    
-                            printf("                rd_cdes   = %u\n",          dmaStatus.rd_cdes);                                    
-                            printf("                rd_cnt    = %u\n",          dmaStatus.rd_cnt);                                     
-                            printf("                wr_csr    = 0x%x\n",        dmaStatus.wr_csr);                                     
-                            printf("                wr_ndes   = %u\n",          dmaStatus.wr_ndes);                                    
-                            printf("                wr_cdes   = %u\n",          dmaStatus.wr_cdes);                                    
-                            printf("                wr_cnt    = %u\n",          dmaStatus.wr_cnt);                                     
-                            printf("          start.csr       = 0x%x\n",        dmaStatus.start.csr);                                    
-                            printf("          start.cnt       = %u\n",          dmaStatus.start.cnt);                                    
-                            printf("          start.shm_p     = 0x%x\n",        dmaStatus.start.shm_p);                                  
-                            printf("          start.desc_p    = 0x%x\n",        dmaStatus.start.desc_p);                                 
-                            printf("          start.addr      = 0x%08x:%08x\n", dmaStatus.start.addr_hp, dmaStatus.start.addr_lp);       
-                            printf("          start.msec:usec = %u:%u\n",       dmaStatus.start.msec,dmaStatus.start.usec);                                   
-                            printf("             wr.csr       = 0x%x\n",        dmaStatus.wr.csr);                                       
-                            printf("             wr.cnt       = %u\n",          dmaStatus.wr.cnt);                                       
-                            printf("             wr.shm_p     = 0x%x\n",        dmaStatus.wr.shm_p);                                     
-                            printf("             wr.desc_p    = 0x%x\n",        dmaStatus.wr.desc_p);                                    
-                            printf("             wr.addr      = 0x%08x:%08x\n", dmaStatus.wr.addr_hp, dmaStatus.wr.addr_lp);             
-                            printf("             wr.msec:usec = %u:%u\n",       dmaStatus.wr.msec,dmaStatus.wr.usec);                                   
-                            printf("             rd.csr       = 0x%x\n",        dmaStatus.rd.csr);                                       
-                            printf("             rd.cnt       = %u\n",          dmaStatus.rd.cnt);                                       
-                            printf("             rd.shm_p     = 0x%x\n",        dmaStatus.rd.shm_p);                                     
-                            printf("             rd.desc_p    = 0x%x\n",        dmaStatus.rd.desc_p);                                    
-                            printf("             rd.addr      = 0x%08x:%08x\n", dmaStatus.rd.addr_hp, dmaStatus.rd.addr_lp);             
-                            printf("             rd.msec:usec = %u:%u\n",       dmaStatus.rd.msec,dmaStatus.rd.usec);                                   
+                            printf("    DMA status: rd_csr    = 0x%08x\n",       dmaStatus.rd_csr);
+                            printf("                rd_ndes   = %u\n",           dmaStatus.rd_ndes);
+                            printf("                rd_cdes   = 0x%08x\n",       dmaStatus.rd_cdes);
+                            printf("                rd_cnt    = 0x%08x\n",       dmaStatus.rd_cnt);
+                            printf("                wr_csr    = 0x%08x\n",       dmaStatus.wr_csr);
+                            printf("                wr_ndes   = %u\n",           dmaStatus.wr_ndes);
+                            printf("                wr_cdes   = 0x%08x\n",       dmaStatus.wr_cdes);
+                            printf("                wr_cnt    = 0x%08x\n",       dmaStatus.wr_cnt);
+                            printf("          start.ctl       = 0x%08x\n",       dmaStatus.start.csr);
+                            printf("          start.cnt       = 0x%08x=%s:%u\n", dmaStatus.start.cnt, pevDmaSpaceName(dmaStatus.start.cnt>>24), dmaStatus.start.cnt & 0xffffff);
+                            printf("          start.shm_addr  = 0x%08x\n",       dmaStatus.start.shm_p);
+                            printf("          start.next      = 0x%08x\n",       dmaStatus.start.desc_p);
+                            printf("          start.rem_addr  = 0x%08x:%08x\n",  dmaStatus.start.addr_hp, dmaStatus.start.addr_lp);
+                            printf("          start.status    = 0x%08x\n",       dmaStatus.start.usec);
+                            printf("          start.msec      = %u\n",           dmaStatus.start.msec);
+                            printf("             wr.ctl       = 0x%08x\n",       dmaStatus.wr.csr);
+                            printf("             wr.cnt       = 0x%08x=%s:%u\n", dmaStatus.wr.cnt, pevDmaSpaceName(dmaStatus.wr.cnt>>24), dmaStatus.wr.cnt & 0xffffff);
+                            printf("             wr.shm_addr  = 0x%08x\n",       dmaStatus.wr.shm_p);
+                            printf("             wr.next      = 0x%08x\n",       dmaStatus.wr.desc_p);
+                            printf("             wr.rem_addr  = 0x%08x:%08x\n",  dmaStatus.wr.addr_hp, dmaStatus.wr.addr_lp);
+                            printf("             wr.status    = 0x%08x\n",       dmaStatus.wr.usec);
+                            printf("             wr.msec      = %u\n",           dmaStatus.wr.msec);
+                            printf("             rd.ctl       = 0x%08x\n",       dmaStatus.rd.csr);
+                            printf("             rd.cnt       = 0x%08x=%s:%u\n", dmaStatus.rd.cnt, pevDmaSpaceName(dmaStatus.rd.cnt>>24), dmaStatus.rd.cnt & 0xffffff);
+                            printf("             rd.shm_addr  = 0x%08x\n",       dmaStatus.rd.shm_p);
+                            printf("             rd.next      = 0x%08x\n",       dmaStatus.rd.desc_p);
+                            printf("             rd.rem_addr  = 0x%08x:%08x\n",  dmaStatus.rd.addr_hp, dmaStatus.rd.addr_lp);
+                            printf("             rd.status    = 0x%08x\n",       dmaStatus.wr.usec);
+                            printf("             rd.msec      = %u\n",           dmaStatus.wr.msec);
                         }
                     }
                 }
@@ -767,7 +784,7 @@ void pevDmaExit()
                 card);
         epicsMessageQueueDestroy(pevDmaList[card].dmaMsgQ);
     }
-    
+
     /* wait for callbacks to return and threads to terminate */
     for (card = 0; card <  MAX_PEV_CARDS; card++)
     {
@@ -832,6 +849,6 @@ int pevDmaInit(void)
 
     iocshRegister(&pevDmaStartHandlerDef, pevDmaStartHandler);
     iocshRegister(&pevDmaShowDef, pevDmaShowFunc);
-    
+
     return S_dev_success;
 }
