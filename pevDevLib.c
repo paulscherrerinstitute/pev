@@ -37,7 +37,7 @@
 #define VMECR_MAP_SIZE 	0x1000000	/* 16 MiB CR/CSR - fixed */
 #define VME16_MAP_SIZE 	0x10000		/* 64 KiB A16 - fixed */
 
-#define PVME_ADDERR  0x8000041c
+#define PVME_STAERR  0x8000041c
 #define VME_BERR     0x80000000
 
 #define PVME_MASCSR  0x80000404
@@ -240,11 +240,11 @@ long pevDevLibProbe(int write, unsigned int wordSize, volatile const void *ptr, 
     static epicsTimerQueueId pevDevLibProbeTimerQueue;
     static epicsTimerId pevDevLibProbeTimer;
             
-    /* serialize concurrent probes because we use global resources (jmp_buf, signals, PVME_ADDERR register) */
+    /* serialize concurrent probes because we use global resources (jmp_buf, signals, PVME_STAERR register) */
     epicsMutexMustLock(pevDevLibProbeLock);
     
     /* clear VME bus error */
-    pevx_csr_rd(0, PVME_ADDERR);
+    pevx_csr_rd(0, PVME_STAERR);
 
     /* setup handler for unmapped addresses */
     sa.sa_sigaction = pevDevLibProbeSigHandler;
@@ -285,6 +285,7 @@ long pevDevLibProbe(int write, unsigned int wordSize, volatile const void *ptr, 
             }
             /* wait for writes to get posted */
             usleep(10);
+            /* Is this sufficient? Better read back? But what if the register is write-only? */
         }
         else
         {
@@ -306,7 +307,9 @@ long pevDevLibProbe(int write, unsigned int wordSize, volatile const void *ptr, 
             }
         }
         /* check VME bus error */
-        status = pevx_csr_rd(0, PVME_ADDERR) & VME_BERR;
+        status = pevx_csr_rd(0, PVME_STAERR) & VME_BERR;
+        /* This is only a guess. Some other thread or process may have caused BERR */
+        /* We must check the VME address! */
 
         if (pevDevLibDebug)
             printf("pevDevLib%sProbe(wordSize=%d, ptr=%p=%s+%#x): %#0*x%s\n",
