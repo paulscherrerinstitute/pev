@@ -393,9 +393,9 @@ int pevWrite(
 
     if (device->localBuffer) /* block mode */
     {
-        /* write through local buffer */
+        /* write to local buffer */
         if (pevDrvDebug & DBG_OUT)
-            printf("pevWrite %s %s: write through local buffer (dlen=%d nelem=%"Z"d)\n",
+            printf("pevWrite %s %s: write to local buffer (dlen=%d nelem=%"Z"d)\n",
                 user, device->name, dlen, nelem);
 
         regDevCopy(dlen, nelem, pdata, device->localBuffer + offset, pmask, swap);
@@ -416,12 +416,8 @@ int pevWrite(
                 regDevCopy(dlen, device->size/dlen, device->localBuffer,
                     device->baseAddress, NULL, swap);
             }
-            /* update block read records */
-//            scanIoRequest(device->ioscanpvt);
-            return S_dev_success;
         }
-        
-        /* fall through to normal write */
+        return S_dev_success;
     }
 
     if (nelem>100 && device->dmaSpace != NO_DMA_SPACE && !pmask) /* large array transfer */
@@ -444,8 +440,6 @@ int pevWrite(
                 user, device->name, nelem * dlen, device->swap);
     
     regDevCopy(dlen, nelem, pdata, device->baseAddress + offset, pmask, swap);
-    /* update block read records */
-//    scanIoRequest(device->ioscanpvt);
     return S_dev_success;
 }
 
