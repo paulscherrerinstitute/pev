@@ -578,19 +578,21 @@ int pevDmaTransfer(unsigned int card, unsigned int src_space, size_t src_addr,
     }
 
     /* find free channel */
-    printf("looking for idle DMA channel\n");
+    if (pevDmaDebug >= 3)
+        printf("looking for idle DMA channel\n");
     for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
     {
-        if (!(pevDmaControllerMask & (1 << channel))) { printf("channel %d not allowed\n", channel); continue; }
-        if (!(pevDmaList[card].busyChannels & (0x10001 << channel))) { printf ("channel %d idle\n", channel); break; }
+        if (!(pevDmaControllerMask & (1 << channel))) { if (pevDmaDebug >= 3) printf("channel %d not allowed\n", channel); continue; }
+        if (!(pevDmaList[card].busyChannels & (0x10001 << channel))) { if (pevDmaDebug >= 3) printf ("channel %d idle\n", channel); break; }
     }
     if (channel >= DMA_NUM_CHANNELS) /* no free channel, use first allowed one and wait */
     {
-        printf ("no idle channels found, use first allowed\n");
+        if (pevDmaDebug >= 3)
+            printf ("no idle channels found, use first allowed\n");
         dmaRequest.pev_dma.wait_mode = DMA_WAIT_INTR | (5 << 4); /* allow longer timeout */
         for (channel = 0; channel < DMA_NUM_CHANNELS; channel++)
         {
-            if ((pevDmaControllerMask & (1 << channel))) { printf("channel %d allowed\n", channel); break; }
+            if ((pevDmaControllerMask & (1 << channel))) { if (pevDmaDebug >= 3) printf("channel %d allowed\n", channel); break; }
         }
     }
 
