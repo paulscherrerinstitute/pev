@@ -1,15 +1,15 @@
 #ifndef pev_h
 #define pev_h
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <pevioctl.h>
 #include <pevulib.h>
 #include <pevxulib.h>
 
 struct pev_ioctl_evt *pevx_evt_queue_alloc(uint, int); /* missing in pevxulib.h */
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 void pevVersionShow(int level);
 
