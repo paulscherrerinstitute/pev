@@ -3507,7 +3507,7 @@ border-radius: 2px;
     <property name="geometry">
      <rect>
       <x>5</x>
-      <y>485</y>
+      <y>445</y>
       <width>370</width>
       <height>21</height>
      </rect>
@@ -3516,7 +3516,7 @@ border-radius: 2px;
      <enum>QFrame::NoFrame</enum>
     </property>
     <property name="text">
-     <string>5. INTREQ to 0x800, set bit for desired intr. nr</string>
+     <string>5. INTREQ to 0x800 for intr. 12</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -3552,7 +3552,7 @@ border-radius: 2px;
      <enum>QFrame::NoFrame</enum>
     </property>
     <property name="text">
-     <string>3. INTLENGTH to 0x1 for 10ns pulse length</string>
+     <string>3. INTLENGTH to 1 µs</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -3624,79 +3624,7 @@ border-radius: 2px;
      <enum>QFrame::NoFrame</enum>
     </property>
     <property name="text">
-     <string>4. INTRATE to 0xF4240 x 10ns = 10ms rep rate</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-    </property>
-    <property name="fontScaleMode">
-     <enum>ESimpleLabel::WidthAndHeight</enum>
-    </property>
-    <property name="foreground">
-     <color>
-      <red>0</red>
-      <green>0</green>
-      <blue>0</blue>
-     </color>
-    </property>
-    <property name="background">
-     <color alpha="0">
-      <red>0</red>
-      <green>0</green>
-      <blue>0</blue>
-     </color>
-    </property>
-   </widget>
-   <widget class="caLabel" name="caLabel_57">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>445</y>
-      <width>200</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="frameShape">
-     <enum>QFrame::NoFrame</enum>
-    </property>
-    <property name="text">
-     <string>0x989680 for 100ms</string>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-    </property>
-    <property name="fontScaleMode">
-     <enum>ESimpleLabel::WidthAndHeight</enum>
-    </property>
-    <property name="foreground">
-     <color>
-      <red>0</red>
-      <green>0</green>
-      <blue>0</blue>
-     </color>
-    </property>
-    <property name="background">
-     <color alpha="0">
-      <red>0</red>
-      <green>0</green>
-      <blue>0</blue>
-     </color>
-    </property>
-   </widget>
-   <widget class="caLabel" name="caLabel_58">
-    <property name="geometry">
-     <rect>
-      <x>20</x>
-      <y>465</y>
-      <width>200</width>
-      <height>21</height>
-     </rect>
-    </property>
-    <property name="frameShape">
-     <enum>QFrame::NoFrame</enum>
-    </property>
-    <property name="text">
-     <string>0x5F5E100 for 1s</string>
+     <string>4. INTRATE to 10 ms </string>
     </property>
     <property name="alignment">
      <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -4756,8 +4684,6 @@ border-radius: 2px;
    <zorder>caLabel_54</zorder>
    <zorder>caLabel_55</zorder>
    <zorder>caLabel_56</zorder>
-   <zorder>caLabel_57</zorder>
-   <zorder>caLabel_58</zorder>
    <zorder>caLabel_59</zorder>
    <zorder>caLabel_60</zorder>
    <zorder>caLabel_61</zorder>

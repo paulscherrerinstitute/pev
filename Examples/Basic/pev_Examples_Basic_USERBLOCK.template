@@ -132,7 +132,7 @@ record(ao,"$(IOC):USER-INTRATE")
 {
    field(DTYP, "regDevAsyn")
    field(OUT,  "@Usr1StdIOCUserRegisters:0xC T=UINT32")
-   field(VAL,  "100")
+   field(VAL,  "10")
    field(LINR, "SLOPE")
    field(ESLO, ".00001")
    field(PINI, "YES")
