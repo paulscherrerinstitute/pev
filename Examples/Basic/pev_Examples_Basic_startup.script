@@ -23,7 +23,7 @@
 
 
 #######################################################################
-# EPICS specific environment variablees
+# EPICS specific environment variables
 epicsEnvSet EPICS_CA_MAX_ARRAY_BYTES 40000000
 
 
@@ -31,16 +31,10 @@ epicsEnvSet EPICS_CA_MAX_ARRAY_BYTES 40000000
 #######################################################################
 # load EPICS specific drivers
 
-# load regDev and pev (=TOSCA-II) drivers
-require "regDev"
-require "pev"
-
 require "histogram"
 
-# load G_IFCMON hardware monitoring application for IFC1210 card
-#require "ifcmon"
-
-
+# load regDev and pev (=TOSCA-II) drivers
+require "pev"
 
 #######################################################################
 # define access to TOSCA-II CENTRAL FPGA ressources
@@ -135,4 +129,4 @@ pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0x0       , "2
 #pevVmeSlaveMainConfig  ("AM32", 0x0000000, 0x01000000)
 #pevVmeSlaveTargetConfig("AM32", 0x000000,  0x100000, "2eSST320", "SH_MEM", 0x000000, 0)
 
-
+dbLoadTemplate ${pev_DB}/pev_Examples_Basic.subs, "IOC=${IOC}"

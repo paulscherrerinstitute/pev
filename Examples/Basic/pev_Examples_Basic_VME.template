@@ -27,58 +27,17 @@
 # the shared memory, you can verify your r/w commands e.g. using XprsMon
 # displaying shared memory content with command: ds1.ws 0
 
-record(ai,"$(IOC):VME-REG0-R")
+record(ai,"$(IOC):VME-REG$(N)-R")
 {
-    field(DESC, "test reg")
-    field(DTYP, "regDevAsyn")
-    field(INP,  "#C S @VMEA32ExampleBasicData/0x0 T=UINT32")
+    field(DTYP, "regDev")
+    field(INP,  "@VMEA32ExampleBasicData:$(N) T=UINT32")
     field(SCAN, ".5 second")
 }
 
-record(ao,"$(IOC):VME-REG0-W")
+record(ao,"$(IOC):VME-REG$(N)-W")
 {
-    field(DESC, "test reg")
-    field(DTYP, "regDevAsyn")
-    field(OUT,  "#C S @VMEA32ExampleBasicData/0x0 T=UINT32")
+    field(DTYP, "regDev")
+    field(OUT,  "@VMEA32ExampleBasicData:$(N) T=UINT32")
     field(PINI, "YES")
-    field(VAL , "0xfa")
+    field(VAL , "$(VAL=)")
 }
-
-
-
-record(ai,"$(IOC):VME-REG4-R")
-{
-    field(DESC, "test reg")
-    field(DTYP, "regDevAsyn")
-    field(INP,  "#C S @VMEA32ExampleBasicData/0x4 T=UINT32")
-    field(SCAN, ".5 second")
-}
-
-record(ao,"$(IOC):VME-REG4-W")
-{
-    field(DESC, "test reg")
-    field(DTYP, "regDevAsyn")
-    field(OUT,  "#C S @VMEA32ExampleBasicData/0x4 T=UINT32")
-    field(PINI, "YES")
-    field(VAL , "0x12")
-}
-
-
-
-record(ai,"$(IOC):VME-REG8-R")
-{
-    field(DESC, "test reg")
-    field(DTYP, "regDevAsyn")
-    field(INP,  "#C S @VMEA32ExampleBasicData/0x8 T=UINT32")
-    field(SCAN, ".5 second")
-}
-
-record(ao,"$(IOC):VME-REG8-W")
-{
-    field(DESC, "test reg")
-    field(DTYP, "regDevAsyn")
-    field(OUT,  "#C S @VMEA32ExampleBasicData/0x8 T=UINT32")
-    field(PINI, "YES")
-    field(VAL , "0x55")
-}
-

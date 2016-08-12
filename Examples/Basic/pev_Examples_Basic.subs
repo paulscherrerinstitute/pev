@@ -20,27 +20,21 @@
 # Purpose of this file:
 #           * Substitution file for EPICS
 
-
-file G_DRV_pev_Examples_Basic_USERBLOCK.template{
-{IOC = MTEST-PC-IFC8}
-}
+file pev_Examples_Basic_USERBLOCK.template {{}}
 #        |
 #  FLNK  |
 #       \/
-file G_DRV_pev_Examples_Basic_SHAREDMEM.template{
-{IOC = MTEST-PC-IFC8}
-}
+file pev_Examples_Basic_SHAREDMEM.template {{}}
 #        |
 #  FLNK  |
 #       \/
-file G_DRV_pev_Examples_Basic_SOFT.template{
-{IOC = MTEST-PC-IFC8}
+file pev_Examples_Basic_SOFT.template {
+    {}
 }
 
 # Scan passive + scan 0.5 second
-file G_DRV_pev_Examples_Basic_VME.template{
-{IOC = MTEST-PC-IFC8}
+file pev_Examples_Basic_VME.template {
+    {N=0}
+    {N=4 VAL=0x12}
+    {N=8 VAL=0x55}
 }
-
-
-

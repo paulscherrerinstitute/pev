@@ -38,7 +38,7 @@
 record(bi,"$(IOC):SMEM-ReadInitiator")
 {
     field(DTYP, "regDev")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0")
+    field(INP , "@SharedMemoryExampleBasicDataBlock_R:0")
     field(PRIO, "HIGH")
 }
 ######################################################################
@@ -49,7 +49,7 @@ record(ai,"$(IOC):SMEM-TESTREG0")
     field(DESC, "a register")
     field(DTYP, "regDev")
     field(SCAN, "I/O Intr")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x0 T=UINT32")
+    field(INP , "@SharedMemoryExampleBasicDataBlock_R:0x0 T=UINT32")
     field(FLNK, "$(IOC):SMEM-TESTREG4")
 }
 
@@ -57,7 +57,7 @@ record(ai,"$(IOC):SMEM-TESTREG4")
 {
     field(DESC, "a register")
     field(DTYP, "regDev")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x4 T=UINT32")
+    field(INP , "@SharedMemoryExampleBasicDataBlock_R:0x4 T=UINT32")
     field(FLNK, "$(IOC):SMEM-TESTREG8")
 }
 
@@ -65,14 +65,14 @@ record(ai,"$(IOC):SMEM-TESTREG8")
 {
     field(DESC, "a register")
     field(DTYP, "regDev")
-    field(INP , "#C S @SharedMemoryExampleBasicDataBlock_R/0x8 T=UINT32")
+    field(INP , "@SharedMemoryExampleBasicDataBlock_R:0x8 T=UINT32")
     field(FLNK, "$(IOC):SMEM-WAVEFORM-R")
 }
 
 record(aai,"$(IOC):SMEM-WAVEFORM-R")
 {
    field(DTYP, "regDev")
-   field(INP,  "#C S @SharedMemoryExampleBasicDataBlock_R/0x100 T=UINT32")
+   field(INP,  "@SharedMemoryExampleBasicDataBlock_R:0x100 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "LONG")
    field(FLNK, "$(IOC):SMEM-WriteInitiator")
@@ -88,7 +88,7 @@ record(aai,"$(IOC):SMEM-WAVEFORM-R")
 record(bo,"$(IOC):SMEM-WriteInitiator")
 {
     field(DTYP, "regDev")
-    field(OUT , "#C S @SharedMemoryExampleBasicDataBlock_W/0")
+    field(OUT , "@SharedMemoryExampleBasicDataBlock_W:0")
     field(PRIO, "HIGH")
     field(FLNK, "$(IOC):SOFT-INTID12-CALC")  # kick SOFT record interrupt counter
 #   field(FLNK, "$(IOC):USER-INTTIM12-STOP") # kick latency counter stop record
@@ -98,7 +98,7 @@ record(bo,"$(IOC):SMEM-WriteInitiator")
 record(aao,"$(IOC):SMEM-WAVEFORM-W")
 {
    field(DTYP, "regDev")
-   field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x100 T=UINT32")
+   field(OUT,  "@SharedMemoryExampleBasicDataBlock_W:0x100 T=UINT32")
    field(NELM, "2048")
    field(FTVL, "LONG")
 }
@@ -106,7 +106,7 @@ record(aao,"$(IOC):SMEM-WAVEFORM-W")
 record(ao,"$(IOC):SMEM-REG-W")
 {
    field(DTYP, "regDev")
-   field(OUT,  "#C S @SharedMemoryExampleBasicDataBlock_W/0x0 T=UINT32")
+   field(OUT,  "@SharedMemoryExampleBasicDataBlock_W:0x0 T=UINT32")
 
 }
 
