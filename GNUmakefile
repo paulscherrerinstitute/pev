@@ -44,3 +44,4 @@ HEADERS += $(PEVDIR)/include/pevxulib.h
 TEMPLATES += $(wildcard Examples/Basic/pev_Examples_Basic_*.template)
 TEMPLATES += Examples/Basic/pev_Examples_Basic.subs
 SCRIPTS += Examples/Basic/pev_Examples_Basic_startup.script
+QT += Examples/Basic/App/config/qt/G_DRV_pev_Examples_Basic_Mainwindow.ui
