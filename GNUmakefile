@@ -40,3 +40,7 @@ LIB_SYS_LIBS += pev
 HEADERS += $(PEVDIR)/include/pevioctl.h
 HEADERS += $(PEVDIR)/include/pevulib.h
 HEADERS += $(PEVDIR)/include/pevxulib.h
+
+TEMPLATES += $(wildcard Examples/Basic/pev_Examples_Basic_*.template)
+TEMPLATES += Examples/Basic/pev_Examples_Basic.subs
+SCRIPTS += Examples/Basic/pev_Examples_Basic_startup.script
