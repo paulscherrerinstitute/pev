@@ -116,12 +116,12 @@ int pevI2cRead(
             }
             return 0;
         default:
-            errlogPrintf("%s i2cRead(device->i2cDevice=%d, offset=%d, dlen=%d, nelem=%d, pdata=@%p): illegal data size\n",
+            errlogPrintf("%s i2cRead(device->i2cDevice=0x%x, offset=%d, dlen=%d, nelem=%d, pdata=@%p): illegal data size\n",
                 user, device->i2cDevice, offset, dlen, nelem, pdata);
             return -1;
     }
     /* clear data on error */
-    errlogPrintf("%s i2cRead(device->i2cDevice=%d, offset=%d, dlen=%d, nelem=%d, pdata=@%p): pev_i2c_read() faild on offset %d status=%#x\n",
+    errlogPrintf("%s i2cRead(device->i2cDevice=0x%x, offset=%d, dlen=%d, nelem=%d, pdata=@%p): pev_i2c_read() faild on offset %d status=%#x\n",
         user, device->i2cDevice, offset, dlen, nelem, pdata, offset, status);
     memset(pdata, 0, nelem * dlen);
     return status;    
@@ -141,6 +141,7 @@ int pevI2cWrite(
     unsigned int val;
     unsigned int i;
     int status;
+    int i2c_ctrl;
            
     if (!device || device->magic != MAGIC)
     {
@@ -162,10 +163,11 @@ int pevI2cWrite(
     switch (dlen)
     {
         case 1:
+            i2c_ctrl = device->i2cDevice & ~0xC0000; /* set 1 byte data */
             if (!pmask)
                 for (i = 0; i < nelem; i++)
                 {
-                    status = pev_i2c_write(device->i2cDevice, offset, ((epicsUInt8*)pdata)[i]);
+                    status = pev_i2c_write(i2c_ctrl, offset, ((epicsUInt8*)pdata)[i]);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         break;
                     offset += 1;
@@ -173,12 +175,12 @@ int pevI2cWrite(
             else
                 for (i = 0; i < nelem; i++)
                 {
-                    status = pev_i2c_read(device->i2cDevice, offset, &val);
+                    status = pev_i2c_read(i2c_ctrl, offset, &val);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         goto readfail;
                     val &= ~*(epicsUInt8*)pmask;
                     val |= ((epicsUInt8*)pdata)[i] & *(epicsUInt8*)pmask;
-                    status = pev_i2c_write(device->i2cDevice, offset, (epicsUInt8)val);
+                    status = pev_i2c_write(i2c_ctrl, offset, (epicsUInt8)val);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         break;
                     offset += 1;
@@ -186,10 +188,11 @@ int pevI2cWrite(
             return 0;
 
         case 2:
+            i2c_ctrl = (device->i2cDevice & ~0x80000) | 0x40000; /* set 2 byte data */
             if (!pmask)
                 for (i = 0; i < nelem; i++)
                 {
-                    status = pev_i2c_write(device->i2cDevice, offset, ((epicsUInt16*)pdata)[i]);
+                    status = pev_i2c_write(i2c_ctrl, offset, ((epicsUInt16*)pdata)[i]);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         break;
                     offset += 2;
@@ -197,22 +200,23 @@ int pevI2cWrite(
             else
                 for (i = 0; i < nelem; i++)
                 {
-                    status = pev_i2c_read(device->i2cDevice, offset, &val);
+                    status = pev_i2c_read(i2c_ctrl, offset, &val);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         goto readfail;
                     val &= ~*(epicsUInt16*)pmask;
                     val |= ((epicsUInt16*)pdata)[i] & *(epicsUInt16*)pmask;
-                    status = pev_i2c_write(device->i2cDevice, offset, (epicsUInt16)val);
+                    status = pev_i2c_write(i2c_ctrl, offset, (epicsUInt16)val);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         break;
                     offset += 2;
                 }
             return 0;
         case 4:
+            i2c_ctrl = device->i2cDevice | 0xC0000; /* set 4 byte data */
             if (!pmask)
                 for (i = 0; i < nelem; i++)
                 {
-                    status = pev_i2c_write(device->i2cDevice, offset, ((epicsUInt32*)pdata)[i]);
+                    status = pev_i2c_write(i2c_ctrl, offset, ((epicsUInt32*)pdata)[i]);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         break;
                     offset += 4;
@@ -220,27 +224,27 @@ int pevI2cWrite(
             else
                 for (i = 0; i < nelem; i++)
                 {
-                    status = pev_i2c_read(device->i2cDevice, offset, &val);
+                    status = pev_i2c_read(i2c_ctrl, offset, &val);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         goto readfail;
                     val &= ~*(epicsUInt32*)pmask;
                     val |= ((epicsUInt32*)pdata)[i] & *(epicsUInt32*)pmask;
-                    status = pev_i2c_write(device->i2cDevice, offset, (epicsUInt32)val);
+                    status = pev_i2c_write(i2c_ctrl, offset, (epicsUInt32)val);
                     if ((status & I2CEXEC_MASK) != I2CEXEC_OK)
                         break;
                     offset += 4;
                 }
             return 0;
         default:
-            errlogPrintf("%s i2cWrite(device->i2cDevice=%d, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p): illegal data size\n",
+            errlogPrintf("%s i2cWrite(device->i2cDevice=0x%x, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p): illegal data size\n",
                 user, device->i2cDevice, offset, dlen, nelem, pdata, pmask);
             return -1;
     }
-    errlogPrintf("%s i2cWrite(device->i2cDevice=%d, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p): pev_i2c_write() faild on offset %d status=%#x\n",
+    errlogPrintf("%s i2cWrite(device->i2cDevice=0x%x, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p): pev_i2c_write() faild on offset %d status=%#x\n",
         user, device->i2cDevice, offset, dlen, nelem, pdata, pmask, offset, status);
     return status;
 readfail:
-    errlogPrintf("%s i2cWrite(device->i2cDevice=%d, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p): pev_i2c_read() faild on offset %d status=%#x\n",
+    errlogPrintf("%s i2cWrite(device->i2cDevice=0x%x, offset=%d, dlen=%d, nelem=%d, pdata=@%p, pmask=@%p): pev_i2c_read() faild on offset %d status=%#x\n",
         user, device->i2cDevice, offset, dlen, nelem, pdata, pmask, offset, status);
     return status;
 }
