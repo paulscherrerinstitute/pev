@@ -24,9 +24,9 @@
 
 #include "pev.h"
 
-#define I2CEXEC_OK	0x0200000
-#define I2CEXEC_MASK	0x0300000
-#define BIT_31_SET  0x80000000
+#define I2CEXEC_OK      0x0200000
+#define I2CEXEC_MASK    0x0300000
+#define BIT_31_SET      0x80000000
 
 long  ifc1210Init(){ pev_init(0); return 0; }
 struct {
@@ -52,7 +52,7 @@ typedef struct ifcPrivate{
 long devIfc1210InitRecord(dbCommon* record, struct link* link)
 {
     ifcPrivate* p;
-     
+
     if (link->type != VME_IO)
     {
         recGblRecordError(S_db_badField, record,
@@ -67,67 +67,65 @@ long devIfc1210InitRecord(dbCommon* record, struct link* link)
     }
     p->address = link->value.vmeio.signal;
     p->card  = link->value.vmeio.card;
-    
+
     if(strncmp(link->value.vmeio.parm, "ELB", 3) == 0)
-      { 
-    	  p->devType = IFC_ELB;
-	  if(strncmp(link->value.vmeio.parm, "ELB ", 4) == 0)
-	    p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
-       }
-    else 
-    if(strcmp(link->value.vmeio.parm, "SMON") == 0) 
-    	p->devType = IFC_SMON;
-    else 
-    if(strcmp(link->value.vmeio.parm, "SMON_10S") == 0) 
-    	p->devType = IFC_SMON_10S;
-    else 
-    if(strcmp(link->value.vmeio.parm, "PIO") == 0) 
-    	p->devType = PCI_IO;
-    else 
-    if(strncmp(link->value.vmeio.parm, "BMR_11U", 7) == 0) 
-      { 
-	  p->devType = BMR_11U;
-  	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
-      }
-    else 
-    if(strncmp(link->value.vmeio.parm, "BMR_11S", 7) == 0) 
-      { 
-    	  p->devType = BMR_11S;
-	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
-      }
-    else 
-    if(strncmp(link->value.vmeio.parm, "BMR_16U", 7) == 0) 
-      { 
-    	  p->devType = BMR_16U;
-	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
-      }
-    else 
+    {
+        p->devType = IFC_ELB;
+        if(strncmp(link->value.vmeio.parm, "ELB ", 4) == 0)
+            p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+    }
+    else
+    if(strcmp(link->value.vmeio.parm, "SMON") == 0)
+            p->devType = IFC_SMON;
+    else
+    if(strcmp(link->value.vmeio.parm, "SMON_10S") == 0)
+            p->devType = IFC_SMON_10S;
+    else
+    if(strcmp(link->value.vmeio.parm, "PIO") == 0)
+            p->devType = PCI_IO;
+    else
+    if(strncmp(link->value.vmeio.parm, "BMR_11U", 7) == 0)
+    {
+          p->devType = BMR_11U;
+            p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+    }
+    else
+    if(strncmp(link->value.vmeio.parm, "BMR_11S", 7) == 0)
+    {
+              p->devType = BMR_11S;
+          p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+    }
+    else
+    if(strncmp(link->value.vmeio.parm, "BMR_16U", 7) == 0)
+    {
+        p->devType = BMR_16U;
+        p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+    }
+    else
     if(strncmp(link->value.vmeio.parm, "BMR", 3) == 0)
-      { 
-    	  p->devType = BMR;
-	  p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
-      }
-   else 
-        {
+    {
+        p->devType = BMR;
+        p->count = atoi(strchr( link->value.vmeio.parm, ' ')+1);
+    }
+    else
+    {
         recGblRecordError(S_db_badField, record,
             "devIfc1210InitRecord: Illegal param in io link");
         return S_db_badField;
-	}
+    }
 
     record->dpvt = p;
     return 0;
 }
 
 /*************** ai record ****************/
-
 #include <aiRecord.h>
-
 
 long devIfc1210AiInitRecord(aiRecord* record)
 {
    int status=0;
    status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
-   if (status != 0) return status; 
+   if (status != 0) return status;
    record->udf = 0;
    return 0;
 }
@@ -137,23 +135,23 @@ long devIfc1210AiRead(aiRecord* record)
    ifcPrivate* p = record->dpvt;
    unsigned int rval = 0;
    int status = 0;
-    
-   if (p == NULL)
+
+    if (p == NULL)
     {
         recGblRecordError(S_db_badField, record,
             "devIfc1210AiRead: uninitialized record");
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;
     }
-    
+
     switch (p->devType)
-      {
+    {
         case IFC_ELB:
-    	    rval = pev_elb_rd( p->address );
+                rval = pev_elb_rd( p->address );
             break;
         case IFC_SMON:
         case IFC_SMON_10S:
-    	    rval = pev_smon_rd( p->address );
+                rval = pev_smon_rd( p->address );
             break;
         case PCI_IO:
             rval = pev_csr_rd( p->address | 0x80000000 );
@@ -163,29 +161,29 @@ long devIfc1210AiRead(aiRecord* record)
             if((status&I2CEXEC_MASK) != I2CEXEC_OK)
              {
                recGblSetSevr(record, READ_ALARM, INVALID_ALARM);
-               return -1;	  
+               return -1;
              }
-      }
-    
+    }
+
     switch (p->devType)
-      {
+    {
         case BMR_11U:
-    	    record->val = pev_bmr_conv_11bit_u(rval);
+                record->val = pev_bmr_conv_11bit_u(rval);
             break;
         case BMR_11S:
-	    record->val = pev_bmr_conv_11bit_s(rval);
+            record->val = pev_bmr_conv_11bit_s(rval);
             break;
         case BMR_16U:
-	    record->val = pev_bmr_conv_16bit_u(rval);
+            record->val = pev_bmr_conv_16bit_u(rval);
             break;
         case IFC_SMON_10S:
             rval >>= 6;
         default:
             record->rval = rval;
-            return 0; 	/* with conversion */
-      }
+            return 0;         /* with conversion */
+    }
     record->udf = 0;
-    return 2; 	/* no conversion */
+    return 2;         /* no conversion */
 }
 
 struct {
@@ -208,26 +206,22 @@ struct {
 epicsExportAddress(dset, devIfc1210Ai);
 
 /*************** ao record  ****************/
-
-
-
 #include <aoRecord.h>
-
 
 long devIfc1210AoInitRecord(aoRecord* record)
 {
    int status=0;
    status = devIfc1210InitRecord((dbCommon*) record, &record->out);
-   if (status != 0) return status; 
+   if (status != 0) return status;
    record->udf = 0;
-   return 0;
+   return 2;
 }
 
 long devIfc1210AoWrite(aoRecord* record)
 {
     ifcPrivate* p = record->dpvt;
-    
-   if (p == NULL)
+
+    if (p == NULL)
     {
         recGblRecordError(S_db_badField, record,
             "devIfc1210AoAoWrite: uninitialized record");
@@ -236,18 +230,18 @@ long devIfc1210AoWrite(aoRecord* record)
     }
 
     if(p->devType == IFC_ELB)
-    	pev_elb_wr( p->address, (int)record->val );
+        pev_elb_wr( p->address, record->rval );
     else
     if(p->devType == IFC_SMON)
-    	pev_smon_wr( p->address, (int)record->val );
+        pev_smon_wr( p->address, record->rval );
     else
     if(p->devType == PCI_IO)
-    	pev_csr_wr( p->address | 0x80000000, (unsigned int)record->val);
+        pev_csr_wr( p->address | 0x80000000, record->rval);
     else
-    if(p->devType == BMR) 
-        pev_bmr_write(p->card, p->address, (unsigned int)record->val, p->count);
-	
-    return 0; 
+    if(p->devType == BMR)
+        pev_bmr_write(p->card, p->address, record->rval, p->count);
+
+    return 0;
 }
 
 struct {
@@ -270,14 +264,13 @@ struct {
 epicsExportAddress(dset, devIfc1210Ao);
 
 /*************** longin record  ****************/
-
 #include <longinRecord.h>
 
 long devIfc1210LonginInitRecord(longinRecord* record)
 {
    int status=0;
    status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
-   if (status != 0) return status; 
+   if (status != 0) return status;
    record->udf = 0;
    return 0;
 }
@@ -287,23 +280,23 @@ long devIfc1210LonginRead(longinRecord* record)
    ifcPrivate* p = record->dpvt;
    unsigned int rval = 0;
    int status = 0;
-    
-   if (p == NULL)
+
+    if (p == NULL)
     {
         recGblRecordError(S_db_badField, record,
             "devIfc1210LonginRead: uninitialized record");
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;
     }
-    
+
     switch (p->devType)
-      {
+    {
         case IFC_ELB:
-    	    rval = pev_elb_rd( p->address );
+            rval = pev_elb_rd( p->address );
             break;
         case IFC_SMON:
         case IFC_SMON_10S:
-    	    rval = pev_smon_rd( p->address );
+            rval = pev_smon_rd( p->address );
             break;
         case PCI_IO:
             rval = pev_csr_rd( p->address | 0x80000000 );
@@ -311,27 +304,27 @@ long devIfc1210LonginRead(longinRecord* record)
         default:
             status = pev_bmr_read( p->card,  p->address, &rval, p->count);
             if((status&I2CEXEC_MASK) != I2CEXEC_OK)
-             {
-               recGblSetSevr(record, READ_ALARM, INVALID_ALARM);
-               return -1;	  
-             }
+            {
+                recGblSetSevr(record, READ_ALARM, INVALID_ALARM);
+                return -1;
+            }
     }
     switch (p->devType)
-      {
+    {
         case BMR_11U:
-    	    record->val = pev_bmr_conv_11bit_u(rval);
+                record->val = pev_bmr_conv_11bit_u(rval);
             break;
         case BMR_11S:
-	    record->val = pev_bmr_conv_11bit_s(rval);
+            record->val = pev_bmr_conv_11bit_s(rval);
             break;
         case BMR_16U:
-	    record->val = pev_bmr_conv_16bit_u(rval);
+            record->val = pev_bmr_conv_16bit_u(rval);
             break;
         case IFC_SMON_10S:
             rval >>= 6;
         default:
             record->val = rval;
-      }
+    }
     return 0;
 }
 
@@ -352,8 +345,65 @@ struct {
 };
 epicsExportAddress(dset, devIfc1210Longin);
 
-/* stringin *********************************************************/
+/*************** longout record  ****************/
+#include <longoutRecord.h>
 
+long devIfc1210LongoutInitRecord(longoutRecord* record)
+{
+   int status=0;
+   status = devIfc1210InitRecord((dbCommon*) record, &record->out);
+   if (status != 0) return status;
+   record->udf = 0;
+   return 0;
+}
+
+long devIfc1210LongoutWrite(longoutRecord* record)
+{
+    ifcPrivate* p = record->dpvt;
+
+    if (p == NULL)
+    {
+        recGblRecordError(S_db_badField, record,
+            "devIfc1210LongoutLongoutWrite: uninitialized record");
+        recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
+        return -1;
+    }
+
+    if(p->devType == IFC_ELB)
+        pev_elb_wr( p->address, record->val );
+    else
+    if(p->devType == IFC_SMON)
+        pev_smon_wr( p->address, record->val );
+    else
+    if(p->devType == PCI_IO)
+        pev_csr_wr( p->address | 0x80000000, record->val);
+    else
+    if(p->devType == BMR)
+        pev_bmr_write(p->card, p->address, record->val, p->count);
+
+    return 0;
+}
+
+struct {
+    long      number;
+    DEVSUPFUN report;
+    DEVSUPFUN init;
+    DEVSUPFUN init_record;
+    DEVSUPFUN get_ioint_info;
+    DEVSUPFUN write_longout;
+    DEVSUPFUN special_linconv;
+} devIfc1210Longout = {
+    6,
+    NULL,
+    NULL,
+    devIfc1210LongoutInitRecord,
+    NULL,
+    devIfc1210LongoutWrite,
+    NULL
+};
+epicsExportAddress(dset, devIfc1210Longout);
+
+/* stringin *********************************************************/
 #include <stringinRecord.h>
 
 long devIfc1210InitRecordStringin(stringinRecord *);
@@ -378,28 +428,28 @@ epicsExportAddress(dset, devIfc1210Stringin);
 
 long devIfc1210InitRecordStringin(stringinRecord* record)
 {
-   int status=0;
-   ifcPrivate* p;
-   status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
-   if (status != 0) return status;
-   p = record->dpvt; 
-   if (p->count > 40)
+    int status=0;
+    ifcPrivate* p;
+    status = devIfc1210InitRecord((dbCommon*) record, &record->inp);
+    if (status != 0) return status;
+    p = record->dpvt;
+    if (p->count > 40)
     {
         recGblRecordError(S_db_badField, record,
             "devIfc1210InitRecordStringin: string can NOT be greater than 40 characters!");
         recGblSetSevr(record, UDF_ALARM, INVALID_ALARM);
         return -1;
     }
-   record->udf = 0;
-   return 0;
+    record->udf = 0;
+    return 0;
 }
 
 long devIfc1210ReadStringin(stringinRecord* record)
 {
-   ifcPrivate* p = record->dpvt;
-   unsigned int i = 0;
-    
-   if (p == NULL || (p->devType != IFC_ELB))
+    ifcPrivate* p = record->dpvt;
+    unsigned int i = 0;
+
+    if (p == NULL || (p->devType != IFC_ELB))
     {
         recGblRecordError(S_db_badField, record,
             "devIfc1210ReadStringin: uninitialized record or no ELB request");
@@ -407,9 +457,9 @@ long devIfc1210ReadStringin(stringinRecord* record)
         return -1;
     }
     /* printf("devIfc1210ReadStringin(): p->address = %d p->count = %d\n", p->address, p->count); */
-    
-    for(i=0; i < p->count/4; i++) 
+
+    for(i=0; i < p->count/4; i++)
       ((int*)record->val)[i] = pev_elb_rd( 0xe000 + p->address + i*4);
-  
-   return 0;      
+
+    return 0;
 }
