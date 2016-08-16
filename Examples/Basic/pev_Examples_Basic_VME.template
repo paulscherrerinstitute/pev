@@ -27,17 +27,18 @@
 # the shared memory, you can verify your r/w commands e.g. using XprsMon
 # displaying shared memory content with command: ds1.ws 0
 
-record(ai,"$(IOC):VME-REG$(N)-R")
-{
-    field(DTYP, "regDev")
-    field(INP,  "@VMEA32ExampleBasicData:$(N) T=UINT32")
-    field(SCAN, ".5 second")
-}
-
-record(ao,"$(IOC):VME-REG$(N)-W")
+record(longout,"$(IOC):VME-REG$(N)-W")
 {
     field(DTYP, "regDev")
     field(OUT,  "@VMEA32ExampleBasicData:$(N) T=UINT32")
     field(PINI, "YES")
     field(VAL , "$(VAL=)")
 }
+
+record(longin,"$(IOC):VME-REG$(N)-R")
+{
+    field(DTYP, "regDev")
+    field(INP,  "@VMEA32ExampleBasicData:$(N) T=UINT32")
+    field(SCAN, ".5 second")
+}
+

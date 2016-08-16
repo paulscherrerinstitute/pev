@@ -20,13 +20,9 @@
 # Purpose of this file:
 #           * startup.script for EPICS
 
-
-
 #######################################################################
 # EPICS specific environment variables
 epicsEnvSet EPICS_CA_MAX_ARRAY_BYTES 40000000
-
-
 
 #######################################################################
 # load EPICS specific drivers
@@ -39,7 +35,7 @@ require "pev"
 #######################################################################
 # define access to TOSCA-II CENTRAL FPGA ressources
 
-## pev[Asyn]Configure(
+## pevConfigure(
 ##    crate,
 ##    name,
 ##    resource,
@@ -60,34 +56,34 @@ require "pev"
 # USER1 block of Standard_IOC project. Find details of memory map definition here:
 # https://codebeamer.psi.ch/cb/proj/sources/sccFileLog.do?proj_id=104&filename=IFC%2FIFC1210_applications%2FStandard_IOC%2FDocumentation%2FStandard_IOC_concept.doc&isDir=false
 # set up a data area in USER block of length 256 bytes starting at offset 256 bytes with 32-bit 
-# swapping option and Asyn read-out with DMA for aai/aao bigger than 100 elements, else without DMA
+# swapping option and async read-out with DMA for aai/aao bigger than 100 elements, else without DMA
 #
 # This area is intended to read / write single 32-bit registers using single r/w access
 #
-pevAsynConfigure(0,"Usr1StdIOCUserRegisters"            ,"USR1"   , 0x100   , ""        , 0  , 0x58     ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT1"        ,"USR1"   , 0x158   , ""        , 1  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT2"        ,"USR1"   , 0x160   , ""        , 2  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT3"        ,"USR1"   , 0x168   , ""        , 3  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT4"        ,"USR1"   , 0x170   , ""        , 4  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT5"        ,"USR1"   , 0x178   , ""        , 5  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT6"        ,"USR1"   , 0x180   , ""        , 6  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT7"        ,"USR1"   , 0x188   , ""        , 7  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT8"        ,"USR1"   , 0x190   , ""        , 8  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT9"        ,"USR1"   , 0x198   , ""        , 9  , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT10"       ,"USR1"   , 0x1A0   , ""        , 10 , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT11"       ,"USR1"   , 0x1A8   , ""        , 11 , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT12"       ,"USR1"   , 0x1B0   , ""        , 12 , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT13"       ,"USR1"   , 0x1B8   , ""        , 13 , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT14"       ,"USR1"   , 0x1C0   , ""        , 14 , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT15"       ,"USR1"   , 0x1C8   , ""        , 15 , 0x8      ,0, "DS")
-pevAsynConfigure(0,"Usr1StdIOCUserRegistersINT16"       ,"USR1"   , 0x1D0   , ""        , 16 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegisters"            ,"USR1"   , 0x100   , ""        , 0  , 0x58     ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT1"        ,"USR1"   , 0x158   , ""        , 1  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT2"        ,"USR1"   , 0x160   , ""        , 2  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT3"        ,"USR1"   , 0x168   , ""        , 3  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT4"        ,"USR1"   , 0x170   , ""        , 4  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT5"        ,"USR1"   , 0x178   , ""        , 5  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT6"        ,"USR1"   , 0x180   , ""        , 6  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT7"        ,"USR1"   , 0x188   , ""        , 7  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT8"        ,"USR1"   , 0x190   , ""        , 8  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT9"        ,"USR1"   , 0x198   , ""        , 9  , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT10"       ,"USR1"   , 0x1A0   , ""        , 10 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT11"       ,"USR1"   , 0x1A8   , ""        , 11 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT12"       ,"USR1"   , 0x1B0   , ""        , 12 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT13"       ,"USR1"   , 0x1B8   , ""        , 13 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT14"       ,"USR1"   , 0x1C0   , ""        , 14 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT15"       ,"USR1"   , 0x1C8   , ""        , 15 , 0x8      ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRegistersINT16"       ,"USR1"   , 0x1D0   , ""        , 16 , 0x8      ,0, "DS")
 
 # set up a data block in USER block of length 256 bytes starting at offset 256 bytes with 32-bit 
 # swapping option and block read-out with DMA, not listening to interrupt
 #
 # This area is intended to read / write the aai/aao ramp in/out records in USER template
 #
-pevAsynConfigure(0,"Usr1StdIOCUserRamp"                 ,"USR1"   , 0x10000 , ""        , 0  , 0x2000   ,0, "DS")
+pevConfigure(0,"Usr1StdIOCUserRamp"                 ,"USR1"   , 0x10000 , ""        , 0  , 0x2000   ,0, "DS")
 
 
 # set up a data block in SHARED MEMORY of length 131 kByte starting at offset 0 bytes with 32-bit 
@@ -97,36 +93,35 @@ pevAsynConfigure(0,"Usr1StdIOCUserRamp"                 ,"USR1"   , 0x10000 , ""
 #     even if you have only a single 32-bit register to read.
 #
 # block read:
-pevConfigure(    0,"SharedMemoryExampleBasicDataBlock_R","SH_MEM" , 0x0     , ""        , 0 , 0x20000,   1, "DS")
+pevConfigure(0,"SharedMemoryExampleBasicDataBlock_R","SH_MEM" , 0x0     , ""        , 0 , 0x20000,   1, "DS")
 # block write (register example)
-pevConfigure(    0,"SharedMemoryExampleBasicDataBlock_W","SH_MEM" , 0x20000 , ""        , 0 , 0x2000 ,   1, "DS")
+pevConfigure(0,"SharedMemoryExampleBasicDataBlock_W","SH_MEM" , 0x20000 , ""        , 0 , 0x2000 ,   1, "DS")
+
 
 # slot-1 system / VME_master interface
 # set up a data area in VME A32 address space of length 1NB starting at offset 0 bytes with no 
-# swapping, VME speed = fastest, and Asyn read-out with DMA for aai/aao bigger than 100 elements, else without DMA
-pevAsynConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0x0       , "2eSST320", 0 , 0x100  ,   0, "DS", 1024)
+# swapping, VME speed = fastest, and async read-out with DMA for aai/aao bigger than 100 elements, else without DMA
+pevConfigure(0,"VMEA32ExampleBasicData"           ,"VME_A32", 0x0       , "2eSST320", 0 , 0x100  ,   0, "DS", 1024)
 
 
+# VME slave window setup
 
+pevVmeSlaveMainConfig(addrSpace, mainBase, mainSize)
+# addrSpace 	: 	"AM32" or "AM24"               (only AM32)
+# mainBase	:	start of main VME slave window (only 16 MB granularity)
+# mainSize	:	size of main VME slave window  (only 16 MB granularity)
 
-## VME slave window setup
+pevVmeSlaveTargetConfig(slaveAddrSpace, winBase, winSize, vmeProtocol, target, targetOffset, swapping)
 #
-#  pevVmeSlaveMainConfig(addrSpace, mainBase, mainSize)
-## addrSpace 	: 	"AM32" or "AM24"               (only AM32)
-## mainBase	:	start of main VME slave window (only 16 MB granularity)
-## mainSize	:	size of main VME slave window  (only 16 MB granularity)
+# slaveAddrSpace    :       "AM32" or "AM24"
+# winBase	     :       baseOffset in main VME slave space    (only 1 MB granularity)
+# winSize	     :       window size                           (only 1 MB granularity)
+# vmeProtocol	     :       "BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
+# target 	     :       "SH_MEM", "PCIE", "USR1/2"
+# targetOffset	     :       offset in the remote target
+# swapping	     :       "WS", "DS" or "QS" (NOT USED)
 
-#  pevVmeSlaveTargetConfig(slaveAddrSpace, winBase, winSize, vmeProtocol, target, targetOffset, swapping)
-##
-## slaveAddrSpace    :       "AM32" or "AM24"
-## winBase	     :       baseOffset in main VME slave space    (only 1 MB granularity)
-## winSize	     :       window size                           (only 1 MB granularity)
-## vmeProtocol	     :       "BLT","MBLT","2eVME","2eSST160","2eSST233","2eSST320"
-## target 	     :       "SH_MEM", "PCIE", "USR1/2"
-## targetOffset	     :       offset in the remote target
-## swapping	     :       "WS", "DS" or "QS" (NOT USED)
-
-#pevVmeSlaveMainConfig  ("AM32", 0x0000000, 0x01000000)
-#pevVmeSlaveTargetConfig("AM32", 0x000000,  0x100000, "2eSST320", "SH_MEM", 0x000000, 0)
+pevVmeSlaveMainConfig  ("AM32", 0x0000000, 0x01000000)
+pevVmeSlaveTargetConfig("AM32", 0x000000,  0x100000, "2eSST320", "SH_MEM")
 
 dbLoadTemplate ${pev_DB}/pev_Examples_Basic.subs, "IOC=${IOC}"

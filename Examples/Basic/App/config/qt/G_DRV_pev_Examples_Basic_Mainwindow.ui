@@ -229,8 +229,8 @@ border-radius: 2px;
      <rect>
       <x>15</x>
       <y>89</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -301,8 +301,8 @@ border-radius: 2px;
      <rect>
       <x>15</x>
       <y>108</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -373,8 +373,8 @@ border-radius: 2px;
      <rect>
       <x>15</x>
       <y>152</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -442,8 +442,8 @@ border-radius: 2px;
      <rect>
       <x>15</x>
       <y>175</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -511,8 +511,8 @@ border-radius: 2px;
      <rect>
       <x>15</x>
       <y>201</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -1114,6 +1114,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_16">
     <property name="geometry">
@@ -1251,6 +1254,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_18">
@@ -1390,6 +1396,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_20">
     <property name="geometry">
@@ -1527,6 +1536,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_22">
@@ -1666,6 +1678,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_24">
     <property name="geometry">
@@ -1803,6 +1818,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_26">
@@ -1942,6 +1960,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_28">
     <property name="geometry">
@@ -2079,6 +2100,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_30">
@@ -2218,6 +2242,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_32">
     <property name="geometry">
@@ -2355,6 +2382,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_34">
@@ -2494,6 +2524,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_36">
     <property name="geometry">
@@ -2631,6 +2664,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_38">
@@ -2770,6 +2806,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_40">
     <property name="geometry">
@@ -2907,6 +2946,9 @@ border-radius: 2px;
     </property>
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
     </property>
    </widget>
    <widget class="caLabel" name="caLabel_42">
@@ -3046,6 +3088,9 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_44">
     <property name="geometry">
@@ -3184,14 +3229,17 @@ border-radius: 2px;
     <property name="colorMode">
      <enum>caLineEdit::Static</enum>
     </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
    </widget>
    <widget class="caLabel" name="caLabel_46">
     <property name="geometry">
      <rect>
       <x>14</x>
       <y>225</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -3259,8 +3307,8 @@ border-radius: 2px;
      <rect>
       <x>14</x>
       <y>250</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -3398,9 +3446,9 @@ border-radius: 2px;
    <widget class="caLabel" name="caLabel_50">
     <property name="geometry">
      <rect>
-      <x>969</x>
-      <y>210</y>
-      <width>51</width>
+      <x>1000</x>
+      <y>194</y>
+      <width>26</width>
       <height>18</height>
      </rect>
     </property>
@@ -3408,7 +3456,7 @@ border-radius: 2px;
      <enum>QFrame::NoFrame</enum>
     </property>
     <property name="text">
-     <string>x 10ns</string>
+     <string>µs</string>
     </property>
     <property name="alignment">
      <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
@@ -3652,8 +3700,8 @@ border-radius: 2px;
      <rect>
       <x>14</x>
       <y>274</y>
-      <width>100</width>
-      <height>14</height>
+      <width>110</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -3788,10 +3836,10 @@ border-radius: 2px;
    <widget class="caLabel" name="caLabel_61">
     <property name="geometry">
      <rect>
-      <x>904</x>
-      <y>409</y>
-      <width>50</width>
-      <height>16</height>
+      <x>898</x>
+      <y>220</y>
+      <width>96</width>
+      <height>21</height>
      </rect>
     </property>
     <property name="frameShape">
@@ -3821,53 +3869,23 @@ border-radius: 2px;
      </color>
     </property>
    </widget>
-   <widget class="caLineEdit" name="caLineEdit_35">
-    <property name="geometry">
-     <rect>
-      <x>904</x>
-      <y>429</y>
-      <width>100</width>
-      <height>14</height>
-     </rect>
-    </property>
-    <property name="alignment">
-     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
-    </property>
-    <property name="channel" stdset="0">
-     <string>$(IOC):USER-INTTIM12-MAX</string>
-    </property>
-    <property name="foreground">
-     <color>
-      <red>0</red>
-      <green>0</green>
-      <blue>0</blue>
-     </color>
-    </property>
-    <property name="background">
-     <color>
-      <red>212</red>
-      <green>219</green>
-      <blue>157</blue>
-     </color>
-    </property>
-    <property name="colorMode">
-     <enum>caLineEdit::Static</enum>
-    </property>
-   </widget>
    <widget class="caCartesianPlot" name="caCartesianPlot_0">
     <property name="geometry">
      <rect>
-      <x>711</x>
+      <x>685</x>
       <y>54</y>
       <width>311</width>
       <height>156</height>
      </rect>
     </property>
     <property name="Title" stdset="0">
-     <string>INT_TIM12 histogram</string>
+     <string notr="true">INT_TIM12 histogram</string>
     </property>
     <property name="channels_1" stdset="0">
      <string>;$(IOC):USER-INTTIM12-HIST</string>
+    </property>
+    <property name="Style_1">
+     <enum>caCartesianPlot::ThinLines</enum>
     </property>
     <property name="color_1">
      <color>
@@ -3876,17 +3894,42 @@ border-radius: 2px;
       <blue>0</blue>
      </color>
     </property>
-    <property name="Style_2">
-     <enum>caCartesianPlot::Dots</enum>
+    <property name="channels_2" stdset="0">
+     <string>;$(IOC):USER-INTTIM1-HIST</string>
     </property>
-    <property name="symbol_2">
-     <enum>caCartesianPlot::Rect</enum>
+    <property name="Style_2">
+     <enum>caCartesianPlot::ThinLines</enum>
+    </property>
+    <property name="channels_3" stdset="0">
+     <string>;$(IOC):USER-INTTIM2-HIST</string>
     </property>
     <property name="Style_3">
-     <enum>caCartesianPlot::Dots</enum>
+     <enum>caCartesianPlot::ThinLines</enum>
     </property>
-    <property name="symbol_3">
-     <enum>caCartesianPlot::Triangle</enum>
+    <property name="color_3">
+     <color>
+      <red>255</red>
+      <green>170</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="channels_4" stdset="0">
+     <string>;$(IOC):USER-INTTIM3-HIST</string>
+    </property>
+    <property name="Style_4">
+     <enum>caCartesianPlot::ThinLines</enum>
+    </property>
+    <property name="channels_5" stdset="0">
+     <string>;$(IOC):USER-INTTIM4-HIST</string>
+    </property>
+    <property name="Style_5">
+     <enum>caCartesianPlot::ThinLines</enum>
+    </property>
+    <property name="channels_6" stdset="0">
+     <string>;$(IOC):USER-INTTIM5-HIST</string>
+    </property>
+    <property name="Style_6">
+     <enum>caCartesianPlot::ThinLines</enum>
     </property>
     <property name="foreground">
      <color>
@@ -3910,9 +3953,6 @@ border-radius: 2px;
      </color>
     </property>
     <property name="XaxisScaling" stdset="0">
-     <enum>caCartesianPlot::Auto</enum>
-    </property>
-    <property name="YaxisScaling" stdset="0">
      <enum>caCartesianPlot::Channel</enum>
     </property>
    </widget>
@@ -4627,6 +4667,1046 @@ border-radius: 2px;
      </color>
     </property>
    </widget>
+   <widget class="caLineEdit" name="caLineEdit_35">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>327</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM6-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_42">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>395</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM10-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_43">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>446</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM13-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_44">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>259</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM2-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_45">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>344</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM7-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_46">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>463</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM14-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_47">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>429</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM12-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_48">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>276</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM3-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_49">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>361</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM8-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_50">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>497</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM16-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_51">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>242</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM1-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_52">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>378</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM9-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_53">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>412</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM11-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_54">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>293</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM4-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_55">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>310</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM5-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caLineEdit" name="caLineEdit_56">
+    <property name="geometry">
+     <rect>
+      <x>895</x>
+      <y>480</y>
+      <width>100</width>
+      <height>14</height>
+     </rect>
+    </property>
+    <property name="alignment">
+     <set>Qt::AlignAbsolute|Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM15-MAX</string>
+    </property>
+    <property name="foreground">
+     <color>
+      <red>0</red>
+      <green>0</green>
+      <blue>0</blue>
+     </color>
+    </property>
+    <property name="background">
+     <color>
+      <red>212</red>
+      <green>219</green>
+      <blue>157</blue>
+     </color>
+    </property>
+    <property name="colorMode">
+     <enum>caLineEdit::Static</enum>
+    </property>
+    <property name="unitsEnabled">
+     <bool>true</bool>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>240</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM1-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_2">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>256</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM2-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_3">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>274</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM3-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_4">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>291</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM4-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_5">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>309</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM5-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_6">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>326</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM6-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_7">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>344</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM7-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_8">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>361</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM8-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_9">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>379</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM9-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_10">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>396</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM10-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_11">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>413</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM11-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_12">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>430</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM12-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_13">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>447</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM13-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_14">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>465</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM14-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_15">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>481</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM15-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
+   <widget class="caMessageButton" name="camessagebutton_16">
+    <property name="geometry">
+     <rect>
+      <x>1000</x>
+      <y>499</y>
+      <width>21</width>
+      <height>16</height>
+     </rect>
+    </property>
+    <property name="font">
+     <font>
+      <pointsize>6</pointsize>
+      <weight>75</weight>
+      <bold>true</bold>
+     </font>
+    </property>
+    <property name="toolTip">
+     <string>Clear max</string>
+    </property>
+    <property name="channel" stdset="0">
+     <string notr="true">$(IOC):USER-INTTIM16-MAX</string>
+    </property>
+    <property name="label">
+     <string notr="true">X</string>
+    </property>
+    <property name="pressMessage">
+     <string notr="true">0</string>
+    </property>
+   </widget>
    <zorder>caLabel_0</zorder>
    <zorder>caLabel_1</zorder>
    <zorder>caLabel_2</zorder>
@@ -4745,7 +5825,6 @@ border-radius: 2px;
    <zorder>caTextEntry_10</zorder>
    <zorder>caTextEntry_11</zorder>
    <zorder>caLineEdit_34</zorder>
-   <zorder>caLineEdit_35</zorder>
    <zorder>caCartesianPlot_0</zorder>
    <zorder>caLineEdit_36</zorder>
    <zorder>caLineEdit_37</zorder>
@@ -4756,6 +5835,38 @@ border-radius: 2px;
    <zorder>caTextEntry_12</zorder>
    <zorder>caTextEntry_13</zorder>
    <zorder>caTextEntry_14</zorder>
+   <zorder>caLineEdit_35</zorder>
+   <zorder>caLineEdit_42</zorder>
+   <zorder>caLineEdit_43</zorder>
+   <zorder>caLineEdit_44</zorder>
+   <zorder>caLineEdit_45</zorder>
+   <zorder>caLineEdit_46</zorder>
+   <zorder>caLineEdit_47</zorder>
+   <zorder>caLineEdit_48</zorder>
+   <zorder>caLineEdit_49</zorder>
+   <zorder>caLineEdit_50</zorder>
+   <zorder>caLineEdit_51</zorder>
+   <zorder>caLineEdit_52</zorder>
+   <zorder>caLineEdit_53</zorder>
+   <zorder>caLineEdit_54</zorder>
+   <zorder>caLineEdit_55</zorder>
+   <zorder>caLineEdit_56</zorder>
+   <zorder>camessagebutton</zorder>
+   <zorder>camessagebutton_2</zorder>
+   <zorder>camessagebutton_3</zorder>
+   <zorder>camessagebutton_4</zorder>
+   <zorder>camessagebutton_5</zorder>
+   <zorder>camessagebutton_6</zorder>
+   <zorder>camessagebutton_7</zorder>
+   <zorder>camessagebutton_8</zorder>
+   <zorder>camessagebutton_9</zorder>
+   <zorder>camessagebutton_10</zorder>
+   <zorder>camessagebutton_11</zorder>
+   <zorder>camessagebutton_12</zorder>
+   <zorder>camessagebutton_13</zorder>
+   <zorder>camessagebutton_14</zorder>
+   <zorder>camessagebutton_15</zorder>
+   <zorder>camessagebutton_16</zorder>
   </widget>
  </widget>
  <customwidgets>
@@ -4763,6 +5874,11 @@ border-radius: 2px;
    <class>caTextEntry</class>
    <extends>caLineEdit</extends>
    <header>caTextEntry</header>
+  </customwidget>
+  <customwidget>
+   <class>caMessageButton</class>
+   <extends>QPushButton</extends>
+   <header>caMessageButton</header>
   </customwidget>
   <customwidget>
    <class>caLabel</class>
