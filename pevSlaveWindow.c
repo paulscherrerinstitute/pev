@@ -113,7 +113,7 @@ int pevVmeSlaveTargetConfig(const char* slaveAddrSpace, unsigned int winBase,  u
     return -1;
   }
   
-  if (swapping && *swapping)
+  if (swapping && *swapping && strcmp(swapping, "0") != 0)
   {
       if (strcmp(swapping, "AUTO") == 0)
         mapMode |= MAP_SWAP_AUTO;
