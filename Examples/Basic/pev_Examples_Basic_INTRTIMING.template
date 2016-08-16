@@ -1,0 +1,53 @@
+#some status, periodic asynchronous scanning
+#the interrupt counters for each of 16 possible interrupts
+record(longin,"$(IOC):USER-INTID$(I)")
+{
+   field(DTYP, "regDev")
+   field(INP,  "@Usr1StdIOCUserRegisters:0x14+$(I)*4 T=UINT32")
+   field(SCAN, ".5 second")
+}
+
+#readout of INT_TIM_x timer status register to measure interrupt latency of USR1 interrupts
+#
+#The timer of corresponding interrupt is started at time if INTREQ (interrupt request) and can
+#be stopped at any time by software, e.g. via EPICS after a complete processing cycle of
+#application finished.
+
+record(longout,"$(IOC):USER-INTTIM$(I)-STOP")
+{
+   field(DTYP, "regDev")
+   field(SCAN, "$(SCAN=I/O Intr)")
+   field(PRIO, "HIGH")
+   field(OUT,  "@Usr1StdIOCUserRegistersINT$(I):0 T=UINT32")
+   field(VAL,  "0") # a write stops the timer
+   field(FLNK, "$(IOC):USER-INTTIM$(I)")
+}
+record(ai,"$(IOC):USER-INTTIM$(I)")
+{
+   field(DTYP, "regDev")
+   field(INP,  "@Usr1StdIOCUserRegistersINT$(I):0 T=UINT32")
+   field(LINR, "SLOPE")
+   field(ESLO, ".00001")
+   field(PREC, "5")
+   field(EGU,  "ms")
+   field(FLNK, "$(IOC):USER-INTTIM$(I)-MAX")
+}
+record(calcout,"$(IOC):USER-INTTIM$(I)-MAX")
+{
+   field(DESC ,"calc. intr counter")
+   field(INPA ,"$(IOC):USER-INTTIM$(I)")
+   field(INPB ,"$(IOC):USER-INTTIM$(I)-MAX")
+   field(CALC ,"(A>=B)?A:B")
+   field(VAL  ,"0")
+   field(PREC, "5")
+   field(EGU,  "ms")
+   field(FLNK, "$(IOC):USER-INTTIM$(I)-HIST")
+}
+record(histogram, "$(IOC):USER-INTTIM$(I)-HIST")
+{
+    field(DESC, "histogram")
+    field(SVL , "$(IOC):USER-INTTIM$(I)")
+    field(NELM, "3000")
+    field(LLIM, "0")
+    field(ULIM, "3")
+}
